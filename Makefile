@@ -7,7 +7,7 @@ OBJDIR  = objs
 SRCDIR  = src
 TESTDIR = tests
 
-OBJS := main.o parse.o
+OBJS := main.o parse.o opcode.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
@@ -32,6 +32,15 @@ tests: $(TESTS:.lua=.luac)
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/%.dep: $(SRCDIR)/%.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -M -MT $(@:.dep=.o) -MF $@ $<
+
+# If we're cleaning, no need to regenerate all .dep files
+ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
+-include $(OBJS:.o=.dep)
+endif
 
 clean:
 	rm -rf $(TESTDIR)/*.luac $(OBJDIR) joule
