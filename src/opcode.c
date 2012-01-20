@@ -2,89 +2,83 @@
 
 #include "opcode.h"
 
-#define OP(opc)       ((opc) & 0x3f)
-#define A(opc)        (((opc) >> 6) & 0xff) 
-#define B(opc)        (((opc) >> 23) & 0x1ff) 
-#define C(opc)        (((opc) >> 14) & 0x1ff) 
-#define PAYLOAD(opc)  (((opc) >> 14) & 0x3ffff) 
-
 void opcode_dump(FILE *out, uint32_t code) {
   switch (OP(code)) {
-    case 0: // MOVE
+    case OP_MOVE:
       fprintf(out, "MOVE %d %d\n", A(code), B(code)); break;
-    case 1: // LOADK
+    case OP_LOADK:
       fprintf(out, "LOADK %d %d\n", A(code), B(code)); break;
-    case 2: // LOADBOOL
+    case OP_LOADBOOL:
       fprintf(out, "LOADNIL %d %d %d\n", A(code), B(code), C(code)); break;
-    case 3: // LOADNIL
+    case OP_LOADNIL:
       fprintf(out, "LOADNIL %d %d\n", A(code), B(code)); break;
-    case 4: // GETUPVAL
+    case OP_GETUPVAL:
       fprintf(out, "GETUPVAL %d %d\n", A(code), B(code)); break;
-    case 5: // GETGLOBAL
+    case OP_GETGLOBAL:
       fprintf(out, "GETGLOBAL %d %d\n", A(code), B(code)); break;
-    case 6: // GETTABLE
+    case OP_GETTABLE:
       fprintf(out, "GETTABLE %d %d %d\n", A(code), B(code), C(code)); break;
-    case 7: // SETGLOBAL
+    case OP_SETGLOBAL:
       fprintf(out, "SETGLOBAL %d %d\n", A(code), B(code)); break;
-    case 8: // SETUPVAL
+    case OP_SETUPVAL:
       fprintf(out, "SETUPVAL %d %d\n", A(code), B(code)); break;
-    case 9: // SETTABLE
+    case OP_SETTABLE:
       fprintf(out, "SETTABLE %d %d %d\n", A(code), B(code), C(code)); break;
-    case 10: // NEWTABLE
+    case OP_NEWTABLE:
       fprintf(out, "NEWTABLE %d %d %d\n", A(code), B(code), C(code)); break;
-    case 11: // SELF
+    case OP_SELF:
       fprintf(out, "SELF %d %d %d\n", A(code), B(code), C(code)); break;
-    case 12: // ADD
+    case OP_ADD:
       fprintf(out, "ADD %d %d %d\n", A(code), B(code), C(code)); break;
-    case 13: // SUB
+    case OP_SUB:
       fprintf(out, "SUB %d %d %d\n", A(code), B(code), C(code)); break;
-    case 14: // MUL
+    case OP_MUL:
       fprintf(out, "MUL %d %d %d\n", A(code), B(code), C(code)); break;
-    case 15: // DIV
+    case OP_DIV:
       fprintf(out, "DIV %d %d %d\n", A(code), B(code), C(code)); break;
-    case 16: // MOD
+    case OP_MOD:
       fprintf(out, "MOD %d %d %d\n", A(code), B(code), C(code)); break;
-    case 17: // POW
+    case OP_POW:
       fprintf(out, "POW %d %d %d\n", A(code), B(code), C(code)); break;
-    case 18: // UNM
+    case OP_UNM:
       fprintf(out, "UNM %d %d\n", A(code), B(code)); break;
-    case 19: // NOT
+    case OP_NOT:
       fprintf(out, "NOT %d %d\n", A(code), B(code)); break;
-    case 20: // LEN
+    case OP_LEN:
       fprintf(out, "LEN %d %d\n", A(code), B(code)); break;
-    case 21: // CONCAT
+    case OP_CONCAT:
       fprintf(out, "CONCAT %d %d %d\n", A(code), B(code), C(code)); break;
-    case 22: // JMP
+    case OP_JMP:
       fprintf(out, "JMP %d\n", PAYLOAD(code)); break;
-    case 23: // EQ
+    case OP_EQ:
       fprintf(out, "EQ %d %d %d\n", A(code), B(code), C(code)); break;
-    case 24: // LT
+    case OP_LT:
       fprintf(out, "LT %d %d %d\n", A(code), B(code), C(code)); break;
-    case 25: // LE
+    case OP_LE:
       fprintf(out, "LE %d %d %d\n", A(code), B(code), C(code)); break;
-    case 26: // TEST
+    case OP_TEST:
       fprintf(out, "TEST %d %d\n", A(code), B(code)); break;
-    case 27: // TESTSET
+    case OP_TESTSET:
       fprintf(out, "TESTSET %d %d %d\n", A(code), B(code), C(code)); break;
-    case 28: // CALL
+    case OP_CALL:
       fprintf(out, "CALL %d %d %d\n", A(code), B(code), C(code)); break;
-    case 29: // TAILCALL
+    case OP_TAILCALL:
       fprintf(out, "TAILCALL %d %d %d\n", A(code), B(code), C(code)); break;
-    case 30: // RETURN
+    case OP_RETURN:
       fprintf(out, "RETURN %d %d\n", A(code), B(code)); break;
-    case 31: // FORLOOP
+    case OP_FORLOOP:
       fprintf(out, "FORPREP %d %d\n", A(code), PAYLOAD(code)); break;
-    case 32: // FORPREP
+    case OP_FORPREP:
       fprintf(out, "FORLOOP %d %d\n", A(code), PAYLOAD(code)); break;
-    case 33: // TFORLOOP
+    case OP_TFORLOOP:
       fprintf(out, "TFORLOOP %d %d\n", A(code), C(code)); break;
-    case 34: // SETLIST
+    case OP_SETLIST:
       fprintf(out, "SETLIST %d %d %d\n", A(code), B(code), C(code)); break;
-    case 35: // CLOSE
+    case OP_CLOSE:
       fprintf(out, "CLOSE %d\n", A(code)); break;
-    case 36: // CLOSURE
+    case OP_CLOSURE:
       fprintf(out, "CLOSURE %d %d\n", A(code), PAYLOAD(code)); break;
-    case 37: // VARARG
+    case OP_VARARG:
       fprintf(out, "VARARG %d %d\n", A(code), B(code)); break;
 
     default:
