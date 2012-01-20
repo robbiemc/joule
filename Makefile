@@ -22,7 +22,7 @@ opt: CFLAGS += $(OPTFLAGS)
 opt: joule
 
 joule: $(OBJS)
-	$(CC) -o joule $^
+	$(CC) $(CFLAGS) -o joule $^
 
 tests: $(TESTS:.lua=.luac)
 
