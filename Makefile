@@ -7,11 +7,12 @@ OBJDIR  = objs
 SRCDIR  = src
 TESTDIR = tests
 
-OBJS := main.o parse.o opcode.o
+OBJS := main.o parse.o opcode.o util.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
-				 printf readonly sieve sort table trace-calls trace-globals xd
+				 printf readonly sieve sort table trace-calls trace-globals xd \
+				 bool
 TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 
 all: debug
