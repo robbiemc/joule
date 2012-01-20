@@ -7,7 +7,7 @@ OBJDIR  = objs
 SRCDIR  = src
 TESTDIR = test
 
-OBJS := main.o
+OBJS := main.o opcode.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
