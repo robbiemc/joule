@@ -5,9 +5,9 @@ DFLAGS  = -g -O0
 OFLAGS  = -O2
 OBJDIR  = objs
 SRCDIR  = src
-TESTDIR = test
+TESTDIR = tests
 
-OBJS := main.o
+OBJS := main.o parse.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
