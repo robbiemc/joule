@@ -1,11 +1,11 @@
-LUAC     = luac
-CC       = gcc
-CFLAGS   = -Wall -Wextra -Werror
-DFLAGS   = -g -O0
-OPTFLAGS = -O2
-OBJDIR   = objs
-SRCDIR   = src
-TESTDIR  = test
+LUAC    = luac
+CC      = gcc
+CFLAGS  = -Wall -Wextra -Werror -I$(SRCDIR)
+DFLAGS  = -g -O0
+OFLAGS  = -O2
+OBJDIR  = objs
+SRCDIR  = src
+TESTDIR = test
 
 OBJS := main.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
@@ -18,7 +18,7 @@ all: debug
 
 debug: CFLAGS += $(DFLAGS)
 debug: joule
-opt: CFLAGS += $(OPTFLAGS)
+opt: CFLAGS += $(OFLAGS)
 opt: joule
 
 joule: $(OBJS)
