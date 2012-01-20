@@ -1,13 +1,37 @@
+LUAC     = luac
+CC       = gcc
+CFLAGS   = -Wall -Wextra -Werror
+DFLAGS   = -g -O0
+OPTFLAGS = -O2
+OBJDIR   = objs
+SRCDIR   = src
+TESTDIR  = test
+
+OBJS := main.o
+OBJS := $(OBJS:%=$(OBJDIR)/%)
+
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
 				 printf readonly sieve sort table trace-calls trace-globals xd
-TESTS := $(TESTS:%=tests/%.lua)
+TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 
-LUAC = luac
+all: debug
 
-all: $(TESTS:.lua=.luac)
+debug: CFLAGS += $(DFLAGS)
+debug: joule
+opt: CFLAGS += $(OPTFLAGS)
+opt: joule
+
+joule: $(OBJS)
+	$(CC) -o joule $^
+
+tests: $(TESTS:.lua=.luac)
 
 %.luac: %.lua
 	$(LUAC) -o $@ $<
 
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 clean:
-	rm $(TESTS:.lua=.luac)
+	rm -rf $(TESTDIR)/*.luac $(OBJDIR) joule
