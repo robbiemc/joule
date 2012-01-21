@@ -15,3 +15,10 @@ uint32_t read4(FILE *f) {
   assert(count == 1);
   return word;
 }
+
+uint64_t read8(FILE *f) {
+  uint64_t quad;
+  size_t count = fread(&quad, sizeof(quad), 1, f);
+  assert(count == 1);
+  return quad;
+}

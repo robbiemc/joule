@@ -8,6 +8,11 @@
 
 #define BUFFER_SIZE 128
 
+#define xfread(f, ptr) {                                 \
+    size_t count = fread(ptr, sizeof(*ptr), 1, f);       \
+    assert(count == 1);                                  \
+  }
+
 static void read_string(FILE *f);
 static void read_function(FILE *f);
 static void read_constant(FILE *f);
@@ -18,8 +23,7 @@ void parse_file(char *path) {
 
   // read the header
   lua_header_t header;
-  size_t count = fread(&header, sizeof(lua_header_t), 1, f);
-  assert(count == 1);
+  xfread(f, &header);
 
   assert(header.size_t_size == sizeof(size_t));
   assert(header.int_size == sizeof(int));
@@ -46,37 +50,31 @@ void parse_file(char *path) {
 }
 
 static void read_function(FILE *f) {
+  int i;
   // header
   printf("\nFunction Header: ");
   read_string(f);
   lua_function_t fun;
-  size_t count = fread(&fun, sizeof(fun), 1, f);
-  assert(count == 1);
+  xfread(f, &fun);
   printf("  start:      %d\n", fun.start_line);
   printf("  end:        %d\n", fun.end_line);
   printf("  upvalues:   %d\n", fun.upvalues);
   printf("  parameters: %d\n", fun.parameters);
   printf("  is_vararg:  %02x\n", fun.is_vararg);
   printf("  max_stack:  %d\n", fun.max_stack);
-  
+
   // instructions
   printf("\nInstructions:\n");
-  int codesize, i;
-  count = fread(&codesize, sizeof(codesize), 1, f);
-  assert(count == 1);
+  int codesize = read4(f);
   for (i = 0; i < codesize; i++) {
-    uint32_t opcode;
-    count = fread(&opcode, sizeof(opcode), 1, f);
-    assert(count == 1);
+    uint32_t opcode = read4(f);
     printf("%2d: ", i);
     opcode_dump(stdout, opcode);
   }
 
   // constants
   printf("\nConstants:\n");
-  int constants;
-  count = fread(&constants, sizeof(constants), 1, f);
-  assert(count == 1);
+  int constants = read4(f);
   for (i = 0; i < constants; i++) {
     printf("%2d: ", i);
     read_constant(f);
@@ -86,9 +84,7 @@ static void read_function(FILE *f) {
 
   // functions
   printf("\nNested Functions:\n");
-  int functions;
-  count = fread(&functions, sizeof(functions), 1, f);
-  assert(count == 1);
+  int functions = read4(f);
   for (i = 0; i < functions; i++) {
     printf("function %d:\n", i);
     read_function(f);
@@ -123,10 +119,8 @@ static void read_function(FILE *f) {
 }
 
 static void read_constant(FILE *f) {
-  size_t count;
-  uint8_t type, byte;
-  count = fread(&type, sizeof(type), 1, f);
-  assert(count == 1);
+  uint8_t byte;
+  uint8_t type = read1(f);
   double constant;
   switch (type) {
     case LUA_TNIL:
@@ -134,14 +128,12 @@ static void read_constant(FILE *f) {
       break;
 
     case LUA_TBOOLEAN:
-      count = fread(&byte, sizeof(byte), 1, f);
-      assert(count == 1);
+      byte = read4(f);
       printf("%s\n", byte ? "true" : "false");
       break;
 
     case LUA_TNUMBER:
-      count = fread(&constant, sizeof(constant), 1, f);
-      assert(count == 1);
+      xfread(f, &constant);
       printf("%f\n", constant);
       break;
 
@@ -157,15 +149,13 @@ static void read_constant(FILE *f) {
 
 static void read_string(FILE *f) {
   char buffer[BUFFER_SIZE];
-  size_t bytes, count;
-  count = fread(&bytes, sizeof(size_t), 1, f);
-  assert(count == 1);
+  size_t bytes = read8(f);
   if (bytes == 0) {
     printf("<empty string>\n");
     return;
   }
   assert(bytes <= BUFFER_SIZE);
-  count = fread(buffer, 1, bytes, f);
+  uint32_t count = fread(buffer, 1, bytes, f);
   assert(count == bytes);
   printf("\"%s\"\n", buffer);
 }
