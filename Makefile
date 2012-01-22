@@ -12,7 +12,7 @@ OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
 				 printf readonly sieve sort table trace-calls trace-globals xd \
-				 bool
+				 bool func
 TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 
 all: debug
