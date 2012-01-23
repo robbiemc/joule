@@ -43,8 +43,10 @@
 #define LNIL     4
 
 #define LUAV_TYPE_BITS 3
+#define LUAV_TYPE_MASK ((1 << LUAV_TYPE_BITS) - 1)
 #define LUAV_DATA_MASK 0x0000ffffffffffff
 
+#define LUAV_TYPE(luav) (lv_bits(luav) & LUAV_TYPE_MASK)
 #define LUAV_DATA(bits) (((bits) >> LUAV_TYPE_BITS) & LUAV_DATA_MASK)
 #define LUAV_SETDATA(bits, data) \
   ((((data) & LUAV_DATA_MASK) << LUAV_TYPE_BITS) | (bits))
