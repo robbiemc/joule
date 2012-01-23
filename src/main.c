@@ -1,9 +1,8 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
-//#include "parse.h"
+#include "parse.h"
 #include "lstring.h"
-#include "luac.h"
 #include "vm.h"
 
 int main(int argc, char **argv) {

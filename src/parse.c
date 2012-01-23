@@ -3,7 +3,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include "luac.h"
+#include "parse.h"
 #include "util.h"
 
 luac_file_t *luac_open(int fd) {

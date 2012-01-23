@@ -1,5 +1,5 @@
-#ifndef _LUAC_H_
-#define _LUAC_H_
+#ifndef _PARSE_H_
+#define _PARSE_H_
 
 #include <stdint.h>
 #include "lstring.h"
@@ -34,4 +34,4 @@ void luac_close(luac_file_t *file);
 void luac_parse(luac_file_t *file);
 u8 *luac_parse_func(u8 *addr, lfunc_t *func);
 
-#endif /* _LUAC_H_ */
+#endif /* _PARSE_H_ */
