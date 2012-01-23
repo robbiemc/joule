@@ -3,42 +3,21 @@
 
 #include "util.h"
 
-uint8_t read1(FILE *f) {
-  uint8_t byte;
-  size_t count = fread(&byte, sizeof(byte), 1, f);
-  assert(count == 1);
-  return byte;
-}
-
-uint32_t read4(FILE *f) {
-  uint32_t word;
-  size_t count = fread(&word, sizeof(word), 1, f);
-  assert(count == 1);
-  return word;
-}
-
-uint64_t read8(FILE *f) {
-  uint64_t quad;
-  size_t count = fread(&quad, sizeof(quad), 1, f);
-  assert(count == 1);
-  return quad;
-}
-
-uint8_t pread1(uint8_t **p) {
-  uint8_t b = **p;
-  *p += sizeof(uint8_t);
+u8 pread1(u8 **p) {
+  u8 b = **p;
+  *p += sizeof(u8);
   return b;
 }
 
-uint32_t pread4(uint8_t **p) {
-  uint32_t b = *(uint32_t*)*p;
-  *p += sizeof(uint32_t);
+u32 pread4(u8 **p) {
+  u32 b = *(u32*)*p;
+  *p += sizeof(u32);
   return b;
 }
 
-uint64_t pread8(uint8_t **p) {
-  uint64_t b = *(uint64_t*)*p;
-  *p += sizeof(uint64_t);
+u64 pread8(u8 **p) {
+  u64 b = *(u64*)*p;
+  *p += sizeof(u64);
   return b;
 }
 

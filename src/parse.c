@@ -3,8 +3,11 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include "config.h"
+#include "luav.h"
 #include "parse.h"
 #include "util.h"
+#include "vm.h"
 
 luac_file_t *luac_open(int fd) {
   // get the file size
@@ -71,8 +74,8 @@ u8 *luac_parse_func(u8 *addr, lfunc_t *func) {
   addr += func->num_instrs * sizeof(u32);
 
   func->num_consts = pread4(&addr);
-  func->consts = (lvalue*) xcalloc(func->num_consts, sizeof(lvalue));
-  lvalue *c = func->consts;
+  func->consts = (luav*) xcalloc(func->num_consts, sizeof(luav));
+  luav *c = func->consts;
   for (i = 0; i < func->num_consts; i++) {
     switch (pread1(&addr)) {
       case LUA_TNIL:

@@ -3,8 +3,7 @@
 
 #include <stdint.h>
 #include "lstring.h"
-
-typedef uint64_t lvalue;
+#include "luav.h"
 
 typedef struct lfunc {
   lstring_t     *name;
@@ -18,7 +17,7 @@ typedef struct lfunc {
   size_t        num_instrs;
   uint32_t      *instrs;
   size_t        num_consts;
-  lvalue        *consts;
+  luav          *consts;
   size_t        num_funcs;
   struct lfunc  *funcs;
 
@@ -27,13 +26,5 @@ typedef struct lfunc {
   void          *dbg_locals;
   void          *dbg_upvalues;
 } lfunc_t;
-
-extern const lvalue LV_NIL;
-extern const lvalue LV_TRUE;
-extern const lvalue LV_FALSE;
-
-lvalue lv_bool(u8 v);
-lvalue lv_number(u64 v);
-lvalue lv_string(lstring_t *v);
 
 #endif /* _VM_H_ */
