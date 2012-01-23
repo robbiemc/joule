@@ -40,21 +40,19 @@ void luac_close(luac_file_t *file) {
 
 void luac_parse(luac_file_t *file) {
   // read and validate the file header
-  luac_header_t header;
-  memcpy(&header, file->addr, sizeof(luac_header_t));
-  assert(header.signature == 0x61754C1B);
-  assert(header.version == 0x51);
-  assert(header.format == 0);
-  assert(header.endianness == 1);
-  assert(header.int_size == 4);
-  assert(header.size_t_size == 8);
-  assert(header.instr_size == 4);
-  assert(header.num_size == 8);
-  assert(header.int_flag == 0);
+  luac_header_t *header = file->addr;
+  assert(header->signature == 0x61754C1B);
+  assert(header->version == 0x51);
+  assert(header->format == 0);
+  assert(header->endianness == 1); // 0 = big endian, 1 = little endian
+  assert(header->int_size == sizeof(int));
+  assert(header->size_t_size == sizeof(size_t));
+  assert(header->instr_size == 4);
+  assert(header->num_size == sizeof(double));
+  assert(header->int_flag == 0); // 0 = doubles, 1 = integers
 
   // parse the main function
-  u8 *func_start = (u8*)file->addr + sizeof(luac_header_t);
-  luac_parse_func(func_start, &(file->func));
+  luac_parse_func((u8*)(header + 1), &(file->func));
 }
 
 u8 *luac_parse_func(u8 *addr, lfunc_t *func) {
