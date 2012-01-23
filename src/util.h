@@ -1,7 +1,6 @@
 #ifndef _UTIL_H
 #define _UTIL_H
 
-#include <malloc.h>
 #include <stdint.h>
 #include <stdio.h>
 
@@ -23,7 +22,7 @@ uint32_t  pread4(uint8_t **p);
 uint64_t  pread8(uint8_t **p);
 
 /* calls *alloc and asserts that it succeeded */
-void *amalloc(size_t s);
-void *acalloc(size_t n, size_t s);
+void *xmalloc(size_t s);
+void *xcalloc(size_t n, size_t s);
 
 #endif /* _UTIL_H */

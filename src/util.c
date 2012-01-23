@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdlib.h>
 
 #include "util.h"
 
@@ -41,13 +42,13 @@ uint64_t pread8(uint8_t **p) {
   return b;
 }
 
-void *amalloc(size_t s) {
+void *xmalloc(size_t s) {
   void *m = malloc(s);
   assert(m != NULL);
   return m;
 }
 
-void *acalloc(size_t n, size_t s) {
+void *xcalloc(size_t n, size_t s) {
   void *m = calloc(n, s);
   assert(m != NULL);
   return m;

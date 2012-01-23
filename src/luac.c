@@ -6,7 +6,6 @@
 #include "luac.h"
 #include "util.h"
 
-
 luac_file_t *luac_open(int fd) {
   // get the file size
   struct stat finfo;
@@ -17,7 +16,7 @@ luac_file_t *luac_open(int fd) {
   void *addr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
   if (addr == MAP_FAILED) return NULL;
   // everything succeeded - allocate the luac_file struct
-  luac_file_t *file = (luac_file_t*) amalloc(sizeof(luac_file_t));
+  luac_file_t *file = (luac_file_t*) xmalloc(sizeof(luac_file_t));
   file->fd = fd;
   file->addr = addr;
   file->size = size;
@@ -74,7 +73,7 @@ u8 *luac_parse_func(u8 *addr, lfunc_t *func) {
   addr += func->num_instrs * sizeof(u32);
 
   func->num_consts = pread4(&addr);
-  func->consts = (lvalue*) acalloc(func->num_consts, sizeof(lvalue));
+  func->consts = (lvalue*) xcalloc(func->num_consts, sizeof(lvalue));
   lvalue *c = func->consts;
   for (i = 0; i < func->num_consts; i++) {
     switch (pread1(&addr)) {
@@ -98,7 +97,7 @@ u8 *luac_parse_func(u8 *addr, lfunc_t *func) {
   }
 
   func->num_funcs = pread4(&addr);
-  func->funcs = acalloc(func->num_funcs, sizeof(lfunc_t));
+  func->funcs = xcalloc(func->num_funcs, sizeof(lfunc_t));
   for (i = 0; i < func->num_funcs; i++)
     addr = luac_parse_func(addr, &(func->funcs[i]));
 
