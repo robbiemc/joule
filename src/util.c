@@ -46,3 +46,9 @@ void *amalloc(size_t s) {
   assert(m != NULL);
   return m;
 }
+
+void *acalloc(size_t n, size_t s) {
+  void *m = calloc(n, s);
+  assert(m != NULL);
+  return m;
+}

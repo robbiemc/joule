@@ -14,7 +14,7 @@ typedef struct luac_file {
   int       fd;
   void*     addr;
   off_t     size;
-  lfunc_t   *func;
+  lfunc_t   func;
 } luac_file_t;
 
 typedef struct luac_header {
@@ -45,7 +45,7 @@ void luac_close(luac_file_t *file);
 
 void luac_parse(luac_file_t *file);
 
-lfunc_t *luac_parse_func(void *addr);
+u8 *luac_parse_func(u8 *addr, lfunc_t *func);
 
 
 #endif /* _LUAC_H_ */

@@ -28,4 +28,12 @@ typedef struct lfunc {
   void          *dbg_upvalues;
 } lfunc_t;
 
+extern const lvalue LV_NIL;
+extern const lvalue LV_TRUE;
+extern const lvalue LV_FALSE;
+
+lvalue lv_bool(u8 v);
+lvalue lv_number(u64 v);
+lvalue lv_string(lstring_t *v);
+
 #endif /* _VM_H_ */

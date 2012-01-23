@@ -21,12 +21,20 @@ luac_file_t *luac_open(int fd) {
   file->fd = fd;
   file->addr = addr;
   file->size = size;
-  file->func = NULL;
+  memset(&(file->func), 0, sizeof(lfunc_t));
   return file;
 }
 
+void luac_free_func(lfunc_t *func) {
+  free(func->consts);
+  u32 i;
+  for (i = 0; i < func->num_funcs; i++)
+    luac_free_func(&(func->funcs[i]));
+  free(func->funcs);
+}
 void luac_close(luac_file_t *file) {
-  // unmap the file then free the struct
+  // free everything then unmap the file
+  luac_free_func(&(file->func));
   munmap(file->addr, file->size);
   free(file);
 }
@@ -46,15 +54,14 @@ void luac_parse(luac_file_t *file) {
   assert(header.int_flag == 0);
 
   // parse the main function
-  void *func_start = (void*)((u8*)file->addr + sizeof(luac_header_t));
-  file->func = luac_parse_func(func_start);
+  u8 *func_start = (u8*)file->addr + sizeof(luac_header_t);
+  luac_parse_func(func_start, &(file->func));
 }
 
-lfunc_t *luac_parse_func(void *fdata) {
-  lfunc_t *func = (lfunc_t*) amalloc(sizeof(lfunc_t));
-  func->name = (lstring_t*) fdata; // name is the first thing in the header
+u8 *luac_parse_func(u8 *addr, lfunc_t *func) {
+  func->name = (lstring_t*) addr; // name is the first thing in the header
 
-  uint8_t *addr = (uint8_t*) fdata;
+  u32 size, i;
 
   // read the function header
   addr = SKIP_STRING(addr);
@@ -67,8 +74,49 @@ lfunc_t *luac_parse_func(void *fdata) {
   addr += func->num_instrs * sizeof(u32);
 
   func->num_consts = pread4(&addr);
-  func->consts = (lvalue*) calloc(func->num_consts, sizeof(lvalue));
-  // TODO iterate over the constant list then do all the other lists
+  func->consts = (lvalue*) acalloc(func->num_consts, sizeof(lvalue));
+  lvalue *c = func->consts;
+  for (i = 0; i < func->num_consts; i++) {
+    switch (pread1(&addr)) {
+      case LUA_TNIL:
+        *c = LV_NIL;
+        break;
+      case LUA_TBOOLEAN:
+        *c = lv_bool(pread1(&addr));
+        break;
+      case LUA_TNUMBER:
+        *c = lv_number(pread8(&addr));
+        break;
+      case LUA_TSTRING:
+        *c = lv_string((lstring_t*) addr);
+        addr = SKIP_STRING(addr);
+        break;
+      default:
+        assert(0); // TODO - figure out how we're actually going to handle errors
+    }
+    c++;
+  }
 
-  return func;
+  func->num_funcs = pread4(&addr);
+  func->funcs = acalloc(func->num_funcs, sizeof(lfunc_t));
+  for (i = 0; i < func->num_funcs; i++)
+    addr = luac_parse_func(addr, &(func->funcs[i]));
+
+  func->dbg_lines = addr;
+  size = pread4(&addr);
+  addr += size * sizeof(u32);
+
+  func->dbg_locals = addr;
+  size = pread4(&addr);
+  for (i = 0; i < size; i++) {
+    addr = SKIP_STRING(addr);
+    addr += 2 * sizeof(u32);
+  }
+
+  func->dbg_upvalues = addr;
+  size = pread4(&addr);
+  for (i = 0; i < size; i++)
+    addr = SKIP_STRING(addr);
+
+  return addr;
 }

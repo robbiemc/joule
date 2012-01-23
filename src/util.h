@@ -22,7 +22,8 @@ uint8_t   pread1(uint8_t **p);
 uint32_t  pread4(uint8_t **p);
 uint64_t  pread8(uint8_t **p);
 
-/* calls malloc and asserts that it succeeded */
+/* calls *alloc and asserts that it succeeded */
 void *amalloc(size_t s);
+void *acalloc(size_t n, size_t s);
 
 #endif /* _UTIL_H */
