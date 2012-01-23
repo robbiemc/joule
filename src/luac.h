@@ -18,34 +18,20 @@ typedef struct luac_file {
 } luac_file_t;
 
 typedef struct luac_header {
-  uint32_t  signature;
-  uint8_t   version;
-  uint8_t   format;
-  uint8_t   endianness;
-  uint8_t   int_size;
-  uint8_t   size_t_size;
-  uint8_t   instr_size;
-  uint8_t   num_size;
-  uint8_t   int_flag;
+  u32 signature;
+  u8  version;
+  u8  format;
+  u8  endianness;
+  u8  int_size;
+  u8  size_t_size;
+  u8  instr_size;
+  u8  num_size;
+  u8  int_flag;
 } __attribute__((packed)) luac_header_t;
 
-typedef struct luac_func {
-  int     start_line;
-  int     end_line;
-  uint8_t upvalues;
-  uint8_t parameters;
-  uint8_t is_vararg;
-  uint8_t max_stack;
-} __attribute__((packed)) luac_func_t;
-
-
 luac_file_t *luac_open(int fd);
-
 void luac_close(luac_file_t *file);
-
 void luac_parse(luac_file_t *file);
-
 u8 *luac_parse_func(u8 *addr, lfunc_t *func);
-
 
 #endif /* _LUAC_H_ */
