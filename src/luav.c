@@ -1,18 +1,18 @@
 #include "config.h"
 #include "luav.h"
 
-const luav LV_NIL   = 0;
-const luav LV_TRUE  = 1;
-const luav LV_FALSE = 0;
-
 luav lv_bool(u8 v) {
-  return v ? LV_TRUE : LV_FALSE;
+  return lv_cvt(LUAV_SETDATA(LBOOLEAN, !!v));
 }
 
 luav lv_number(u64 v) {
-  return v;
+  return lv_cvt(v);
 }
 
 luav lv_string(lstring_t *v) {
-  return (luav) v;
+  return lv_cvt(LUAV_SETDATA(LSTRING, (u64) v));
+}
+
+luav lv_nil() {
+  return lv_cvt(LNIL);
 }

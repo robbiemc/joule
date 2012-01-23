@@ -12,4 +12,7 @@ typedef int16_t   i16;
 typedef int32_t   i32;
 typedef int64_t   i64;
 
+/* Maximum size of of embedded strings */
+#define MAX_STRING_EMBED_SIZE 8
+
 #endif /* _CONFIG_H_ */
