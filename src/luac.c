@@ -67,7 +67,7 @@ lfunc_t *luac_parse_func(void *fdata) {
   addr += func->num_instrs * sizeof(u32);
 
   func->num_consts = pread4(&addr);
-  func->consts = (Value*) calloc(func->num_consts, sizeof(Value));
+  func->consts = (lvalue*) calloc(func->num_consts, sizeof(lvalue));
   // TODO iterate over the constant list then do all the other lists
 
   return func;

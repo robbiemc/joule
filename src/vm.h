@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "lstring.h"
 
-class Value;
+typedef uint64_t lvalue;
 
 typedef struct lfunc {
   lstring_t     *name;
@@ -18,7 +18,7 @@ typedef struct lfunc {
   size_t        num_instrs;
   uint32_t      *instrs;
   size_t        num_consts;
-  Value         *consts;
+  lvalue        *consts;
   size_t        num_funcs;
   struct lfunc  *funcs;
 
@@ -27,20 +27,5 @@ typedef struct lfunc {
   void          *dbg_locals;
   void          *dbg_upvalues;
 } lfunc_t;
-
-
-/* actually, screw the class - I'll delete this later. It's too soon for c++ */
-/**
- * @brief Represents any Lua value
- *
- * Eventually this will store values as NaN packed doubles. For now it's
- * dumber than that.
- */
-class Value {
-private:
-  // TODO
-public:
-  // TODO
-};
 
 #endif /* _VM_H_ */

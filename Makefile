@@ -1,5 +1,5 @@
 LUAC    = luac
-CC      = g++
+CC      = gcc
 CFLAGS  = -Wall -Wextra -Werror -I$(SRCDIR)
 DFLAGS  = -g -O0
 OFLAGS  = -O2
