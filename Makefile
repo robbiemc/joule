@@ -1,13 +1,13 @@
 LUAC    = luac
-CC      = gcc
+CC      = g++
 CFLAGS  = -Wall -Wextra -Werror -I$(SRCDIR)
 DFLAGS  = -g -O0
-OFLAGS  = -O3
+OFLAGS  = -O2
 OBJDIR  = objs
 SRCDIR  = src
 TESTDIR = tests
 
-OBJS := main.o parse.o opcode.o util.o
+OBJS := main.o opcode.o util.o luac.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \

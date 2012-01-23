@@ -22,3 +22,27 @@ uint64_t read8(FILE *f) {
   assert(count == 1);
   return quad;
 }
+
+uint8_t pread1(uint8_t **p) {
+  uint8_t b = **p;
+  *p += sizeof(uint8_t);
+  return b;
+}
+
+uint32_t pread4(uint8_t **p) {
+  uint32_t b = *(uint32_t*)*p;
+  *p += sizeof(uint32_t);
+  return b;
+}
+
+uint64_t pread8(uint8_t **p) {
+  uint64_t b = *(uint64_t*)*p;
+  *p += sizeof(uint64_t);
+  return b;
+}
+
+void *amalloc(size_t s) {
+  void *m = malloc(s);
+  assert(m != NULL);
+  return m;
+}
