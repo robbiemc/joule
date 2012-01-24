@@ -2,6 +2,8 @@
 #define _PARSE_H_
 
 #include <stdint.h>
+
+#include "config.h"
 #include "lstring.h"
 #include "vm.h"
 
@@ -29,7 +31,7 @@ typedef struct luac_header {
   u8  instr_size;
   u8  num_size;
   u8  int_flag;
-} __attribute__((packed)) luac_header_t;
+} PACKED luac_header_t;
 
 luac_file_t *luac_open(int fd);
 void luac_close(luac_file_t *file);
