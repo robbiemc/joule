@@ -3,6 +3,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+
 #include "config.h"
 #include "luav.h"
 #include "parse.h"
@@ -27,13 +28,14 @@ luac_file_t *luac_open(int fd) {
   return file;
 }
 
-void luac_free_func(lfunc_t *func) {
+static void luac_free_func(lfunc_t *func) {
   free(func->consts);
   u32 i;
   for (i = 0; i < func->num_funcs; i++)
     luac_free_func(&(func->funcs[i]));
   free(func->funcs);
 }
+
 void luac_close(luac_file_t *file) {
   // free everything then unmap the file
   luac_free_func(&(file->func));
