@@ -64,24 +64,30 @@ typedef u64 luav;
 #define LUAV_DATA(bits) (((bits) >> LUAV_TYPE_BITS) & LUAV_DATA_MASK)
 #define LUAV_SETDATA(bits, data) \
   ((((data) & LUAV_DATA_MASK) << LUAV_TYPE_BITS) | (bits))
+#define LUAV_ISNUM(bits) \
+    ((bits) & LUAV_NAN_MASK != LUAV_NAN_MASK || (bits) ==)
 
 #define LUAV_NIL (LUAV_NAN_MASK | LNIL)
 
+/* TODO: function, thread, string */
 luav lv_number(double v);
-luav lv_string(struct lstring *v);
 luav lv_table(struct lhash *hash);
 luav lv_bool(u8 v);
 luav lv_nil(void);
-luav lv_function(void); /* TODO: fix arguments */
-luav lv_thread(void);   /* TODO: fix arguments */
 luav lv_userdata(void *data);
+
+/* TODO: getfunction, getthread, getstring */
+double lv_getnumber(luav value);
+struct lhash* lv_gettable(luav value);
+u8 lv_getbool(luav value);
+void* lv_getuserdata(luav value);
 
 u32 lv_hash(luav value);
 void lv_dump(luav value);
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;
-  cvt.bits = bits | LUAV_NAN_MASK;
+  cvt.bits = bits;
   return cvt.converted;
 }
 

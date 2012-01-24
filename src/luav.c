@@ -21,7 +21,7 @@
  * @return the lua value for the corresponding boolean
  */
 luav lv_bool(u8 v) {
-  return LUAV_SETDATA(LBOOLEAN, !!v);
+  return LUAV_SETDATA(LUAV_NAN_MASK | LBOOLEAN, !!v);
 }
 
 /**
@@ -34,16 +34,11 @@ luav lv_number(double d) {
   return lv_bits(d);
 }
 
-/* TODO: solidify this */
-luav lv_string(lstring_t *v) {
-  return LUAV_SETDATA(LSTRING, (u64) v);
-}
-
 /**
  * @brief Return an instance of the value which represents LUAV_NIL
  */
 luav lv_nil() {
-  return LUAV_NIL;
+  return LUAV_NAN_MASK | LUAV_NIL;
 }
 
 /**
@@ -53,7 +48,7 @@ luav lv_nil() {
  * @return the lua value representing the hash table
  */
 luav lv_table(lhash_t *hash) {
-  return LUAV_SETDATA(LTABLE, (u64) hash);
+  return LUAV_SETDATA(LUAV_NAN_MASK | LTABLE, (u64) hash);
 }
 
 /**
@@ -63,7 +58,66 @@ luav lv_table(lhash_t *hash) {
  * @return the lua value representing the pointer
  */
 luav lv_userdata(void *data) {
-  return LUAV_SETDATA(LTABLE, (u64) data);
+  return LUAV_SETDATA(LUAV_NAN_MASK | LTABLE, (u64) data);
+}
+
+/**
+ * @brief Get the number associated with the given value
+ *
+ * It is considered a fatal error to call this function when the type of the
+ * value is not a number
+ *
+ * @param value the lua value which is a number
+ * @return the floating-point representation of the specified value.
+ */
+double lv_getnumber(luav value) {
+  double cvt = lv_cvt(value);
+  /* We're a number if we're infinite, not NaN, or the one machine NaN */
+  assert(isinf(cvt) || (value & LUAV_NAN_MASK) != LUAV_NAN_MASK ||
+         value == lv_bits(0.0 / 0.0));
+  return cvt;
+}
+
+/**
+ * @brief Get the table associated with the given value
+ *
+ * It is considered a fatal error to call this function when the type of the
+ * value is not a table
+ *
+ * @param value the lua value which is a table
+ * @return the pointer to the table struct
+ */
+lhash_t* lv_gettable(luav value) {
+  assert((value & LUAV_TYPE_MASK) == LTABLE);
+  return (lhash_t*) LUAV_DATA(value);
+}
+
+/**
+ * @brief Get the boolean associated with the given value
+ *
+ * It is considered a fatal error to call this function when the type of the
+ * value is not a bool
+ *
+ * @param value the lua value which is a table
+ * @return the pointer to the table struct
+ */
+u8 lv_getbool(luav value) {
+  assert((value & LUAV_TYPE_MASK) == LBOOLEAN);
+  return (u8) LUAV_DATA(value);
+}
+
+/**
+ * @brief Get the user data associated with the given value
+ *
+ * It is considered a fatal error to call this function when the type of the
+ * value is not a user data
+ *
+ * @param value the lua value which is a user data
+ * @return the pointer to the data
+ */
+void* lv_getuserdata(luav value) {
+  assert((value & LUAV_TYPE_MASK) == LUSERDATA);
+  return (void*) LUAV_DATA(value);
 }
 
 /**
@@ -96,7 +150,7 @@ void lv_dump(luav value) {
   switch (value & LUAV_TYPE_MASK) {
     case LNUMBER:     assert(0 && "LNUMBER souldn't exist really?");
     case LSTRING:     printf("{string...}");                return;
-    case LTABLE:      printf("{string...}");                return;
+    case LTABLE:      printf("{table...}");                return;
     case LBOOLEAN:    printf(data ? "true\n" : "false\n");  return;
     case LNIL:        printf("nil\n");                      return;
   }

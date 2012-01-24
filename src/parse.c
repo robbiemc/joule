@@ -90,7 +90,8 @@ u8 *luac_parse_func(u8 *addr, lfunc_t *func) {
         *c = lv_number(lv_cvt(pread8(&addr)));
         break;
       case LUAV_TSTRING:
-        *c = lv_string((lstring_t*) addr);
+        // TODO: figure out what to do here
+        // *c = lv_string((lstring_t*) addr);
         addr = SKIP_STRING(addr);
         break;
       default:
