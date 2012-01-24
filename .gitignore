@@ -3,3 +3,4 @@
 *.luac
 objs
 joule
+coverage

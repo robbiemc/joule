@@ -1,12 +1,17 @@
 LUAC     = luac
 CC       = gcc
 CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion
-DFLAGS   = -g -O0
-OFLAGS   = -O2
 OBJDIR   = objs
 SRCDIR   = src
 TESTDIR  = tests
 CTESTDIR = ctests
+
+# Different flags for opt vs debug
+ifeq (0,$(words $(filter %opt,$(MAKECMDGOALS))))
+CFLAGS += -g -O0
+else
+CFLAGS += -O2
+endif
 
 OBJS := opcode.o util.o luav.o parse.o vm.o lhash.o lstring.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
@@ -19,12 +24,7 @@ TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 CTESTS := hash types
 CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
 
-all: debug
-
-debug: CFLAGS += $(DFLAGS)
-debug: joule
-opt: CFLAGS += $(OFLAGS)
-opt: joule
+all: joule
 
 joule: $(OBJS) $(OBJDIR)/main.o
 	$(CC) $(CFLAGS) -o joule $^
@@ -41,6 +41,12 @@ test: ctests
 ltests: $(TESTS:.lua=.luac)
 ctests: $(CTESTS)
 
+coverage: CFLAGS += --coverage
+coverage: clean ctests test
+	mkdir -p coverage
+	lcov --directory $(OBJDIR) --capture --output-file coverage/app.info -b .
+	genhtml --output-directory coverage coverage/app.info
+	@rm -f *.gcda *.gcno
 
 # Generic targets
 %.luac: %.lua
@@ -57,7 +63,7 @@ $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 # Target for test executables
 $(OBJDIR)/%: $(OBJS) %.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -O1 -g -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 # If we're cleaning, no need to regenerate all .dep files
 ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
@@ -65,4 +71,4 @@ ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
 endif
 
 clean:
-	rm -rf $(TESTDIR)/*.luac $(OBJDIR) joule
+	rm -rf $(TESTDIR)/*.luac $(OBJDIR) joule coverage
