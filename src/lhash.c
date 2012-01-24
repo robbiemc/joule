@@ -14,36 +14,48 @@
 #include "lhash.h"
 #include "luav.h"
 
-typedef struct lpair {
-  luav key;
-  luav value;
-} lpair_t;
-
-struct lhash {
-  u32 cap;
-  u32 size;
-  lpair_t *hash;
-};
-
 static void lhash_resize(lhash_t *hash);
 
-lhash_t* lhash_alloc() {
+/**
+ * @brief Initialize a new hash table so that it is ready for use.
+ *
+ * A hash should always be initialized before use, but it should never be
+ * initialized twice.
+ *
+ * @param map the hash to initialize
+ */
+void lhash_init(lhash_t *map) {
   int i;
-  lhash_t *hash = xmalloc(sizeof(lhash_t));
-  hash->cap = LHASH_INIT_SIZE;
-  hash->size = 0;
-  hash->hash = xmalloc(LHASH_INIT_SIZE * sizeof(hash->hash[0]));
+  assert(map != NULL);
+  map->cap = LHASH_INIT_SIZE;
+  map->size = 0;
+  map->hash = xmalloc(LHASH_INIT_SIZE * sizeof(map->hash[0]));
   for (i = 0; i < LHASH_INIT_SIZE; i++) {
-    hash->hash[i].key = LUAV_NIL;
+    map->hash[i].key = LUAV_NIL;
   }
-  return hash;
 }
 
+/**
+ * @brief Free all resources associated with the given hash
+ *
+ * Any hash initialized with lhash_init() should be deallocated with this
+ * function, and this function should not be called more than once for a hash
+ * table
+ *
+ * @param hash the hash to deallocate
+ */
 void lhash_free(lhash_t *hash) {
   free(hash->hash);
-  free(hash);
 }
 
+/**
+ * @brief Fetch a key in a hash table
+ *
+ * @param map the table to fetch from
+ * @param key the key to fetch
+ * @return the value associated with the given key, NIL if the key is also NIL,
+ *         or NIL if the key is not present in the table.
+ */
 luav lhash_get(lhash_t *map, luav key) {
   u32 i;
   if (key == LUAV_NIL) {
@@ -62,6 +74,17 @@ luav lhash_get(lhash_t *map, luav key) {
   }
 }
 
+/**
+ * @brief Set a value in a table for a specified key
+ *
+ * If the key is already present in the table, then the old value is removed in
+ * favor of the current value. It is considered error to add a value for the
+ * key NIL.
+ *
+ * @param map the table to alter
+ * @param key the key to insert
+ * @param value the corresponding value for the given key
+ */
 void lhash_set(lhash_t *map, luav key, luav value) {
   assert(key != LUAV_NIL);
 
@@ -84,11 +107,15 @@ void lhash_set(lhash_t *map, luav key, luav value) {
   }
 }
 
+/**
+ * @brief Internal helper to resize a table
+ * @private
+ */
 static void lhash_resize(lhash_t *map) {
   u32 i, end = map->cap;
   map->cap *= 2;
   map->cap += 1;
-  lpair_t *old = map->hash;
+  struct lh_pair *old = map->hash;
   map->hash = xmalloc(map->cap * sizeof(map->hash[0]));
 
   for (i = 0; i < map->cap; i++) {
@@ -100,4 +127,5 @@ static void lhash_resize(lhash_t *map) {
       lhash_set(map, old[i].key, old[i].value);
     }
   }
+  free(old);
 }

@@ -1,5 +1,10 @@
-#ifndef _HASH_H
-#define _HASH_H
+/**
+ * @file lhash.h
+ * @brief Headers for the generic Lua hash table.
+ */
+
+#ifndef _LHASH_H
+#define _LHASH_H
 
 #include "luav.h"
 
@@ -8,9 +13,20 @@
 
 typedef struct lhash lhash_t;
 
-lhash_t *lhash_alloc(void);
-void lhash_free(lhash_t *hash);
-luav lhash_get(lhash_t *hash, luav key);
-void lhash_set(lhash_t *hash, luav key, luav value);
+/* Actual hash implementation, currently just a simple resizing table with
+   linear probing to resolve collisions */
+typedef struct lhash {
+  u32 cap;        // capacity of the table
+  u32 size;       // size of the table
+  struct lh_pair {
+    luav key;
+    luav value;
+  } *hash;        // hash table, array of key/value pairs
+} lhash_t;
 
-#endif /* _HASH_H */
+void lhash_init(lhash_t *map);
+void lhash_free(lhash_t *map);
+luav lhash_get(lhash_t *map, luav key);
+void lhash_set(lhash_t *map, luav key, luav value);
+
+#endif /* _LHASH_H */
