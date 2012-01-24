@@ -12,6 +12,7 @@ typedef struct lstring {
   char    *ptr;
 } lstring_t;
 
+void lstr_init();
 size_t lstr_add(char *str, size_t size, int freeable);
 lstring_t *lstr_get(size_t index);
 
