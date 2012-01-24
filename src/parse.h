@@ -13,7 +13,7 @@
 typedef struct luac_file {
   int       fd;
   void*     addr;
-  off_t     size;
+  size_t    size;
   lfunc_t   func;
 } luac_file_t;
 

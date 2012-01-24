@@ -1,47 +1,46 @@
 #include <assert.h>
 #include <math.h>
+#include <stdio.h>
 
 #include "config.h"
 #include "luav.h"
 
-static inline i64 extend(u64 bits) {
-  struct { i64 x:48; } s;
-  return s.x = bits;
-}
-
 luav lv_bool(u8 v) {
-  return lv_cvt(LUAV_SETDATA(LBOOLEAN, !!v));
+  return LUAV_SETDATA(LBOOLEAN, !!v);
 }
 
 luav lv_number(u64 v) {
-  return lv_cvt(v);
+  return v;
 }
 
 luav lv_string(lstring_t *v) {
-  return lv_cvt(LUAV_SETDATA(LSTRING, (u64) v));
+  return LUAV_SETDATA(LSTRING, (u64) v);
 }
 
 luav lv_nil() {
-  return lv_cvt(LNIL);
+  return LUAV_NIL;
 }
 
-int lv_hash(luav value) {
-  u64 bits = lv_bits(value);
+u32 lv_hash(luav value) {
+  return (u32) (value >> LUAV_TYPE_MASK);
+}
 
-  if (isfinite(value)) {
-    return bits >> LUAV_TYPE_BITS;
+void lv_dump(luav value) {
+  if ((value & LUAV_NAN_MASK) == LUAV_NAN_MASK) {
+    printf("%f\n", lv_cvt(value));
+    return;
   }
 
-  u64 data = LUAV_DATA(bits);
+  u64 data = LUAV_DATA(value);
 
-  switch (bits & LUAV_TYPE_MASK) {
-    case LNUMBER:     return data;
-    case LSTRING:     return data;
-    case LTABLE:      return data;
-    case LBOOLEAN:    return data + 1;
-    case LNIL:        return 0;
+  switch (value & LUAV_TYPE_MASK) {
+    case LNUMBER:     assert(0 && "LNUMBER souldn't exist really?");
+    case LSTRING:     printf("{string...}");                return;
+    case LTABLE:      printf("{string...}");                return;
+    case LBOOLEAN:    printf(data ? "true\n" : "false\n");  return;
+    case LNIL:        printf("nil\n");                      return;
   }
 
+  printf("Bad luav type: %lld\n", value & LUAV_TYPE_MASK);
   assert(0 && "Bad luav type");
-  return -1;
 }

@@ -43,26 +43,28 @@
 
 #define LUAV_TYPE_BITS 3
 #define LUAV_TYPE_MASK ((1 << LUAV_TYPE_BITS) - 1)
-#define LUAV_DATA_MASK 0x0000ffffffffffff
+#define LUAV_DATA_MASK 0x0000ffffffffffffLL
+#define LUAV_NAN_MASK  0x7ff0000000000000LL
 
 #define LUAV_TYPE(luav) (lv_bits(luav) & LUAV_TYPE_MASK)
 #define LUAV_DATA(bits) (((bits) >> LUAV_TYPE_BITS) & LUAV_DATA_MASK)
 #define LUAV_SETDATA(bits, data) \
   ((((data) & LUAV_DATA_MASK) << LUAV_TYPE_BITS) | (bits))
 
-typedef double luav;
+typedef u64 luav;
 
-#define LUAV_NIL lv_nil()
+#define LUAV_NIL (LUAV_NAN_MASK | LNIL)
 
 luav lv_nil(void);
 luav lv_bool(u8 v);
 luav lv_number(u64 v);
 luav lv_string(lstring_t *v);
-int lv_hash(luav value);
+u32 lv_hash(luav value);
+void lv_dump(luav value);
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;
-  cvt.bits = bits | (0x7ffLL << 52);
+  cvt.bits = bits | LUAV_NAN_MASK;
   return cvt.converted;
 }
 

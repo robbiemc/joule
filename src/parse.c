@@ -14,7 +14,7 @@ luac_file_t *luac_open(int fd) {
   struct stat finfo;
   int err = fstat(fd, &finfo);
   if (err != 0) return NULL;
-  off_t size = finfo.st_size;
+  size_t size = (size_t) finfo.st_size;
   // mmap the file and fill in the struct
   void *addr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
   if (addr == MAP_FAILED) return NULL;
