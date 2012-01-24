@@ -73,6 +73,16 @@ luav lv_userdata(void *data) {
 }
 
 /**
+ * @brief Convert a string index to a luav
+ *
+ * @param idx the index of the string in the global string array
+ * @return the lua value representing the string
+ */
+luav lv_string(size_t idx) {
+  return LUAV_SETDATA(LUAV_NAN_MASK | LSTRING, idx);
+}
+
+/**
  * @brief Get the number associated with the given value
  *
  * It is considered a fatal error to call this function when the type of the
@@ -129,6 +139,20 @@ u8 lv_getbool(luav value) {
 void* lv_getuserdata(luav value) {
   assert((value & LUAV_TYPE_MASK) == LUSERDATA);
   return (void*) LUAV_DATA(value);
+}
+
+/**
+ * @brief Get the string associated with the given value
+ *
+ * It is considered a fatal error to call this function when the type of the
+ * value is not a string
+ *
+ * @param value the lua value which is a string
+ * @return the index of the string
+ */
+size_t lv_getstring(luav value) {
+  assert((value & LUAV_TYPE_MASK) == LSTRING);
+  return LUAV_DATA(value);
 }
 
 /**

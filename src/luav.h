@@ -59,18 +59,20 @@ typedef u64 luav;
 #define LUAV_NAN_MASK  0x7ff0000000000000LL
 #define LUAV_NIL (LUAV_NAN_MASK | LNIL)
 
-/* TODO: function, thread, string */
+/* TODO: function, thread */
 luav lv_number(double v);
 luav lv_table(struct lhash *hash);
 luav lv_bool(u8 v);
 luav lv_nil(void);
 luav lv_userdata(void *data);
+luav lv_string(size_t idx);
 
-/* TODO: getfunction, getthread, getstring */
+/* TODO: getfunction, getthread */
 double lv_getnumber(luav value);
 struct lhash* lv_gettable(luav value);
-u8 lv_getbool(luav value);
-void* lv_getuserdata(luav value);
+u8     lv_getbool(luav value);
+void*  lv_getuserdata(luav value);
+size_t lv_getstring(luav value);
 
 u32 lv_hash(luav value);
 void lv_dump(luav value);
