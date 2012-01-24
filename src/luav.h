@@ -1,9 +1,7 @@
-#ifndef _LUA_H_
-#define _LUA_H_
-
-#include "lstring.h"
-
 /**
+ * @file luav.h
+ * @brief Headers for definitions related to manipulating Lua values
+ *
  * NaN boxing ensues, 64 bits for a double --
  *
  *  |s|  11 bits - e | 52 bits - f |
@@ -34,6 +32,17 @@
  * LBOOLEAN - 0 for false, 1 for true in 48 bits
  */
 
+#ifndef _LUAV_H_
+#define _LUAV_H_
+
+#include "lstring.h"
+
+/**
+ * All values are encoded in 64 bits. This is the same size as a double, and
+ * all values that are not doubles will be encoded as a form of NaN
+ */
+typedef u64 luav;
+
 /* Must fit in 3 bits, 0-7 */
 #define LNUMBER  0
 #define LSTRING  1
@@ -46,12 +55,9 @@
 #define LUAV_DATA_MASK 0x0000ffffffffffffLL
 #define LUAV_NAN_MASK  0x7ff0000000000000LL
 
-#define LUAV_TYPE(luav) (lv_bits(luav) & LUAV_TYPE_MASK)
 #define LUAV_DATA(bits) (((bits) >> LUAV_TYPE_BITS) & LUAV_DATA_MASK)
 #define LUAV_SETDATA(bits, data) \
   ((((data) & LUAV_DATA_MASK) << LUAV_TYPE_BITS) | (bits))
-
-typedef u64 luav;
 
 #define LUAV_NIL (LUAV_NAN_MASK | LNIL)
 
@@ -74,4 +80,4 @@ static inline u64 lv_bits(double value) {
   return cvt.bits;
 }
 
-#endif /* _LUA_H_ */
+#endif /* _LUAV_H_ */
