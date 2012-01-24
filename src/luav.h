@@ -56,17 +56,7 @@ typedef u64 luav;
 #define LTHREAD   6
 #define LUSERDATA 7
 
-#define LUAV_TYPE_BITS 3
-#define LUAV_TYPE_MASK ((1 << LUAV_TYPE_BITS) - 1)
-#define LUAV_DATA_MASK 0x0000ffffffffffffLL
 #define LUAV_NAN_MASK  0x7ff0000000000000LL
-
-#define LUAV_DATA(bits) (((bits) >> LUAV_TYPE_BITS) & LUAV_DATA_MASK)
-#define LUAV_SETDATA(bits, data) \
-  ((((data) & LUAV_DATA_MASK) << LUAV_TYPE_BITS) | (bits))
-#define LUAV_ISNUM(bits) \
-    ((bits) & LUAV_NAN_MASK != LUAV_NAN_MASK || (bits) ==)
-
 #define LUAV_NIL (LUAV_NAN_MASK | LNIL)
 
 /* TODO: function, thread, string */

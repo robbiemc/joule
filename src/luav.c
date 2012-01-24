@@ -14,6 +14,17 @@
 #include "lstring.h"
 #include "luav.h"
 
+/* Macros for dealing with u64 bits for luav */
+#define LUAV_TYPE_BITS 3
+#define LUAV_TYPE_MASK ((1 << LUAV_TYPE_BITS) - 1)
+#define LUAV_DATA_MASK 0x0000ffffffffffffLL
+
+#define LUAV_DATA(bits) (((bits) >> LUAV_TYPE_BITS) & LUAV_DATA_MASK)
+#define LUAV_SETDATA(bits, data) \
+  ((((data) & LUAV_DATA_MASK) << LUAV_TYPE_BITS) | (bits))
+#define LUAV_ISNUM(bits) \
+    ((bits) & LUAV_NAN_MASK != LUAV_NAN_MASK || (bits) ==)
+
 /**
  * @brief Convert an 8 bit value to a lua boolean
  *
@@ -140,19 +151,19 @@ u32 lv_hash(luav value) {
  * @param value lua value to print out
  */
 void lv_dump(luav value) {
-  if ((value & LUAV_NAN_MASK) == LUAV_NAN_MASK) {
-    printf("%f\n", lv_cvt(value));
+  double cvt = lv_cvt(value);
+  if (!isnan(cvt) || isinf(cvt) || value == lv_bits(0.0 / 0.0)) {
+    printf("%f\n", cvt);
     return;
   }
 
-  u64 data = LUAV_DATA(value);
-
   switch (value & LUAV_TYPE_MASK) {
-    case LNUMBER:     assert(0 && "LNUMBER souldn't exist really?");
-    case LSTRING:     printf("{string...}");                return;
-    case LTABLE:      printf("{table...}");                return;
-    case LBOOLEAN:    printf(data ? "true\n" : "false\n");  return;
-    case LNIL:        printf("nil\n");                      return;
+    case LNUMBER:     assert(0 && "LNUMBER souldn't exist really?");    return;
+    case LSTRING:     assert(0 && "implement lv_getstring"); /* TODO: fix */
+    case LTABLE:      printf("table:%p\n", lv_gettable(value));         return;
+    case LBOOLEAN:    printf(lv_getbool(value) ? "true\n" : "false\n"); return;
+    case LNIL:        printf("nil\n");                                  return;
+    case LUSERDATA:   printf("user:%p\n", lv_getuserdata(value));       return;
   }
 
   printf("Bad luav type: %lld\n", value & LUAV_TYPE_MASK);
