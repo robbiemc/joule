@@ -65,7 +65,6 @@ typedef u64 luav;
 luav lv_number(double v);
 luav lv_table(struct lhash *hash);
 luav lv_bool(u8 v);
-luav lv_nil(void);
 luav lv_userdata(void *data);
 luav lv_string(size_t idx);
 

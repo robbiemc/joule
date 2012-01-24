@@ -46,13 +46,6 @@ luav lv_number(double d) {
 }
 
 /**
- * @brief Return an instance of the value which represents LUAV_NIL
- */
-luav lv_nil() {
-  return LUAV_NAN_MASK | LUAV_NIL;
-}
-
-/**
  * @brief Convert a hash table to the lua value for the table
  *
  * @param hash the allocated table to convert to a value
