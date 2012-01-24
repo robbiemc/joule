@@ -10,6 +10,8 @@
 #include <stdio.h>
 
 #include "config.h"
+#include "lhash.h"
+#include "lstring.h"
 #include "luav.h"
 
 /**
@@ -42,6 +44,26 @@ luav lv_string(lstring_t *v) {
  */
 luav lv_nil() {
   return LUAV_NIL;
+}
+
+/**
+ * @brief Convert a hash table to the lua value for the table
+ *
+ * @param hash the allocated table to convert to a value
+ * @return the lua value representing the hash table
+ */
+luav lv_table(lhash_t *hash) {
+  return LUAV_SETDATA(LTABLE, (u64) hash);
+}
+
+/**
+ * @brief Convert some user data to a lua value
+ *
+ * @param data raw data to pass around in lua, cannot be modified
+ * @return the lua value representing the pointer
+ */
+luav lv_userdata(void *data) {
+  return LUAV_SETDATA(LTABLE, (u64) data);
 }
 
 /**

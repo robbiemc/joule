@@ -10,9 +10,11 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "lhash.h"
 #include "luav.h"
+#include "util.h"
 
 static void lhash_resize(lhash_t *hash);
 

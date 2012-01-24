@@ -35,7 +35,10 @@
 #ifndef _LUAV_H_
 #define _LUAV_H_
 
-#include "lstring.h"
+#include "config.h"
+
+struct lstring;
+struct lhash;
 
 /**
  * All values are encoded in 64 bits. This is the same size as a double, and
@@ -44,11 +47,14 @@
 typedef u64 luav;
 
 /* Must fit in 3 bits, 0-7 */
-#define LNUMBER  0
-#define LSTRING  1
-#define LTABLE   2
-#define LBOOLEAN 3
-#define LNIL     4
+#define LNUMBER   0
+#define LSTRING   1
+#define LTABLE    2
+#define LBOOLEAN  3
+#define LNIL      4
+#define LFUNCTION 5
+#define LTHREAD   6
+#define LUSERDATA 7
 
 #define LUAV_TYPE_BITS 3
 #define LUAV_TYPE_MASK ((1 << LUAV_TYPE_BITS) - 1)
@@ -61,10 +67,15 @@ typedef u64 luav;
 
 #define LUAV_NIL (LUAV_NAN_MASK | LNIL)
 
-luav lv_nil(void);
-luav lv_bool(u8 v);
 luav lv_number(double v);
-luav lv_string(lstring_t *v);
+luav lv_string(struct lstring *v);
+luav lv_table(struct lhash *hash);
+luav lv_bool(u8 v);
+luav lv_nil(void);
+luav lv_function(void); /* TODO: fix arguments */
+luav lv_thread(void);   /* TODO: fix arguments */
+luav lv_userdata(void *data);
+
 u32 lv_hash(luav value);
 void lv_dump(luav value);
 
