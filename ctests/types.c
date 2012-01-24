@@ -42,5 +42,9 @@ int main() {
   luav b_nil = LUAV_NIL;
   assert(isnan(lv_cvt(b_nil)));
 
+  luav udata = lv_userdata((void*) 0x1234);
+  assert(isnan(lv_cvt(udata)));
+  assert(lv_getuserdata(udata) == (void*) 0x1234);
+
   return 0;
 }

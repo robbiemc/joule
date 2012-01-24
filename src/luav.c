@@ -62,7 +62,7 @@ luav lv_table(lhash_t *hash) {
  * @return the lua value representing the pointer
  */
 luav lv_userdata(void *data) {
-  return LUAV_SETDATA(LUAV_NAN_MASK | LTABLE, (u64) data);
+  return LUAV_SETDATA(LUAV_NAN_MASK | LUSERDATA, (u64) data);
 }
 
 /**
