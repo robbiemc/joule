@@ -8,8 +8,6 @@ int same(double a, double b) {
 }
 
 int main() {
-  /* TODO: test infinity is interpreted as a number */
-  /* TODO: test machine NaN is interpreted as a number */
   luav one = lv_number(1);
   assert(same(lv_cvt(one), 1.0));
 
