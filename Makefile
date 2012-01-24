@@ -16,8 +16,8 @@ TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
 				 bool func
 TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 
-CTESTS := hash
-CTESTS := $(CTESTS:%=$(CTESTDIR)/%)
+CTESTS := hash types
+CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
 
 all: debug
 
@@ -29,8 +29,20 @@ opt: joule
 joule: $(OBJS) $(OBJDIR)/main.o
 	$(CC) $(CFLAGS) -o joule $^
 
-tests: $(TESTS:.lua=.luac) $(CTESTS)
+# Run all of the C-tests (compiled) for now, eventually run lua tests
+test: ctests
+	@for test in $(CTESTS); do \
+		echo $$test;\
+		$$test;     \
+	done
+	@echo -- All tests passed --
 
+# Targets for building all tests
+ltests: $(TESTS:.lua=.luac)
+ctests: $(CTESTS)
+
+
+# Generic targets
 %.luac: %.lua
 	$(LUAC) -o $@ $<
 
@@ -42,7 +54,8 @@ $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -M -MT $(@:.dep=.o) -MF $@ $<
 
-$(CTESTS): %: $(OBJS) %.c
+$(OBJDIR)/%: $(OBJS) %.c
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -O1 -g -o $@ $^
 
 # If we're cleaning, no need to regenerate all .dep files
