@@ -17,8 +17,7 @@
  *
  * Of these 51 bits, the definitions are as follows
  *
- * bits[51:4] - 48 bits to hold a value, defined below
- * bits[ 3:3] - up for grabs
+ * bits[50:3] - 48 bits to hold a value, defined below
  * bits[ 2:0] - type information
  *
  * LSTRING, LTABLE - 48 bits are for the pointer to the data. It turns out that
