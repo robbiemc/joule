@@ -35,6 +35,8 @@
 #ifndef _LUAV_H_
 #define _LUAV_H_
 
+#include <stdlib.h>
+
 #include "config.h"
 
 struct lstring;
