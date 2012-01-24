@@ -52,14 +52,17 @@
 
 typedef double luav;
 
+#define LUAV_NIL lv_nil()
+
 luav lv_nil(void);
 luav lv_bool(u8 v);
 luav lv_number(u64 v);
 luav lv_string(lstring_t *v);
+int lv_hash(luav value);
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;
-  cvt.bits = bits;
+  cvt.bits = bits | (0x7ffLL << 52);
   return cvt.converted;
 }
 
