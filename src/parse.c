@@ -14,7 +14,7 @@ luac_file_t *luac_open(int fd) {
   struct stat finfo;
   int err = fstat(fd, &finfo);
   if (err != 0) return NULL;
-  off_t size = finfo.st_size;
+  size_t size = (size_t) finfo.st_size;
   // mmap the file and fill in the struct
   void *addr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
   if (addr == MAP_FAILED) return NULL;
@@ -85,7 +85,7 @@ u8 *luac_parse_func(u8 *addr, lfunc_t *func) {
         *c = lv_bool(pread1(&addr));
         break;
       case LUAV_TNUMBER:
-        *c = lv_number(pread8(&addr));
+        *c = lv_number(lv_cvt(pread8(&addr)));
         break;
       case LUAV_TSTRING:
         *c = lv_string((lstring_t*) addr);
