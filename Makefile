@@ -21,7 +21,7 @@ TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
 				 bool func
 TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 
-CTESTS := hash types
+CTESTS := hash types string
 CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
 
 all: joule
