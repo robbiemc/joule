@@ -10,42 +10,45 @@
 #include "util.h"
 #include "vm.h"
 
-luac_file_t *luac_open(int fd) {
+static void luac_free_func(lfunc_t *func);
+static u8* luac_parse_func(u8* addr, lfunc_t *func);
+
+/**
+ * @brief Parse a luac file given by the file descriptor
+ *
+ * @param file the struct to fill in information for
+ * @param fd the file descriptor which when read, will return the luac file.
+ * @return the parsed description of the file.
+ */
+void luac_parse_fd(luac_file_t *file, int fd) {
   // get the file size
   struct stat finfo;
   int err = fstat(fd, &finfo);
-  if (err != 0) return NULL;
+  assert(err == 0);
   size_t size = (size_t) finfo.st_size;
-  // mmap the file and fill in the struct
+
+  // mmap the file
   void *addr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-  if (addr == MAP_FAILED) return NULL;
-  // everything succeeded - allocate the luac_file struct
-  luac_file_t *file = (luac_file_t*) xmalloc(sizeof(luac_file_t));
-  file->fd = fd;
-  file->addr = addr;
+  assert(addr != MAP_FAILED);
+
+  luac_parse(file, addr);
+  file->mmapped = 1;
   file->size = size;
-  memset(&(file->func), 0, sizeof(lfunc_t));
-  return file;
 }
 
-static void luac_free_func(lfunc_t *func) {
-  free(func->consts);
-  u32 i;
-  for (i = 0; i < func->num_funcs; i++)
-    luac_free_func(&(func->funcs[i]));
-  free(func->funcs);
-}
+/**
+ * @brief Parse a luac file which is visible at the specified address
+ *
+ * @param file the struct to parse into
+ * @param addr the address at which the luac file is visible
+ * @return the parsed description of the file.
+ */
+void luac_parse(luac_file_t *file, void *addr) {
+  file->addr = addr;
+  file->mmapped = 0;
 
-void luac_close(luac_file_t *file) {
-  // free everything then unmap the file
-  luac_free_func(&(file->func));
-  munmap(file->addr, file->size);
-  free(file);
-}
-
-void luac_parse(luac_file_t *file) {
   // read and validate the file header
-  luac_header_t *header = file->addr;
+  luac_header_t *header = addr;
   assert(header->signature == 0x61754C1B);
   assert(header->version == 0x51);
   assert(header->format == 0);
@@ -57,10 +60,32 @@ void luac_parse(luac_file_t *file) {
   assert(header->int_flag == 0); // 0 = doubles, 1 = integers
 
   // parse the main function
-  luac_parse_func((u8*)(header + 1), &(file->func));
+  luac_parse_func((u8*)(header + 1), &file->func);
 }
 
-u8 *luac_parse_func(u8 *addr, lfunc_t *func) {
+/**
+ * @brief Close a file, freeing any resources possibly allocated with it
+ *
+ * @param file the file to close which was previously filled in by parsing
+ */
+void luac_close(luac_file_t *file) {
+  // free everything then unmap the file if necessary
+  luac_free_func(&file->func);
+  if (file->mmapped) {
+    munmap(file->addr, file->size);
+  }
+}
+
+static void luac_free_func(lfunc_t *func) {
+  free(func->consts);
+  u32 i;
+  for (i = 0; i < func->num_funcs; i++) {
+    luac_free_func(&func->funcs[i]);
+  }
+  free(func->funcs);
+}
+
+static u8* luac_parse_func(u8 *addr, lfunc_t *func) {
   func->name = (lstring_t*) addr; // name is the first thing in the header
 
   u32 size, i;

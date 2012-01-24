@@ -15,7 +15,7 @@
 #define SKIP_STRING(ptr) ((u8*)(ptr) + ((lstring_t*)(ptr))->length + sizeof(size_t))
 
 typedef struct luac_file {
-  int       fd;
+  int       mmapped;
   void*     addr;
   size_t    size;
   lfunc_t   func;
@@ -33,9 +33,8 @@ typedef struct luac_header {
   u8  int_flag;
 } PACKED luac_header_t;
 
-luac_file_t *luac_open(int fd);
+void luac_parse_fd(luac_file_t *file, int fd);
+void luac_parse(luac_file_t *file, void *addr);
 void luac_close(luac_file_t *file);
-void luac_parse(luac_file_t *file);
-u8 *luac_parse_func(u8 *addr, lfunc_t *func);
 
 #endif /* _PARSE_H_ */
