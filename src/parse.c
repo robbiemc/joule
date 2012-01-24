@@ -78,16 +78,16 @@ u8 *luac_parse_func(u8 *addr, lfunc_t *func) {
   luav *c = func->consts;
   for (i = 0; i < func->num_consts; i++) {
     switch (pread1(&addr)) {
-      case LUA_TNIL:
+      case LUAV_TNIL:
         *c = lv_nil();
         break;
-      case LUA_TBOOLEAN:
+      case LUAV_TBOOLEAN:
         *c = lv_bool(pread1(&addr));
         break;
-      case LUA_TNUMBER:
+      case LUAV_TNUMBER:
         *c = lv_number(pread8(&addr));
         break;
-      case LUA_TSTRING:
+      case LUAV_TSTRING:
         *c = lv_string((lstring_t*) addr);
         addr = SKIP_STRING(addr);
         break;

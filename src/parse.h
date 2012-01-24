@@ -5,10 +5,12 @@
 #include "lstring.h"
 #include "vm.h"
 
-#define LUA_TNIL      0
-#define LUA_TBOOLEAN  1
-#define LUA_TNUMBER   3
-#define LUA_TSTRING   4
+#define LUAV_TNIL      0
+#define LUAV_TBOOLEAN  1
+#define LUAV_TNUMBER   3
+#define LUAV_TSTRING   4
+
+#define SKIP_STRING(ptr) ((u8*)(ptr) + ((lstring_t*)(ptr))->length + sizeof(size_t))
 
 typedef struct luac_file {
   int       fd;
