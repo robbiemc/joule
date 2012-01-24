@@ -54,6 +54,7 @@ $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -M -MT $(@:.dep=.o) -MF $@ $<
 
+# Target for test executables
 $(OBJDIR)/%: $(OBJS) %.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -O1 -g -o $@ $^
@@ -64,4 +65,4 @@ ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
 endif
 
 clean:
-	rm -rf $(TESTDIR)/*.luac $(OBJDIR) joule $(CTESTS)
+	rm -rf $(TESTDIR)/*.luac $(OBJDIR) joule
