@@ -3,5 +3,3 @@
 *.luac
 objs
 joule
-ctests/*
-!ctests/*.*
