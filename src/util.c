@@ -21,13 +21,13 @@ u64 pread8(u8 **p) {
   return b;
 }
 
-void *xmalloc(size_t s) {
+void* xmalloc(size_t s) {
   void *m = malloc(s);
   assert(m != NULL);
   return m;
 }
 
-void *xcalloc(size_t n, size_t s) {
+void* xcalloc(size_t n, size_t s) {
   void *m = calloc(n, s);
   assert(m != NULL);
   return m;
