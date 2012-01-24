@@ -32,3 +32,9 @@ void *xcalloc(size_t n, size_t s) {
   assert(m != NULL);
   return m;
 }
+
+void *xrealloc(void *p, size_t s) {
+  void *m = realloc(p, s);
+  assert(m != NULL);
+  return m;
+}

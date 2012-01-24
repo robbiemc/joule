@@ -10,5 +10,6 @@ u64  pread8(u8 **p);
 /* calls *alloc and asserts that it succeeded */
 void *xmalloc(size_t s);
 void *xcalloc(size_t n, size_t s);
+void *xrealloc(void *p, size_t s);
 
 #endif /* _UTIL_H */

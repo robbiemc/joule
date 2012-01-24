@@ -1,6 +1,6 @@
 LUAC    = luac
 CC      = gcc
-CFLAGS  = -Wall -Wextra -Werror -I$(SRCDIR)
+CFLAGS  = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion
 DFLAGS  = -g -O0
 OFLAGS  = -O2
 OBJDIR  = objs

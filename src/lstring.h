@@ -6,16 +6,13 @@
 #include "config.h"
 #include "util.h"
 
-#define SKIP_STRING(ptr) ((u8*)(ptr) + ((lstring_t*)(ptr))->length + sizeof(size_t))
-
-#define LSTRING_EMBEDDED(str) ((str)->length)
-
 typedef struct lstring {
   size_t  length;
-  union {
-    char *ptr;
-    char bytes[MAX_STRING_EMBED_SIZE];
-  } data;
-} __attribute__((packed)) lstring_t;
+  u32     hash;
+  char    *ptr;
+} lstring_t;
+
+size_t lstr_add(char *str, size_t size, int freeable);
+lstring_t *lstr_get(size_t index);
 
 #endif /* _LSTRING_H_ */
