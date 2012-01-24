@@ -36,5 +36,6 @@ int main() {
     assert(lhash_get(&map, lv_number(i)) == lv_number(i + 1));
   }
 
+  lhash_free(&map);
   return 0;
 }
