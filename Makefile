@@ -8,7 +8,7 @@ SRCDIR   = src
 TESTDIR  = tests
 CTESTDIR = ctests
 
-OBJS := opcode.o util.o luav.o parse.o vm.o lhash.o
+OBJS := opcode.o util.o luav.o parse.o vm.o lhash.o lstring.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \

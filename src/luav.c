@@ -166,6 +166,6 @@ void lv_dump(luav value) {
     case LUSERDATA:   printf("user:%p\n", lv_getuserdata(value));       return;
   }
 
-  printf("Bad luav type: %lld\n", value & LUAV_TYPE_MASK);
+  printf("Bad luav type: %lld\n", (long long int) (value & LUAV_TYPE_MASK));
   assert(0 && "Bad luav type");
 }
