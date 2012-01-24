@@ -73,6 +73,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
       map->hash[idx].value = value;
       break;
     } else if (cur == LUAV_NIL) {
+      map->hash[idx].key = key;
       map->hash[idx].value = value;
       map->size++;
       if (map->size * 100 / map->cap > LHASH_MAP_THRESH) {
@@ -84,10 +85,15 @@ void lhash_set(lhash_t *map, luav key, luav value) {
 }
 
 static void lhash_resize(lhash_t *map) {
-  size_t i, end = map->cap;
+  u32 i, end = map->cap;
   map->cap *= 2;
+  map->cap += 1;
   lpair_t *old = map->hash;
   map->hash = xmalloc(map->cap * sizeof(map->hash[0]));
+
+  for (i = 0; i < map->cap; i++) {
+    map->hash[i].key = LUAV_NIL;
+  }
 
   for (i = 0; i < end; i++) {
     if (old[i].key != LUAV_NIL) {

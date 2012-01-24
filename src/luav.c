@@ -9,8 +9,8 @@ luav lv_bool(u8 v) {
   return LUAV_SETDATA(LBOOLEAN, !!v);
 }
 
-luav lv_number(u64 v) {
-  return v;
+luav lv_number(double v) {
+  return lv_bits(v);
 }
 
 luav lv_string(lstring_t *v) {
@@ -22,7 +22,7 @@ luav lv_nil() {
 }
 
 u32 lv_hash(luav value) {
-  return (u32) (value >> LUAV_TYPE_MASK);
+  return (u32) (value ^ (value >> 32));
 }
 
 void lv_dump(luav value) {

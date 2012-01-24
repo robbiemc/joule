@@ -57,7 +57,7 @@ typedef u64 luav;
 
 luav lv_nil(void);
 luav lv_bool(u8 v);
-luav lv_number(u64 v);
+luav lv_number(double v);
 luav lv_string(lstring_t *v);
 u32 lv_hash(luav value);
 void lv_dump(luav value);
