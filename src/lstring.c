@@ -11,7 +11,7 @@
 
 // universal string array
 size_t str_table_cap = STRING_TABLE_CAP;
-size_t str_table_next = 0;
+size_t str_table_next = 2;
 lstring_t *str_table = NULL;
 
 // string hash map
@@ -36,10 +36,10 @@ void lstr_init() {
 lstr_idx lstr_add(char *str, size_t size, int freeable) {
   // lookup the string in the hashset (see if it's already stored)
   lstr_idx index = smap_lookup(str, size);
-  if (index > 1) {
+  if (NONEMPTY(index)) {
     if (freeable)
       free(str);
-    return index - 2;
+    return index;
   }
 
   // resize the table if necessary
@@ -53,7 +53,7 @@ lstr_idx lstr_add(char *str, size_t size, int freeable) {
   lstr->length = size;
   lstr->ptr = str;
   lstr->hash = smap_hash((u8*) str, size);
-  smap_insert(lstr, str_table_next + 2);
+  smap_insert(lstr, str_table_next);
   return str_table_next++;
 }
 
@@ -76,7 +76,7 @@ static void smap_insert(lstring_t *lstr, lstr_idx index) {
     for (i = 0; i < smap.capacity; i++) {
       size_t ix = smap.table[i];
       if (NONEMPTY(ix))
-        smap_ins(&new_map, &str_table[ix - 2], ix);
+        smap_ins(&new_map, &str_table[ix], ix);
     }
     // replace the old map
     free(smap.table);
@@ -99,7 +99,7 @@ static size_t smap_lookup(char *str, size_t size) {
   u32 hash = smap_hash((u8*) str, size);
   size_t idx = hash % smap.capacity;
   while (NONEMPTY(s = smap.table[idx])) {
-    if (smap_equal(&str_table[s - 2], str, size))
+    if (smap_equal(&str_table[s], str, size))
       return s;
     idx = (idx + 1) % smap.capacity;
   }

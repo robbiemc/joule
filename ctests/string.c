@@ -5,7 +5,7 @@
 
 #define BUF_SIZE 80000
 
-char buf[BUF_SIZE];
+char buf[BUF_SIZE + 10];
 
 int main() {
   lstr_init();
@@ -19,7 +19,7 @@ int main() {
   printf("--- GENERATED ---\n");
 
   // create a bunch of strings
-  for (i = 0; i < BUF_SIZE / 2; i++) {
+  for (i = 2; i < BUF_SIZE / 2; i++) {
     // these should all be new strings so they should be new idicies
     size_t idx = lstr_add(buf, i, 0);
     assert(idx == i);
@@ -33,12 +33,9 @@ int main() {
 
   printf("--- STEP 3 ---\n");
 
-  for (i = 0; i < BUF_SIZE / 2; i++) {
+  for (i = 2; i < BUF_SIZE / 2; i++) {
     // these should return the old indices
     size_t idx = lstr_add(buf, i, 0);
-    if (idx != i) {
-      printf("idx = %zu, i = %zu\n", idx, i);
-    }
     assert(idx == i);
   }
   
