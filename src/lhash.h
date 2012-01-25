@@ -11,8 +11,6 @@
 #define LHASH_MAP_THRESH 80
 #define LHASH_INIT_SIZE 10
 
-typedef struct lhash lhash_t;
-
 /* Actual hash implementation, currently just a simple resizing table with
    linear probing to resolve collisions */
 typedef struct lhash {
