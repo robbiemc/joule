@@ -88,7 +88,7 @@ double lv_getnumber(luav value) {
   double cvt = lv_cvt(value);
   /* We're a number if we're infinite, not NaN, or the one machine NaN */
   assert(isinf(cvt) || (value & LUAV_NAN_MASK) != LUAV_NAN_MASK ||
-         value == lv_bits(0.0 / 0.0));
+         value == lv_bits(NAN));
   return cvt;
 }
 
@@ -171,7 +171,7 @@ u32 lv_hash(luav value) {
 u8 lv_gettype(luav value) {
   // check if it's a number
   double cvt = lv_cvt(value);
-  if (!isnan(cvt) || isinf(cvt) || value == lv_bits(0.0 / 0.0))
+  if (!isnan(cvt) || isinf(cvt) || value == lv_bits(NAN))
     return LNUMBER;
   u8 type = (u8) (value & LUAV_TYPE_MASK);
   assert(type != LNUMBER);

@@ -16,8 +16,8 @@ int main() {
   luav two = lv_number(2);
   assert(same(lv_getnumber(two), 2.0));
 
-  luav nan = lv_number(0.0/0.0);
-  assert(lv_bits(lv_getnumber(nan)) == lv_bits(0.0/0.0));
+  luav nan = lv_number(NAN);
+  assert(lv_bits(lv_getnumber(nan)) == lv_bits(NAN));
   assert(isnan(lv_getnumber(nan)));
 
   luav inf = lv_number(1.0/0.0);
