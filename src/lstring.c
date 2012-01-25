@@ -59,7 +59,8 @@ lstr_idx lstr_add(char *str, size_t size, int freeable) {
 }
 
 lstring_t *lstr_get(lstr_idx index) {
-  assert(index < str_table_cap);
+  if (index >= str_table_cap)
+    return NULL;
   return &str_table[index];
 }
 
