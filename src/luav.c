@@ -177,28 +177,3 @@ u8 lv_gettype(luav value) {
   assert(type != LNUMBER);
   return type;
 }
-
-/**
- * @brief Dump a lua value to stdout for debugging
- *
- * @param value lua value to print out
- */
-void lv_dump(luav value) {
-  double cvt = lv_cvt(value);
-  if (!isnan(cvt) || isinf(cvt) || value == lv_bits(0.0 / 0.0)) {
-    printf("%f\n", cvt);
-    return;
-  }
-
-  switch (value & LUAV_TYPE_MASK) {
-    case LNUMBER:     assert(0 && "LNUMBER souldn't exist really?");    return;
-    case LSTRING:     assert(0 && "implement lv_getstring"); /* TODO: fix */
-    case LTABLE:      printf("table:%p\n", lv_gettable(value));         return;
-    case LBOOLEAN:    printf(lv_getbool(value) ? "true\n" : "false\n"); return;
-    case LNIL:        printf("nil\n");                                  return;
-    case LUSERDATA:   printf("user:%p\n", lv_getuserdata(value));       return;
-  }
-
-  printf("Bad luav type: %lld\n", (long long int) (value & LUAV_TYPE_MASK));
-  assert(0 && "Bad luav type");
-}

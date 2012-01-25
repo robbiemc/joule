@@ -77,7 +77,6 @@ size_t lv_getstring(luav value);
 
 u8 lv_gettype(luav value);
 u32 lv_hash(luav value);
-void lv_dump(luav value);
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;
