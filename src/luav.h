@@ -75,6 +75,7 @@ u8     lv_getbool(luav value);
 void*  lv_getuserdata(luav value);
 size_t lv_getstring(luav value);
 
+u8 lv_gettype(luav value);
 u32 lv_hash(luav value);
 void lv_dump(luav value);
 

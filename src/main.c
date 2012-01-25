@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include "debug.h"
 #include "lstring.h"
 #include "parse.h"
 #include "vm.h"
@@ -18,6 +19,7 @@ int main(int argc, char **argv) {
   close(fd);
 
   // TODO - do stuff with the file
+  dbg_dump_function(stdout, &(file.func));
 
   luac_close(&file);
   return 0;

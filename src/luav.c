@@ -163,6 +163,22 @@ u32 lv_hash(luav value) {
 }
 
 /**
+ * @brief Returns the type of the luav
+ *
+ * @param value the luav to get the type of
+ * @return the type
+ */
+u8 lv_gettype(luav value) {
+  // check if it's a number
+  double cvt = lv_cvt(value);
+  if (!isnan(cvt) || isinf(cvt) || value == lv_bits(0.0 / 0.0))
+    return LNUMBER;
+  u8 type = (u8) (value & LUAV_TYPE_MASK);
+  assert(type != LNUMBER);
+  return type;
+}
+
+/**
  * @brief Dump a lua value to stdout for debugging
  *
  * @param value lua value to print out
