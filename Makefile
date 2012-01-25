@@ -33,7 +33,7 @@ joule: $(OBJS) $(OBJDIR)/main.o
 test: ctests
 	@for test in $(CTESTS); do \
 		echo $$test;\
-		$$test || exit 1;     \
+		$$test > $$test.log || exit 1;     \
 	done
 	@echo -- All tests passed --
 
