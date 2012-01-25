@@ -7,10 +7,10 @@
 #include "lstring.h"
 #include "vm.h"
 
-#define LUAV_TNIL      0
-#define LUAV_TBOOLEAN  1
-#define LUAV_TNUMBER   3
-#define LUAV_TSTRING   4
+#define LUAC_TNIL      0
+#define LUAC_TBOOLEAN  1
+#define LUAC_TNUMBER   3
+#define LUAC_TSTRING   4
 
 #define SKIP_STRING(ptr) ((u8*)(ptr) + ((lstring_t*)(ptr))->length + sizeof(size_t))
 

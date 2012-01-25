@@ -6,7 +6,7 @@
 #include "luav.h"
 
 typedef struct lfunc {
-  lstring_t     *name;
+  lstr_idx      name;
   int           start_line;
   int           end_line;
   uint8_t       num_upvalues;

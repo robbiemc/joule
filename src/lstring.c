@@ -15,26 +15,26 @@ lstring_t *str_table = NULL;
 
 // string hash map
 typedef struct {
-  size_t  *table;
-  size_t  capacity;
-  size_t  size;
+  lstr_idx  *table;
+  size_t    capacity;
+  size_t    size;
 } smap_t;
 smap_t smap = {NULL, STRING_HASHMAP_CAP, 0};
 
-static void smap_insert(lstring_t *lstr, size_t index);
+static void smap_insert(lstring_t *lstr, lstr_idx index);
+static void smap_ins(smap_t *map, lstring_t *str, lstr_idx index);
 static size_t smap_lookup(char *str, size_t size);
 static int smap_equal(lstring_t *lstr, char *str, size_t size);
 static u32 smap_hash(u8 *str, size_t size);
-static void smap_ins(smap_t *map, lstring_t *str, size_t index);
 
 void lstr_init() {
   str_table = xcalloc(str_table_cap, sizeof(str_table[0]));
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
 }
 
-size_t lstr_add(char *str, size_t size, int freeable) {
+lstr_idx lstr_add(char *str, size_t size, int freeable) {
   // lookup the string in the hashset (see if it's already stored)
-  size_t index = smap_lookup(str, size);
+  lstr_idx index = smap_lookup(str, size);
   if (index > 1) {
     if (freeable)
       free(str);
@@ -56,13 +56,13 @@ size_t lstr_add(char *str, size_t size, int freeable) {
   return str_table_next++;
 }
 
-lstring_t *lstr_get(size_t index) {
+lstring_t *lstr_get(lstr_idx index) {
   assert(index < str_table_cap);
   return &str_table[index];
 }
 
 
-static void smap_insert(lstring_t *lstr, size_t index) {
+static void smap_insert(lstring_t *lstr, lstr_idx index) {
   size_t i;
   // maybe resize the table
   if (smap.size*100 / smap.capacity > 70) {
@@ -85,7 +85,7 @@ static void smap_insert(lstring_t *lstr, size_t index) {
   smap_ins(&smap, lstr, index);
 }
 
-static void smap_ins(smap_t *map, lstring_t *str, size_t index) {
+static void smap_ins(smap_t *map, lstring_t *str, lstr_idx index) {
   size_t idx = str->hash % map->capacity;
   while (NONEMPTY(map->table[idx]))
     idx = (idx + 1) % map->capacity;

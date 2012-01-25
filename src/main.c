@@ -8,6 +8,8 @@
 #include "vm.h"
 
 int main(int argc, char **argv) {
+  lstr_init();
+
   luac_file_t file;
   assert(argc > 1);
   int fd = open(argv[1], O_RDONLY);
@@ -19,8 +21,4 @@ int main(int argc, char **argv) {
 
   luac_close(&file);
   return 0;
-
-  /*assert(argc > 1);
-  parse_file(argv[1]);
-  return 0;*/
 }

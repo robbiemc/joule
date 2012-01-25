@@ -86,9 +86,10 @@ static void luac_free_func(lfunc_t *func) {
 }
 
 static u8* luac_parse_func(u8 *addr, lfunc_t *func) {
-  func->name = (lstring_t*) addr; // name is the first thing in the header
+  func->name = lstr_add((char*)addr + sizeof(size_t), *((size_t*)addr), FALSE);
 
   u32 size, i;
+  size_t length;
 
   // read the function header
   addr = SKIP_STRING(addr);
@@ -105,19 +106,19 @@ static u8* luac_parse_func(u8 *addr, lfunc_t *func) {
   luav *c = func->consts;
   for (i = 0; i < func->num_consts; i++) {
     switch (pread1(&addr)) {
-      case LUAV_TNIL:
+      case LUAC_TNIL:
         *c = LUAV_NIL;
         break;
-      case LUAV_TBOOLEAN:
+      case LUAC_TBOOLEAN:
         *c = lv_bool(pread1(&addr));
         break;
-      case LUAV_TNUMBER:
+      case LUAC_TNUMBER:
         *c = lv_number(lv_cvt(pread8(&addr)));
         break;
-      case LUAV_TSTRING:
-        // TODO: figure out what to do here
-        // *c = lv_string((lstring_t*) addr);
-        addr = SKIP_STRING(addr);
+      case LUAC_TSTRING:
+        length = pread8(&addr);
+        *c = lv_string(lstr_add((char*)addr, length, FALSE));
+        addr += length;
         break;
       default:
         assert(0); // TODO - figure out how we're actually going to handle errors
