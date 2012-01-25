@@ -94,6 +94,7 @@ char to_parse[] =
 ;
 
 int main() {
+  lstr_init();
   /* Right now, mainly a sanity check that parsing actually works */
   luac_file_t file;
   luac_parse(&file, to_parse);
