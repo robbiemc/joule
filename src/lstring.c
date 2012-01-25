@@ -4,7 +4,8 @@
 #include "lstring.h"
 #include "util.h"
 
-#define MAX_HASH 512
+#define LOAD_FACTOR 50
+#define MAX_HASH 256
 #define STRING_TABLE_CAP 128
 #define STRING_HASHMAP_CAP 251
 #define NONEMPTY(p) ((p) > 1)
@@ -66,7 +67,7 @@ lstring_t *lstr_get(lstr_idx index) {
 static void smap_insert(lstring_t *lstr, lstr_idx index) {
   size_t i;
   // maybe resize the table
-  if (smap.size*100 / smap.capacity > 70) {
+  if (smap.size*100 / smap.capacity > LOAD_FACTOR) {
     // create the new hashmap
     smap_t new_map;
     new_map.size = 0;
