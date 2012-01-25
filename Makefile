@@ -1,16 +1,16 @@
 LUAC     = luac
 CC       = gcc
-CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion
+CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g
 OBJDIR   = objs
 SRCDIR   = src
 TESTDIR  = tests
 CTESTDIR = ctests
 
 # Different flags for opt vs debug
-ifeq (0,$(words $(filter %opt,$(MAKECMDGOALS))))
-CFLAGS += -g -O0
-else
+ifeq ($(BUILD),opt)
 CFLAGS += -O2
+else
+CFLAGS += -O0
 endif
 
 OBJS := opcode.o util.o luav.o parse.o vm.o lhash.o lstring.o debug.o
