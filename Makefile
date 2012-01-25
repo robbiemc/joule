@@ -48,6 +48,9 @@ coverage: clean ctests test
 	genhtml --output-directory coverage coverage/app.info
 	@rm -f *.gcda *.gcno
 
+profile: CFLAGS += -pg
+profile: clean joule ctests
+
 # Generic targets
 %.luac: %.lua
 	$(LUAC) -o $@ $<
