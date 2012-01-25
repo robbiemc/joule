@@ -4,6 +4,7 @@
 #include "lstring.h"
 #include "util.h"
 
+#define MAX_HASH 512
 #define STRING_TABLE_CAP 128
 #define STRING_HASHMAP_CAP 251
 #define NONEMPTY(p) ((p) > 1)
@@ -111,12 +112,16 @@ static int smap_equal(lstring_t *lstr, char *str, size_t size) {
   return !memcmp(lstr->ptr, str, size);
 }
 
-// TODO - make this faster
 static u32 smap_hash(u8 *str, size_t size) {
-  u32 h = 17;
-  while (size--) {
-    h = h*29 ^ *str;
-    str++;
+  // figure out a step value
+  size_t step = size / MAX_HASH;
+  step = (step == 0) ? 1 : step;
+  // compute the hash
+  u32 hash = 0;
+  u8 *end = str + size;
+  while (str < end) {
+    hash = *str + (hash << 6) + (hash << 16) - hash;
+    str += step;
   }
-  return h;
+  return hash;
 }
