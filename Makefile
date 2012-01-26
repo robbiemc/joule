@@ -22,7 +22,7 @@ OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
 				 printf readonly sieve sort table trace-calls trace-globals xd \
-				 bool func smallfun multipart closure simplewrite
+				 bool func smallfun multipart closure simplewrite bool2
 TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 
 CTESTS := hash types parse string
