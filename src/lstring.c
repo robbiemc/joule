@@ -29,7 +29,7 @@ static size_t smap_lookup(char *str, size_t size);
 static int smap_equal(lstring_t *lstr, char *str, size_t size);
 static u32 smap_hash(u8 *str, size_t size);
 
-void lstr_init() {
+EARLY static void lstr_init() {
   str_table = xcalloc(str_table_cap, sizeof(str_table[0]));
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
 }
@@ -63,7 +63,6 @@ lstring_t *lstr_get(lstr_idx index) {
     return NULL;
   return &str_table[index];
 }
-
 
 static void smap_insert(lstring_t *lstr, lstr_idx index) {
   size_t i;

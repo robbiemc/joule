@@ -9,7 +9,6 @@ int same(double a, double b) {
 }
 
 int main() {
-  lstr_init();
   luav upvalue;
 
   /** NUMBERS **/

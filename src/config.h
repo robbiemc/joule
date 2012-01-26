@@ -15,6 +15,11 @@ typedef int64_t   i64;
 #define FALSE 0
 #define TRUE 1
 
-#define PACKED __attribute__((packed))
+#define PACKED  __attribute__((packed))
+
+#define EARLY   __attribute__((constructor(100)))
+#define INIT    __attribute__((constructor(110)))
+#define DESTROY __attribute__((destructor(110)))
+#define LATE    __attribute__((destructor(100)))
 
 #endif /* _CONFIG_H_ */

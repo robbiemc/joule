@@ -8,8 +8,6 @@
 char buf[BUF_SIZE + 10];
 
 int main() {
-  lstr_init();
-
   // generate a bunch of random characters
   size_t i;
   u8 v = 1;
@@ -38,7 +36,7 @@ int main() {
     size_t idx = lstr_add(buf, i, 0);
     assert(idx == i);
   }
-  
+
   printf("--- PASSED! ---\n");
 
   return 0;

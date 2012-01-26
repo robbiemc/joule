@@ -9,8 +9,6 @@
 #include "vm.h"
 
 int main(int argc, char **argv) {
-  lstr_init();
-
   luac_file_t file;
   assert(argc > 1);
   int fd = open(argv[1], O_RDONLY);
