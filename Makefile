@@ -14,7 +14,9 @@ else
 CFLAGS += -O0
 endif
 
-OBJS := opcode.o util.o luav.o parse.o vm.o lhash.o lstring.o debug.o \
+# Order matters in this list because object files listed first have their
+# initializers run first, and destructors run last.
+OBJS := lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
 				lib/utils.o lib/io.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 

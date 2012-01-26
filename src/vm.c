@@ -37,7 +37,7 @@ lhash_t lua_globals;
 static u32 vm_fun(lclosure_t *c, u32 argc, luav *argv, u32 retc, luav *retv);
 static void op_close(u32 upc, luav *upv);
 
-EARLY(200) static void vm_setup() {
+INIT static void vm_setup() {
   printf("vm_setup\n");
   lhash_init(&lua_globals);
   lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
