@@ -55,6 +55,15 @@ static u32 vm_fun(lfunc_t *fun, u32 argc, luav *argv, u32 retc, luav *retv) {
         stack[A(code)] = temp;
         break;
 
+      case OP_SETGLOBAL:
+        bx = PAYLOAD(code);
+        assert(bx < fun->num_consts);
+        temp = fun->consts[bx];
+        assert(lv_gettype(temp) == LSTRING);
+        assert(A(code) < fun->max_stack);
+        lhash_set(&globals, temp, stack[A(code)]);
+        break;
+
       case OP_GETTABLE:
         c = C(code);
         if (c >= 256) {
