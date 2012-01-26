@@ -107,7 +107,6 @@ static void prindent(int level, FILE *out, char *fmt, ...) {
 }
 
 static int log_10(u64 n) {
-  n = n;
   return 3;
   /*
   int log = 0;

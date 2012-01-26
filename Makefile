@@ -62,7 +62,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 
 $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -M -MT $(@:.dep=.o) -MF $@ $<
+	gcc $(CFLAGS) -M -MT $(@:.dep=.o) -MF $@ $<
 
 # Target for test executables
 $(OBJDIR)/%: $(OBJS) %.c

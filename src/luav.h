@@ -62,11 +62,11 @@ struct lhash;
 #define LNUMBER   8 /* not actually in the bits, encoded as not NaN */
 
 /* Macros for dealing with u64 bits for luav */
-#define LUAV_NAN_MASK  0x7ff0000000000000LL
+#define LUAV_NAN_MASK  0x7ff0000000000000ULL
 #define LUAV_NIL (LUAV_NAN_MASK | LNIL)
 #define LUAV_TYPE_BITS 3
 #define LUAV_TYPE_MASK ((1 << LUAV_TYPE_BITS) - 1)
-#define LUAV_DATA_MASK 0x0000ffffffffffffLL
+#define LUAV_DATA_MASK 0x0000ffffffffffffULL
 
 #define LUAV_DATA(bits) (((bits) >> LUAV_TYPE_BITS) & LUAV_DATA_MASK)
 #define LUAV_SETDATA(bits, data) \

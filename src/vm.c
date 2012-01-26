@@ -120,7 +120,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
         assert(c != 0 && "If this trips, write some real code");
         u32 got;
-        if (func2->type == LUAF_CFUNCTION) {
+        if (func2->type == LUAF_C) {
           got = func2->function.c(num_args, &stack[a + 1], want_ret, &stack[a]);
         } else {
           got = vm_fun(func2, num_args, &stack[a + 1], want_ret, &stack[a]);
@@ -152,7 +152,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         assert(bx < func->num_funcs);
         lfunc_t *function = &func->funcs[bx];
         lclosure_t *closure2 = xmalloc(CLOSURE_SIZE(function->num_upvalues));
-        closure2->type = LUAF_LFUNCTION;
+        closure2->type = LUAF_LUA;
         closure2->function.lua = function;
 
         for (i = 0; i < function->num_upvalues; i++) {

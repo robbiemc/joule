@@ -38,13 +38,13 @@ typedef struct lclosure {
   luav upvalues[0];
 } lclosure_t;
 
-#define LUAF_CFUNCTION 0
-#define LUAF_LFUNCTION 1
+#define LUAF_C   0
+#define LUAF_LUA 1
 #define CLOSURE_SIZE(num_upvalues) \
   (sizeof(lclosure_t) + (num_upvalues) * sizeof(luav))
 
 #define LUA_FUNCTION(name) \
-  lclosure_t name ## _f = {.type = LUAF_CFUNCTION, .function.c = name}
+  lclosure_t name ## _f = {.type = LUAF_C, .function.c = name}
 
 void vm_run(lfunc_t *fun);
 
