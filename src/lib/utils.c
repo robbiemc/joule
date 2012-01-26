@@ -41,6 +41,6 @@ static luav lua_type(luav v) {
     case LUSERDATA: return str_userdata;
   }
 
-  printf("Unknown luav: 0x%016"PRIu64, v);
+  printf("Unknown luav: 0x%016" PRIu64, v);
   abort();
 }
