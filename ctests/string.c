@@ -11,6 +11,8 @@ int main() {
   // generate a bunch of random characters
   size_t i;
   u8 v = 1;
+  lstr_idx base = lstr_add("hahahahahahahahaha", 10, 0);
+  base -= 1;
   for (i = 0; i < BUF_SIZE; i++)
     buf[i] = (char) v++;
 
@@ -20,13 +22,13 @@ int main() {
   for (i = 2; i < BUF_SIZE / 2; i++) {
     // these should all be new strings so they should be new idicies
     size_t idx = lstr_add(buf, i, 0);
-    assert(idx == i);
+    assert(idx == i + base);
   }
   printf("--- STEP 2 ---\n");
 
   for (i = 0; i < BUF_SIZE / 2; i++) {
     size_t idx = lstr_add(buf + BUF_SIZE / 2, i+1, 0);
-    assert(idx == i + BUF_SIZE / 2);
+    assert(idx == i + BUF_SIZE / 2 + base);
   }
 
   printf("--- STEP 3 ---\n");
@@ -34,7 +36,7 @@ int main() {
   for (i = 2; i < BUF_SIZE / 2; i++) {
     // these should return the old indices
     size_t idx = lstr_add(buf, i, 0);
-    assert(idx == i);
+    assert(idx == i + base);
   }
 
   printf("--- PASSED! ---\n");
