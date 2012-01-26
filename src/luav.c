@@ -7,13 +7,15 @@
 
 #include <assert.h>
 #include <math.h>
-#include <stdio.h>
 
 #include "config.h"
 #include "lhash.h"
 #include "lstring.h"
 #include "luav.h"
 #include "vm.h"
+
+//#define LV_CPL(typ) (~(typ) & 0xffff)
+#define LV_CPL(typ) (0xf - (typ))
 
 /**
  * @brief Convert an 8 bit value to a lua boolean
@@ -22,7 +24,7 @@
  * @return the lua value for the corresponding boolean
  */
 luav lv_bool(u8 v) {
-  return LUAV_SETDATA(LUAV_NAN_MASK | LBOOLEAN, !!v);
+  return LUAV_PACK(LBOOLEAN, !!v);
 }
 
 /**
@@ -42,7 +44,7 @@ luav lv_number(double d) {
  * @return the lua value representing the hash table
  */
 luav lv_table(lhash_t *hash) {
-  return LUAV_SETDATA(LUAV_NAN_MASK | LTABLE, (u64) hash);
+  return LUAV_PACK(LTABLE, (u64) hash);
 }
 
 /**
@@ -52,7 +54,7 @@ luav lv_table(lhash_t *hash) {
  * @return the lua value representing the pointer
  */
 luav lv_userdata(void *data) {
-  return LUAV_SETDATA(LUAV_NAN_MASK | LUSERDATA, (u64) data);
+  return LUAV_PACK(LUSERDATA, (u64) data);
 }
 
 /**
@@ -62,7 +64,7 @@ luav lv_userdata(void *data) {
  * @return the lua value representing the string
  */
 luav lv_string(size_t idx) {
-  return LUAV_SETDATA(LUAV_NAN_MASK | LSTRING, idx);
+  return LUAV_PACK(LSTRING, idx);
 }
 
 /**
@@ -72,7 +74,7 @@ luav lv_string(size_t idx) {
  * @return the lua value representing the function
  */
 luav lv_function(lclosure_t *fun) {
-  return LUAV_SETDATA(LUAV_NAN_MASK | LFUNCTION, (u64) fun);
+  return LUAV_PACK(LFUNCTION, (u64) fun);
 }
 
 /**
@@ -86,7 +88,7 @@ luav lv_function(lclosure_t *fun) {
  * @return the lua value representing the function
  */
 luav lv_upvalue(upvalue_t *ptr) {
-  return LUAV_SETDATA(LUAV_NAN_MASK | LUPVALUE, (u64) ptr);
+  return LUAV_PACK(LUPVALUE, (u64) ptr);
 }
 
 /**
@@ -100,9 +102,7 @@ luav lv_upvalue(upvalue_t *ptr) {
  */
 double lv_getnumber(luav value) {
   double cvt = lv_cvt(value);
-  /* We're a number if we're infinite, not NaN, or the one machine NaN */
-  assert(isinf(cvt) || (value & LUAV_NAN_MASK) != LUAV_NAN_MASK ||
-         value == lv_bits(NAN));
+  assert(lv_gettype(value) == LNUMBER);
   return cvt;
 }
 
@@ -116,7 +116,7 @@ double lv_getnumber(luav value) {
  * @return the pointer to the table struct
  */
 lhash_t* lv_gettable(luav value) {
-  assert((value & LUAV_TYPE_MASK) == LTABLE);
+  assert(lv_gettype(value) == LTABLE);
   return (lhash_t*) LUAV_DATA(value);
 }
 
@@ -130,7 +130,7 @@ lhash_t* lv_gettable(luav value) {
  * @return the pointer to the table struct
  */
 u8 lv_getbool(luav value) {
-  assert((value & LUAV_TYPE_MASK) == LBOOLEAN);
+  assert(lv_gettype(value) == LBOOLEAN);
   return (u8) LUAV_DATA(value);
 }
 
@@ -144,7 +144,7 @@ u8 lv_getbool(luav value) {
  * @return the pointer to the data
  */
 void* lv_getuserdata(luav value) {
-  assert((value & LUAV_TYPE_MASK) == LUSERDATA);
+  assert(lv_gettype(value) == LUSERDATA);
   return (void*) LUAV_DATA(value);
 }
 
@@ -158,7 +158,7 @@ void* lv_getuserdata(luav value) {
  * @return the pointer to the function
  */
 lclosure_t* lv_getfunction(luav value) {
-  assert((value & LUAV_TYPE_MASK) == LFUNCTION);
+  assert(lv_gettype(value) == LFUNCTION);
   return (lclosure_t*) LUAV_DATA(value);
 }
 
@@ -172,7 +172,7 @@ lclosure_t* lv_getfunction(luav value) {
  * @return the index of the string
  */
 lstr_idx lv_getstring(luav value) {
-  assert((value & LUAV_TYPE_MASK) == LSTRING);
+  assert(lv_gettype(value) == LSTRING);
   return LUAV_DATA(value);
 }
 
@@ -186,6 +186,7 @@ lstr_idx lv_getstring(luav value) {
  * @return the pointer to the luav the upvalue stands for
  */
 upvalue_t* lv_getupvalue(luav value) {
+  assert(lv_gettype(value) == LUPVALUE);
   return (upvalue_t*) LUAV_DATA(value);
 }
 
@@ -210,11 +211,8 @@ u32 lv_hash(luav value) {
  * @return the type
  */
 u8 lv_gettype(luav value) {
-  // check if it's a number
-  double cvt = lv_cvt(value);
-  if (!isnan(cvt) || isinf(cvt) || value == lv_bits(NAN))
+  u32 msw = (u32) (value >> LUAV_DATA_SIZE);
+  if ((msw & 0xfff0) != 0xfff0)
     return LNUMBER;
-  u8 type = (u8) (value & LUAV_TYPE_MASK);
-  assert(type != LNUMBER);
-  return type;
+  return msw & 0xf;
 }

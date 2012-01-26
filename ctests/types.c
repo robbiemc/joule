@@ -10,7 +10,6 @@ int same(double a, double b) {
 
 int main() {
   lstr_init();
-  luav upvalue;
 
   /** NUMBERS **/
   luav one = lv_number(1);
@@ -32,8 +31,6 @@ int main() {
   assert(lv_gettype(inf) == LNUMBER);
 
   assert(lv_hash(one) != lv_hash(two));
-  upvalue = lv_upvalue(one);
-  assert(lv_getnumber(upvalue) == 1);
 
   /** Booleans **/
   luav b_true1 = lv_bool(1);
@@ -44,8 +41,6 @@ int main() {
   assert(lv_getbool(b_true1) == 1);
   assert(lv_gettype(b_true1) == LBOOLEAN);
   assert(lv_gettype(b_true2) == LBOOLEAN);
-  upvalue = lv_upvalue(b_true1);
-  assert(lv_getbool(upvalue) == 1);
 
   luav b_false = lv_bool(0);
   assert(b_true1 != b_false);
@@ -71,8 +66,6 @@ int main() {
   assert(udata != udata2);
   assert(lv_gettype(udata) == LUSERDATA);
   assert(lv_gettype(udata2) == LUSERDATA);
-  upvalue = lv_upvalue(udata);
-  assert(lv_getuserdata(upvalue) == (void*) 0x1234);
 
   /** Tables **/
   lhash_t table1, table2;
@@ -84,14 +77,12 @@ int main() {
   assert(lv_gettable(ltable2) == &table2);
   assert(lv_gettype(ltable1) == LTABLE);
   assert(lv_gettype(ltable2) == LTABLE);
-  upvalue = lv_upvalue(ltable1);
-  assert(lv_gettable(upvalue) == &table1);
 
   /** Upvalues **/
-  luav u1 = lv_upvalue(lv_number(1));
-  assert(isnan(lv_cvt(u1)));
-  assert(lv_getupvalue(u1) == lv_number(1));
-  assert(lv_getnumber(u1) == 1);
+  upvalue_t up = {0, lv_number(1)};
+  luav upvalue = lv_upvalue(&up);
+  assert(lv_getupvalue(upvalue)->value == lv_number(1));
+  assert(lv_getnumber(lv_getupvalue(upvalue)->value) == 1);
 
   /** Strings **/
   luav s1 = LSTR("asdf");
@@ -100,8 +91,6 @@ int main() {
   assert(s1 != s2);
   assert(s1 == LSTR("asdf"));
   assert(lv_gettype(s1) == LSTRING);
-  upvalue = lv_upvalue(s1);
-  assert(lv_getstring(s1) == lv_getstring(s1));
 
   return 0;
 }
