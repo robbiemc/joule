@@ -1,5 +1,3 @@
-
-#include <stdio.h>
 #include <assert.h>
 #include <string.h>
 
@@ -32,7 +30,6 @@ static int smap_equal(lstring_t *lstr, char *str, size_t size);
 static u32 smap_hash(u8 *str, size_t size);
 
 INIT static void lstr_init() {
-  printf("lstring\n");
   str_table = xcalloc(str_table_cap, sizeof(str_table[0]));
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
 }
