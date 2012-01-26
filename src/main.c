@@ -21,6 +21,8 @@ int main(int argc, char **argv) {
   // TODO - do stuff with the file
   dbg_dump_function(stdout, &(file.func));
 
+  vm_run(&file.func);
+
   luac_close(&file);
   return 0;
 }

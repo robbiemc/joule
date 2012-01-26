@@ -25,6 +25,13 @@ typedef struct lfunc {
   void          *dbg_lines;
   void          *dbg_locals;
   void          *dbg_upvalues;
+
+  u32 (*cfunc)(u32 argc, luav *argv, u32 retc, luav *retv);
 } lfunc_t;
+
+#define LUA_FUNCTION(name) \
+  lfunc_t name ## _f = {.cfunc = name}
+
+void vm_run(lfunc_t *fun);
 
 #endif /* _VM_H_ */

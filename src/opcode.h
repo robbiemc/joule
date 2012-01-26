@@ -43,6 +43,13 @@
 #define OP_CLOSURE 36
 #define OP_VARARG 37
 
+#define A_SIZE 8
+#define B_SIZE 9
+#define C_SIZE 9
+#define BX_SIZE 18
+
+#define C_MSB (1 << (C_SIZE - 1))
+
 #define OP(opc)       ((opc) & 0x3f)
 #define A(opc)        (((opc) >> 6) & 0xff)
 #define B(opc)        (((opc) >> 23) & 0x1ff)

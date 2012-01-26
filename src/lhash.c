@@ -60,6 +60,7 @@ void lhash_free(lhash_t *hash) {
  */
 luav lhash_get(lhash_t *map, luav key) {
   u32 i;
+  assert(lv_gettype(key) != LUPVALUE);
   if (key == LUAV_NIL) {
     return LUAV_NIL;
   }
@@ -89,6 +90,8 @@ luav lhash_get(lhash_t *map, luav key) {
  */
 void lhash_set(lhash_t *map, luav key, luav value) {
   assert(key != LUAV_NIL);
+  assert(lv_gettype(key) != LUPVALUE);
+  assert(lv_gettype(value) != LUPVALUE);
 
   u32 i, h = lv_hash(key);
   for (i = 0; ; i++) {

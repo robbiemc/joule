@@ -13,17 +13,7 @@
 #include "lhash.h"
 #include "lstring.h"
 #include "luav.h"
-
-/* Macros for dealing with u64 bits for luav */
-#define LUAV_TYPE_BITS 3
-#define LUAV_TYPE_MASK ((1 << LUAV_TYPE_BITS) - 1)
-#define LUAV_DATA_MASK 0x0000ffffffffffffLL
-
-#define LUAV_DATA(bits) (((bits) >> LUAV_TYPE_BITS) & LUAV_DATA_MASK)
-#define LUAV_SETDATA(bits, data) \
-  ((((data) & LUAV_DATA_MASK) << LUAV_TYPE_BITS) | (bits))
-#define LUAV_ISNUM(bits) \
-    ((bits) & LUAV_NAN_MASK != LUAV_NAN_MASK || (bits) ==)
+#include "vm.h"
 
 /**
  * @brief Convert an 8 bit value to a lua boolean
@@ -76,6 +66,33 @@ luav lv_string(size_t idx) {
 }
 
 /**
+ * @brief Convert a function pointer to a luav
+ *
+ * @param fun the function to embed in a luav
+ * @return the lua value representing the function
+ */
+luav lv_function(lfunc_t *fun) {
+  return LUAV_SETDATA(LUAV_NAN_MASK | LFUNCTION, (u64) fun);
+}
+
+/**
+ * @brief Convert a luav to an upvalue
+ *
+ * Upvalues are actually pointers to the real luav. This way, the upvalue
+ * can be shared across all functions which can access it, and any can return
+ * without destroying the variable. Also, modifications are visible to everyone.
+ *
+ * @param value the value to get a pointer to
+ * @return the lua value representing the function
+ */
+luav lv_upvalue(luav value) {
+  /* TODO: don't malloc here, find a better way */
+  luav *ptr = xmalloc(sizeof(luav));
+  *ptr = value;
+  return LUAV_SETDATA(LUAV_NAN_MASK | LUPVALUE, (u64) ptr);
+}
+
+/**
  * @brief Get the number associated with the given value
  *
  * It is considered a fatal error to call this function when the type of the
@@ -85,6 +102,7 @@ luav lv_string(size_t idx) {
  * @return the floating-point representation of the specified value.
  */
 double lv_getnumber(luav value) {
+  FOLLOW_UPVALUE(value);
   double cvt = lv_cvt(value);
   /* We're a number if we're infinite, not NaN, or the one machine NaN */
   assert(isinf(cvt) || (value & LUAV_NAN_MASK) != LUAV_NAN_MASK ||
@@ -102,6 +120,7 @@ double lv_getnumber(luav value) {
  * @return the pointer to the table struct
  */
 lhash_t* lv_gettable(luav value) {
+  FOLLOW_UPVALUE(value);
   assert((value & LUAV_TYPE_MASK) == LTABLE);
   return (lhash_t*) LUAV_DATA(value);
 }
@@ -116,6 +135,7 @@ lhash_t* lv_gettable(luav value) {
  * @return the pointer to the table struct
  */
 u8 lv_getbool(luav value) {
+  FOLLOW_UPVALUE(value);
   assert((value & LUAV_TYPE_MASK) == LBOOLEAN);
   return (u8) LUAV_DATA(value);
 }
@@ -130,8 +150,24 @@ u8 lv_getbool(luav value) {
  * @return the pointer to the data
  */
 void* lv_getuserdata(luav value) {
+  FOLLOW_UPVALUE(value);
   assert((value & LUAV_TYPE_MASK) == LUSERDATA);
   return (void*) LUAV_DATA(value);
+}
+
+/**
+ * @brief Get the function associated with the given value
+ *
+ * It is considered a fatal error to call this function when the type of the
+ * value is not a function
+ *
+ * @param value the lua value which is a function
+ * @return the pointer to the function
+ */
+lfunc_t* lv_getfunction(luav value) {
+  FOLLOW_UPVALUE(value);
+  assert((value & LUAV_TYPE_MASK) == LFUNCTION);
+  return (lfunc_t*) LUAV_DATA(value);
 }
 
 /**
@@ -143,9 +179,23 @@ void* lv_getuserdata(luav value) {
  * @param value the lua value which is a string
  * @return the index of the string
  */
-size_t lv_getstring(luav value) {
+lstr_idx lv_getstring(luav value) {
+  FOLLOW_UPVALUE(value);
   assert((value & LUAV_TYPE_MASK) == LSTRING);
   return LUAV_DATA(value);
+}
+
+/**
+ * @brief Get the upvalue associated with the given value
+ *
+ * It is considered a fatal error to call this function when the type of the
+ * value is not an upvalue
+ *
+ * @param value the lua value which is an upvalue
+ * @return the luav the upvalue stands for
+ */
+luav lv_getupvalue(luav value) {
+  return follow_upvalue(value);
 }
 
 /**
