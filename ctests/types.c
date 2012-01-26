@@ -3,6 +3,7 @@
 
 #include "lhash.h"
 #include "luav.h"
+#include "vm.h"
 
 int same(double a, double b) {
   return fabs(a - b) < 0.01;
@@ -90,6 +91,12 @@ int main() {
   assert(s1 == LSTR("asdf"));
   assert(lv_gettype(s1) == LSTRING);
   assert(lv_getstring(s1) == lstr_add("asdf", 5, 0));
+
+  /** Functions **/
+  lclosure_t function;
+  luav f1 = lv_function(&function);
+  assert(isnan(lv_cvt(f1)));
+  assert(lv_getfunction(f1) == &function);
 
   return 0;
 }
