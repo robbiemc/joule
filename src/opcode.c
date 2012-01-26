@@ -7,7 +7,7 @@ void opcode_dump(FILE *out, uint32_t code) {
     case OP_MOVE:
       fprintf(out, "MOVE      %d %d", A(code), B(code)); break;
     case OP_LOADK:
-      fprintf(out, "LOADK     %d %d", A(code), B(code)); break;
+      fprintf(out, "LOADK     R%d = K%d", A(code), PAYLOAD(code)); break;
     case OP_LOADBOOL:
       fprintf(out, "LOADNIL   %d %d %d", A(code), B(code), C(code)); break;
     case OP_LOADNIL:
@@ -15,7 +15,7 @@ void opcode_dump(FILE *out, uint32_t code) {
     case OP_GETUPVAL:
       fprintf(out, "GETUPVAL  %d %d", A(code), B(code)); break;
     case OP_GETGLOBAL:
-      fprintf(out, "GETGLOBAL %d %d", A(code), B(code)); break;
+      fprintf(out, "GETGLOBAL R%d = G[K%d]", A(code), PAYLOAD(code)); break;
     case OP_GETTABLE:
       fprintf(out, "GETTABLE  %d %d %d", A(code), B(code), C(code)); break;
     case OP_SETGLOBAL:
