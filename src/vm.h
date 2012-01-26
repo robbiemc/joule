@@ -5,6 +5,8 @@
 #include "lstring.h"
 #include "luav.h"
 
+typedef u32 cfunc_t(u32, luav*, u32, luav*);
+
 typedef struct lfunc {
   lstr_idx      name;
   int           start_line;
@@ -25,12 +27,24 @@ typedef struct lfunc {
   void          *dbg_lines;
   void          *dbg_locals;
   void          *dbg_upvalues;
-
-  u32 (*cfunc)(u32 argc, luav *argv, u32 retc, luav *retv);
 } lfunc_t;
 
+typedef struct lclosure {
+  u32 type;
+  union {
+    lfunc_t *lua;
+    cfunc_t *c;
+  } function;
+  luav upvalues[0];
+} lclosure_t;
+
+#define LUAF_CFUNCTION 0
+#define LUAF_LFUNCTION 1
+#define CLOSURE_SIZE(num_upvalues) \
+  (sizeof(lclosure_t) + (num_upvalues) * sizeof(luav))
+
 #define LUA_FUNCTION(name) \
-  lfunc_t name ## _f = {.cfunc = name}
+  lclosure_t name ## _f = {.type = LUAF_CFUNCTION, .function.c = name}
 
 void vm_run(lfunc_t *fun);
 

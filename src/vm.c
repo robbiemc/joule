@@ -9,16 +9,34 @@
 #include "vm.h"
 
 #define CONST(f, n) ({ assert((n) < (f)->num_consts); (f)->consts[n]; })
-#define REG(f, n) ({ assert((n) < (f)->max_stack); stack[n]; })
-#define SETREG(f, n, v) ({ assert((n) < (f)->max_stack); stack[n] = v; })
+#define REG(f, n)                                                             \
+  ({                                                                          \
+    assert((n) < (f)->max_stack);                                             \
+    lv_gettype(stack[n]) == LUPVALUE ? *lv_getupvalue(stack[n]) : stack[n];   \
+  })
+#define SETREG(f, n, v)                \
+  ({                                   \
+    assert((n) < (f)->max_stack);      \
+    if (lv_gettype(v) == LUPVALUE) {   \
+      *lv_getupvalue(v) = v;           \
+    } else {                           \
+      stack[n] = v;                    \
+    }                                  \
+  })
+
 /* TODO: extract out 256 */
 #define KREG(func, n) ((n) >= 256 ? CONST(func, (n) - 256) : REG(func, n))
+#define UPVALUE(closure, n)                                \
+  ({                                                       \
+    assert((n) < (closure)->function.lua->num_upvalues);   \
+    (closure)->upvalues[n];                                \
+  })
 
 lhash_t globals;
 lhash_t io;
 
 static u32 io_print(u32 argc, luav *argv, u32 retc, luav *retv);
-static u32 vm_fun(lfunc_t *func, u32 argc, luav *argv, u32 retc, luav *retv);
+static u32 vm_fun(lclosure_t *c, u32 argc, luav *argv, u32 retc, luav *retv);
 
 LUA_FUNCTION(io_print);
 
@@ -33,14 +51,17 @@ static void vm_setup() {
 
 void vm_run(lfunc_t *func) {
   vm_setup();
-  vm_fun(func, 0, NULL, 0, NULL);
+  lclosure_t closure = {.function.lua = func};
+  assert(func->num_upvalues == 0);
+  vm_fun(&closure, 0, NULL, 0, NULL);
 }
 
-static u32 vm_fun(lfunc_t *func, u32 argc, luav *argv, u32 retc, luav *retv) {
+static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
+                                       u32 retc, luav *retv) {
+  lfunc_t *func = closure->function.lua;
   u32 pc = 0;
   u32 i, a, b, c, bx, limit;
   luav temp;
-  lfunc_t *func2;
 
   luav stack[func->max_stack];
   for (i = 0; i < func->max_stack; i++) {
@@ -84,19 +105,23 @@ static u32 vm_fun(lfunc_t *func, u32 argc, luav *argv, u32 retc, luav *retv) {
         }
         break;
 
+      case OP_MOVE:
+        SETREG(func, A(code), REG(func, B(code)));
+        break;
+
       case OP_CALL: {
-        func2 = lv_getfunction(REG(func, A(code)));
+        a = A(code);
+        lclosure_t *func2 = lv_getfunction(REG(func, a));
         b = B(code);
         u32 num_args = b == 0 ? func->max_stack - a + 1 : b - 1;
         c = C(code);
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
         assert(c != 0 && "If this trips, write some real code");
         u32 got;
-        if (func2->cfunc) {
-          got = func2->cfunc(num_args, &stack[a + 1], want_ret, &stack[a]);
+        if (func2->type == LUAF_CFUNCTION) {
+          got = func2->function.c(num_args, &stack[a + 1], want_ret, &stack[a]);
         } else {
-          got = vm_fun(func2, num_args, &stack[a + 1],
-                                 want_ret, &stack[a]);
+          got = vm_fun(func2, num_args, &stack[a + 1], want_ret, &stack[a]);
         }
         /* Fill in all the nils */
         for (i = got; i < c - 1; i++) {
@@ -119,14 +144,45 @@ static u32 vm_fun(lfunc_t *func, u32 argc, luav *argv, u32 retc, luav *retv) {
         }
         return i;
 
-      case OP_CLOSURE:
-        a = A(code);
+      case OP_CLOSURE: {
         bx = PAYLOAD(code);
         assert(bx < func->num_funcs);
-        func2 = &func->funcs[bx];
-        SETREG(func, A(code), lv_function(func2));
-        assert(func2->num_upvalues == 0);
+        lfunc_t *function = &func->funcs[bx];
+        lclosure_t *closure2 = xmalloc(CLOSURE_SIZE(function->num_upvalues));
+        closure2->type = LUAF_LFUNCTION;
+        closure2->function.lua = function;
+
+        for (i = 0; i < function->num_upvalues; i++) {
+          u32 pseudo = func->instrs[pc++];
+          luav upvalue;
+          if (OP(pseudo) == OP_MOVE) {
+            /* Can't use the REG macro because we don't want to duplicate
+               upvalues. If the register on the stack is an upvalue, we want to
+               use the same upvalue... */
+            assert(B(pseudo) < func->max_stack);
+            temp = stack[B(pseudo)];
+            if (lv_gettype(temp) == LUPVALUE) {
+              upvalue = temp;
+            } else {
+              /* If the stack register is not an upvalue, we need to promote it
+                 to an upvalue, thereby scribbling over our stack variable so
+                 it's now considered an upvalue */
+              luav *ptr = xmalloc(sizeof(luav)); /* TODO: better way?!? */
+              *ptr = temp;
+              upvalue = lv_upvalue(ptr);
+              stack[B(pseudo)] = upvalue;
+            }
+          } else {
+            /* Not much to do here... */
+            upvalue = UPVALUE(closure, B(pseudo));
+          }
+
+          closure2->upvalues[i] = upvalue;
+        }
+
+        SETREG(func, A(code), lv_function(closure2));
         break;
+      }
 
       default:
         printf("Unimplemented opcode: ");
