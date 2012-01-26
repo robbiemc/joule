@@ -43,8 +43,8 @@ static u32 vm_fun(lfunc_t *func, u32 argc, luav *argv, u32 retc, luav *retv) {
   lfunc_t *func2;
 
   luav stack[func->max_stack];
-  for (i = 0; i < (u32) argc; i++) {
-    stack[i] = argv[i];
+  for (i = 0; i < func->max_stack; i++) {
+    stack[i] = i < argc ? argv[i] : LUAV_NIL;
   }
 
   while (1) {
