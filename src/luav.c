@@ -71,7 +71,7 @@ luav lv_string(size_t idx) {
  * @param fun the function to embed in a luav
  * @return the lua value representing the function
  */
-luav lv_function(lfunc_t *fun) {
+luav lv_function(lclosure_t *fun) {
   return LUAV_SETDATA(LUAV_NAN_MASK | LFUNCTION, (u64) fun);
 }
 
@@ -82,13 +82,10 @@ luav lv_function(lfunc_t *fun) {
  * can be shared across all functions which can access it, and any can return
  * without destroying the variable. Also, modifications are visible to everyone.
  *
- * @param value the value to get a pointer to
+ * @param value the pointer to the actual lua value
  * @return the lua value representing the function
  */
-luav lv_upvalue(luav value) {
-  /* TODO: don't malloc here, find a better way */
-  luav *ptr = xmalloc(sizeof(luav));
-  *ptr = value;
+luav lv_upvalue(luav *ptr) {
   return LUAV_SETDATA(LUAV_NAN_MASK | LUPVALUE, (u64) ptr);
 }
 
@@ -102,7 +99,6 @@ luav lv_upvalue(luav value) {
  * @return the floating-point representation of the specified value.
  */
 double lv_getnumber(luav value) {
-  FOLLOW_UPVALUE(value);
   double cvt = lv_cvt(value);
   /* We're a number if we're infinite, not NaN, or the one machine NaN */
   assert(isinf(cvt) || (value & LUAV_NAN_MASK) != LUAV_NAN_MASK ||
@@ -120,7 +116,6 @@ double lv_getnumber(luav value) {
  * @return the pointer to the table struct
  */
 lhash_t* lv_gettable(luav value) {
-  FOLLOW_UPVALUE(value);
   assert((value & LUAV_TYPE_MASK) == LTABLE);
   return (lhash_t*) LUAV_DATA(value);
 }
@@ -135,7 +130,6 @@ lhash_t* lv_gettable(luav value) {
  * @return the pointer to the table struct
  */
 u8 lv_getbool(luav value) {
-  FOLLOW_UPVALUE(value);
   assert((value & LUAV_TYPE_MASK) == LBOOLEAN);
   return (u8) LUAV_DATA(value);
 }
@@ -150,7 +144,6 @@ u8 lv_getbool(luav value) {
  * @return the pointer to the data
  */
 void* lv_getuserdata(luav value) {
-  FOLLOW_UPVALUE(value);
   assert((value & LUAV_TYPE_MASK) == LUSERDATA);
   return (void*) LUAV_DATA(value);
 }
@@ -164,10 +157,9 @@ void* lv_getuserdata(luav value) {
  * @param value the lua value which is a function
  * @return the pointer to the function
  */
-lfunc_t* lv_getfunction(luav value) {
-  FOLLOW_UPVALUE(value);
+lclosure_t* lv_getfunction(luav value) {
   assert((value & LUAV_TYPE_MASK) == LFUNCTION);
-  return (lfunc_t*) LUAV_DATA(value);
+  return (lclosure_t*) LUAV_DATA(value);
 }
 
 /**
@@ -180,7 +172,6 @@ lfunc_t* lv_getfunction(luav value) {
  * @return the index of the string
  */
 lstr_idx lv_getstring(luav value) {
-  FOLLOW_UPVALUE(value);
   assert((value & LUAV_TYPE_MASK) == LSTRING);
   return LUAV_DATA(value);
 }
@@ -192,10 +183,10 @@ lstr_idx lv_getstring(luav value) {
  * value is not an upvalue
  *
  * @param value the lua value which is an upvalue
- * @return the luav the upvalue stands for
+ * @return the pointer to the luav the upvalue stands for
  */
-luav lv_getupvalue(luav value) {
-  return follow_upvalue(value);
+luav* lv_getupvalue(luav value) {
+  return (luav*) LUAV_DATA(value);
 }
 
 /**

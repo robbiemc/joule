@@ -47,7 +47,7 @@ typedef u64 luav;
 
 #include "lstring.h"
 
-struct lfunc;
+struct lclosure;
 struct lhash;
 
 /* Must fit in 3 bits, 0-7 */
@@ -74,37 +74,26 @@ struct lhash;
 #define LUAV_ISNUM(bits) \
     ((bits) & LUAV_NAN_MASK != LUAV_NAN_MASK || (bits) ==)
 
-#define FOLLOW_UPVALUE(v)                        \
-    if ((v & LUAV_NAN_MASK) == LUAV_NAN_MASK &&  \
-        (v & LUAV_TYPE_MASK) == LUPVALUE) {      \
-      v = follow_upvalue(v);                     \
-    }
-
 /* TODO: thread */
 luav lv_number(double v);
 luav lv_table(struct lhash *hash);
 luav lv_bool(u8 v);
 luav lv_userdata(void *data);
 luav lv_string(lstr_idx idx);
-luav lv_function(struct lfunc *fun);
-luav lv_upvalue(luav value);
+luav lv_function(struct lclosure *fun);
+luav lv_upvalue(luav *ptr);
 
 /* TODO: getthread */
-double        lv_getnumber(luav value);
-struct lhash* lv_gettable(luav value);
-u8            lv_getbool(luav value);
-void*         lv_getuserdata(luav value);
-size_t        lv_getstring(luav value);
-struct lfunc *lv_getfunction(luav value);
-luav          lv_getupvalue(luav value);
+double           lv_getnumber(luav value);
+struct lhash*    lv_gettable(luav value);
+u8               lv_getbool(luav value);
+void*            lv_getuserdata(luav value);
+size_t           lv_getstring(luav value);
+struct lclosure* lv_getfunction(luav value);
+luav*            lv_getupvalue(luav value);
 
-u8 lv_gettype(luav value);
+u8  lv_gettype(luav value);
 u32 lv_hash(luav value);
-
-static inline luav follow_upvalue(luav value) {
-  assert((value & LUAV_TYPE_MASK) == LUPVALUE);
-  return *(luav*) LUAV_DATA(value);
-}
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;
