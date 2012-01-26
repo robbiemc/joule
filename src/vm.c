@@ -3,7 +3,6 @@
 
 #include "debug.h"
 #include "lhash.h"
-#include "lstring.h"
 #include "luav.h"
 #include "opcode.h"
 #include "vm.h"
@@ -33,27 +32,18 @@
     (closure)->upvalues[n];                                \
   })
 
-lhash_t globals;
-lhash_t io;
+lhash_t lua_globals;
 
-static u32 io_print(u32 argc, luav *argv, u32 retc, luav *retv);
 static u32 vm_fun(lclosure_t *c, u32 argc, luav *argv, u32 retc, luav *retv);
 static void op_close(u32 upc, luav *upv);
 
-LUA_FUNCTION(io_print);
-
-static void vm_setup() {
-  lhash_init(&globals);
-  lhash_init(&io);
-
-  lhash_set(&globals, LSTR("io"), lv_table(&io));
-  lhash_set(&globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
-  lhash_set(&io, LSTR("write"), lv_function(&io_print_f));
+EARLY(102) static void vm_setup() {
+  lhash_init(&lua_globals);
+  lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
 }
 
 void vm_run(lfunc_t *func) {
-  vm_setup();
-  lclosure_t closure = {.function.lua = func};
+  lclosure_t closure = {.function.lua = func, .type = LUAF_LUA};
   assert(func->num_upvalues == 0);
   vm_fun(&closure, 0, NULL, 0, NULL);
 }
@@ -73,17 +63,18 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   while (1) {
     assert(pc < func->num_instrs);
     u32 code = func->instrs[pc++];
+
     switch (OP(code)) {
       case OP_GETGLOBAL:
         temp = CONST(func, PAYLOAD(code));
         assert(lv_gettype(temp) == LSTRING);
-        SETREG(func, A(code), lhash_get(&globals, temp));
+        SETREG(func, A(code), lhash_get(&lua_globals, temp));
         break;
 
       case OP_SETGLOBAL:
         temp = CONST(func, PAYLOAD(code));
         assert(lv_gettype(temp) == LSTRING);
-        lhash_set(&globals, temp, REG(func, A(code)));
+        lhash_set(&lua_globals, temp, REG(func, A(code)));
         break;
 
       case OP_GETTABLE:
@@ -118,16 +109,44 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         u32 num_args = b == 0 ? func->max_stack - a + 1 : b - 1;
         c = C(code);
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
-        assert(c != 0 && "If this trips, write some real code");
         u32 got;
-        if (func2->type == LUAF_C) {
-          got = func2->function.c(num_args, &stack[a + 1], want_ret, &stack[a]);
-        } else {
-          got = vm_fun(func2, num_args, &stack[a + 1], want_ret, &stack[a]);
+
+        switch (func2->type) {
+          case LUAF_LUA:
+            got = vm_fun(func2, num_args, &stack[a + 1], want_ret, &stack[a]);
+            break;
+          case LUAF_C_VARARG:
+            got = func2->function.vararg(num_args, &stack[a + 1],
+                                         want_ret, &stack[a]);
+            break;
+          case LUAF_C_1ARG:
+            got = 1;
+            temp = func2->function.onearg(num_args > 0 ? stack[a + 1]
+                                                       : LUAV_NIL);
+            if (want_ret > 0) {
+              stack[a] = temp;
+            }
+            break;
+          case LUAF_C_2ARG:
+            got = 1;
+            temp = func2->function.twoarg(
+                              num_args > 0 ? stack[a + 1] : LUAV_NIL,
+                              num_args > 1 ? stack[a + 2] : LUAV_NIL);
+            if (want_ret > 0) {
+              stack[a] = temp;
+            }
+            break;
+
+          default:
+            printf("Bad function type: %d\n", func2->type);
+            abort();
         }
+
         /* Fill in all the nils */
-        for (i = got; i < c - 1; i++) {
-          stack[i] = LUAV_NIL;
+        if (c != 0) {
+          for (i = got; i < c - 1; i++) {
+            SETREG(func, i, LUAV_NIL);
+          }
         }
         break;
       }
@@ -212,14 +231,4 @@ static void op_close(u32 upc, luav *upv) {
       }
     }
   }
-}
-
-static u32 io_print(u32 argc, luav *argv, u32 retc, luav *retv) {
-  while (argc-- > 0) {
-    dbg_dump_luav(stdout, *argv++);
-  }
-  if (retc > 0) {
-    *retv = lv_bool(1);
-  }
-  return !!retc;
 }

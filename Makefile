@@ -14,7 +14,8 @@ else
 CFLAGS += -O0
 endif
 
-OBJS := opcode.o util.o luav.o parse.o vm.o lhash.o lstring.o debug.o
+OBJS := opcode.o util.o luav.o parse.o vm.o lhash.o lstring.o debug.o \
+				lib/utils.o lib/io.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
