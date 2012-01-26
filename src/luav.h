@@ -10,13 +10,13 @@
  * NaN is when e = 0x7ff and f != 0.
  * Must avoid hardware NaN, however, which is e = 0x7ff, f = 0x8000000000000.
  *
- * Basically, we have 51 free bits in a double (possibly 52 if the sign bit is
+ * Basically, we have 52 free bits in a double (possibly 53 if the sign bit is
  * used).
  *
- * Of these 51 bits, the definitions are as follows
+ * Of these 52 bits, the definitions are as follows
  *
- * bits[50:3] - 48 bits to hold a value, defined below
- * bits[ 2:0] - type information
+ * bits[47: 0] - 48 bits to hold a value, defined below
+ * bits[51:48] - type information
  *
  * LSTRING, LTABLE - 48 bits are for the pointer to the data. It turns out that
  *                   although we have a 64-bit address space possibly, only 48
@@ -50,29 +50,34 @@ typedef u64 luav;
 struct lclosure;
 struct lhash;
 
-/* Must fit in 3 bits, 0-7 */
-#define LSTRING   0
-#define LUPVALUE  1
-#define LTABLE    2
-#define LBOOLEAN  3
-#define LNIL      4
-#define LFUNCTION 5
-#define LTHREAD   6
-#define LUSERDATA 7
-#define LNUMBER   8 /* not actually in the bits, encoded as not NaN */
+/*
+ * Must fit in 4 bits - 0 and 8 are special
+ *
+ * 0 could be interpreted as infinity, so it can't be used as a type value
+ * 8 could be the actual NaN, so we need this to be the type Number type
+ *
+ * nil is defined as 15 (1111b), so its value in a luav is 0xFFFF0000...,
+ * which can be checked quickly
+ */
+#define LBOOLEAN  1
+#define LSTRING   2
+#define LTABLE    3
+#define LFUNCTION 4
+#define LTHREAD   5
+#define LUSERDATA 6
+#define LUPVALUE  7
+#define LNUMBER   8
+#define LNIL      15
 
 /* Macros for dealing with u64 bits for luav */
-#define LUAV_NAN_MASK  0x7ff0000000000000ULL
-#define LUAV_NIL (LUAV_NAN_MASK | LNIL)
-#define LUAV_TYPE_BITS 3
-#define LUAV_TYPE_MASK ((1 << LUAV_TYPE_BITS) - 1)
-#define LUAV_DATA_MASK 0x0000ffffffffffffULL
+#define LUAV_DATA_SIZE 48
+#define LUAV_NAN_MASK  0xfff0000000000000LL
+#define LUAV_NIL (LUAV_NAN_MASK | ((u64)LNIL << LUAV_DATA_SIZE))
+#define LUAV_DATA_MASK (((u64)1 << LUAV_DATA_SIZE) - 1)
 
-#define LUAV_DATA(bits) (((bits) >> LUAV_TYPE_BITS) & LUAV_DATA_MASK)
-#define LUAV_SETDATA(bits, data) \
-  ((((data) & LUAV_DATA_MASK) << LUAV_TYPE_BITS) | (bits))
-#define LUAV_ISNUM(bits) \
-    ((bits) & LUAV_NAN_MASK != LUAV_NAN_MASK || (bits) ==)
+#define LUAV_DATA(bits) ((bits) & LUAV_DATA_MASK)
+#define LUAV_PACK(typ, data) \
+  ((LUAV_NAN_MASK | ((u64)(typ) << 48)) | ((u64)(data) & LUAV_DATA_MASK))
 
 typedef struct upvalue {
   u32 refcnt;
