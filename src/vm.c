@@ -8,11 +8,17 @@
 #include "opcode.h"
 #include "vm.h"
 
+#define CONST(f, n) ({ assert((n) < (f)->num_consts); (f)->consts[n]; })
+#define REG(f, n) ({ assert((n) < (f)->max_stack); stack[n]; })
+#define SETREG(f, n, v) ({ assert((n) < (f)->max_stack); stack[n] = v; })
+/* TODO: extract out 256 */
+#define KREG(func, n) ((n) >= 256 ? CONST(func, (n) - 256) : REG(func, n))
+
 lhash_t globals;
 lhash_t io;
 
 static u32 io_print(u32 argc, luav *argv, u32 retc, luav *retv);
-static u32 vm_fun(lfunc_t *fun, u32 argc, luav *argv, u32 retc, luav *retv);
+static u32 vm_fun(lfunc_t *func, u32 argc, luav *argv, u32 retc, luav *retv);
 
 LUA_FUNCTION(io_print);
 
@@ -25,83 +31,65 @@ static void vm_setup() {
   lhash_set(&io, LSTR("write"), lv_function(&io_print_f));
 }
 
-void vm_run(lfunc_t *fun) {
+void vm_run(lfunc_t *func) {
   vm_setup();
-  vm_fun(fun, 0, NULL, 0, NULL);
+  vm_fun(func, 0, NULL, 0, NULL);
 }
 
-static u32 vm_fun(lfunc_t *fun, u32 argc, luav *argv, u32 retc, luav *retv) {
+static u32 vm_fun(lfunc_t *func, u32 argc, luav *argv, u32 retc, luav *retv) {
   u32 pc = 0;
   u32 i, a, b, c, bx, limit;
-  luav temp, temp2;
-  lfunc_t *fun2;
+  luav temp;
+  lfunc_t *func2;
 
-  luav stack[fun->max_stack];
+  luav stack[func->max_stack];
   for (i = 0; i < (u32) argc; i++) {
     stack[i] = argv[i];
   }
 
   while (1) {
-    assert(pc < fun->num_instrs);
-    u32 code = fun->instrs[pc++];
+    assert(pc < func->num_instrs);
+    u32 code = func->instrs[pc++];
     switch (OP(code)) {
       case OP_GETGLOBAL:
-        bx = PAYLOAD(code);
-        assert(bx < fun->num_consts);
-        temp = fun->consts[bx];
+        temp = CONST(func, PAYLOAD(code));
         assert(lv_gettype(temp) == LSTRING);
-        temp = lhash_get(&globals, temp);
-        assert(A(code) < fun->max_stack);
-        stack[A(code)] = temp;
+        SETREG(func, A(code), lhash_get(&globals, temp));
         break;
 
       case OP_SETGLOBAL:
-        bx = PAYLOAD(code);
-        assert(bx < fun->num_consts);
-        temp = fun->consts[bx];
+        temp = CONST(func, PAYLOAD(code));
         assert(lv_gettype(temp) == LSTRING);
-        assert(A(code) < fun->max_stack);
-        lhash_set(&globals, temp, stack[A(code)]);
+        lhash_set(&globals, temp, REG(func, A(code)));
         break;
 
       case OP_GETTABLE:
-        c = C(code);
-        if (c >= 256) {
-          /* TODO: extract out 256 */
-          assert((c - 256) < fun->max_stack);
-          temp = fun->consts[c - 256];
-        } else {
-          assert(c < fun->max_stack);
-          temp = stack[c];
-        }
-        assert(B(code) < fun->max_stack);
-        temp2 = stack[B(code)];
-        temp = lhash_get(lv_gettable(temp2), temp);
-        assert(A(code) < fun->max_stack);
-        stack[A(code)] = temp;
+        temp = KREG(func, C(code));
+        temp = lhash_get(lv_gettable(REG(func, B(code))), temp);
+        SETREG(func, A(code), temp);
+        break;
+
+      case OP_SETTABLE:
+        lhash_set(lv_gettable(REG(func, A(code))),
+                  KREG(func, B(code)), KREG(func, C(code)));
         break;
 
       case OP_LOADK:
-        bx = PAYLOAD(code);
-        assert(bx < fun->num_consts);
-        assert(A(code) < fun->max_stack);
-        stack[A(code)] = fun->consts[bx];
+        SETREG(func, A(code), CONST(func, PAYLOAD(code)));
         break;
 
       case OP_CALL: {
-        a = A(code);
-        assert(a < fun->max_stack);
-        fun2 = lv_getfunction(stack[a]);
+        func2 = lv_getfunction(REG(func, A(code)));
         b = B(code);
-        u32 num_args = b == 0 ? fun->max_stack - a + 1 : b - 1;
+        u32 num_args = b == 0 ? func->max_stack - a + 1 : b - 1;
         c = C(code);
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
         assert(c != 0 && "If this trips, write some real code");
         u32 got;
-        if (fun2->cfunc) {
-          got = fun2->cfunc(num_args, &stack[a + 1], want_ret, &stack[a]);
+        if (func2->cfunc) {
+          got = func2->cfunc(num_args, &stack[a + 1], want_ret, &stack[a]);
         } else {
-          got = vm_fun(fun2, num_args, &stack[a + 1],
+          got = vm_fun(func2, num_args, &stack[a + 1],
                                  want_ret, &stack[a]);
         }
         /* Fill in all the nils */
@@ -115,12 +103,12 @@ static u32 vm_fun(lfunc_t *fun, u32 argc, luav *argv, u32 retc, luav *retv) {
         a = A(code);
         b = B(code);
         if (b == 0) {
-          limit = fun->max_stack - a;
+          limit = func->max_stack - a;
         } else {
           limit = b - 1;
         }
         for (i = 0; i < limit && i < retc; i++) {
-          assert(a + i < fun->max_stack);
+          assert(a + i < func->max_stack);
           retv[i] = stack[a + i];
         }
         return i;
@@ -128,11 +116,10 @@ static u32 vm_fun(lfunc_t *fun, u32 argc, luav *argv, u32 retc, luav *retv) {
       case OP_CLOSURE:
         a = A(code);
         bx = PAYLOAD(code);
-        assert(bx < fun->num_funcs);
-        temp = lv_function(&fun->funcs[bx]);
-        assert(a < fun->max_stack);
-        stack[a] = temp;
-        assert(fun->funcs[bx].num_upvalues == 0);
+        assert(bx < func->num_funcs);
+        func2 = &func->funcs[bx];
+        SETREG(func, A(code), lv_function(func2));
+        assert(func2->num_upvalues == 0);
         break;
 
       default:
