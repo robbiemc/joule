@@ -38,6 +38,7 @@ lhash_t io;
 
 static u32 io_print(u32 argc, luav *argv, u32 retc, luav *retv);
 static u32 vm_fun(lclosure_t *c, u32 argc, luav *argv, u32 retc, luav *retv);
+static void op_close(u32 upc, luav *upv);
 
 LUA_FUNCTION(io_print);
 
@@ -143,6 +144,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
           assert(a + i < func->max_stack);
           retv[i] = stack[a + i];
         }
+        op_close(func->max_stack, stack);
         return i;
 
       case OP_CLOSURE: {
@@ -187,10 +189,27 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         break;
       }
 
+      case OP_CLOSE:
+        op_close(func->max_stack - A(code), &stack[A(code)]);
+        break;
+
       default:
         printf("Unimplemented opcode: ");
         opcode_dump(stdout, code);
         abort();
+    }
+  }
+}
+
+static void op_close(u32 upc, luav *upv) {
+  u32 i;
+  for (i = 0; i < upc; i++) {
+    if (lv_gettype(upv[i]) == LUPVALUE) {
+      upvalue_t *upvalue = lv_getupvalue(upv[i]);
+      if (--upvalue->refcnt == 0) {
+        upv[i] = upvalue->value;
+        free(upvalue);
+      }
     }
   }
 }
