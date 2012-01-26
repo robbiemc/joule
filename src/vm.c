@@ -78,6 +78,12 @@ static u32 vm_fun(lfunc_t *func, u32 argc, luav *argv, u32 retc, luav *retv) {
         SETREG(func, A(code), CONST(func, PAYLOAD(code)));
         break;
 
+      case OP_LOADNIL:
+        for (i = A(code); i <= B(code); i++) {
+          SETREG(func, i, LUAV_NIL);
+        }
+        break;
+
       case OP_CALL: {
         func2 = lv_getfunction(REG(func, A(code)));
         b = B(code);
