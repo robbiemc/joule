@@ -12,13 +12,14 @@
 #define REG(f, n)                                                             \
   ({                                                                          \
     assert((n) < (f)->max_stack);                                             \
-    lv_gettype(stack[n]) == LUPVALUE ? *lv_getupvalue(stack[n]) : stack[n];   \
+    luav _tmp = stack[n];                                                     \
+    lv_gettype(_tmp) == LUPVALUE ? lv_getupvalue(_tmp)->value : _tmp;         \
   })
 #define SETREG(f, n, v)                \
   ({                                   \
     assert((n) < (f)->max_stack);      \
     if (lv_gettype(v) == LUPVALUE) {   \
-      *lv_getupvalue(v) = v;           \
+      lv_getupvalue(v)->value = v;     \
     } else {                           \
       stack[n] = v;                    \
     }                                  \
@@ -167,16 +168,18 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
               /* If the stack register is not an upvalue, we need to promote it
                  to an upvalue, thereby scribbling over our stack variable so
                  it's now considered an upvalue */
-              luav *ptr = xmalloc(sizeof(luav)); /* TODO: better way?!? */
-              *ptr = temp;
+              upvalue_t *ptr = xmalloc(sizeof(upvalue_t));
+              ptr->refcnt = 1; /* one for us, one for them added later */
+              ptr->value = temp;
               upvalue = lv_upvalue(ptr);
               stack[B(pseudo)] = upvalue;
             }
           } else {
-            /* Not much to do here... */
             upvalue = UPVALUE(closure, B(pseudo));
           }
 
+          /* The allocated closure needs a reference to the upvalue */
+          lv_getupvalue(upvalue)->refcnt++;
           closure2->upvalues[i] = upvalue;
         }
 

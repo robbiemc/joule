@@ -74,6 +74,11 @@ struct lhash;
 #define LUAV_ISNUM(bits) \
     ((bits) & LUAV_NAN_MASK != LUAV_NAN_MASK || (bits) ==)
 
+typedef struct upvalue {
+  u32 refcnt;
+  luav value;
+} upvalue_t;
+
 /* TODO: thread */
 luav lv_number(double v);
 luav lv_table(struct lhash *hash);
@@ -81,7 +86,7 @@ luav lv_bool(u8 v);
 luav lv_userdata(void *data);
 luav lv_string(lstr_idx idx);
 luav lv_function(struct lclosure *fun);
-luav lv_upvalue(luav *ptr);
+luav lv_upvalue(upvalue_t *ptr);
 
 /* TODO: getthread */
 double           lv_getnumber(luav value);
@@ -90,7 +95,7 @@ u8               lv_getbool(luav value);
 void*            lv_getuserdata(luav value);
 size_t           lv_getstring(luav value);
 struct lclosure* lv_getfunction(luav value);
-luav*            lv_getupvalue(luav value);
+upvalue_t*       lv_getupvalue(luav value);
 
 u8  lv_gettype(luav value);
 u32 lv_hash(luav value);

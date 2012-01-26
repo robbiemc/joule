@@ -85,7 +85,7 @@ luav lv_function(lclosure_t *fun) {
  * @param value the pointer to the actual lua value
  * @return the lua value representing the function
  */
-luav lv_upvalue(luav *ptr) {
+luav lv_upvalue(upvalue_t *ptr) {
   return LUAV_SETDATA(LUAV_NAN_MASK | LUPVALUE, (u64) ptr);
 }
 
@@ -185,8 +185,8 @@ lstr_idx lv_getstring(luav value) {
  * @param value the lua value which is an upvalue
  * @return the pointer to the luav the upvalue stands for
  */
-luav* lv_getupvalue(luav value) {
-  return (luav*) LUAV_DATA(value);
+upvalue_t* lv_getupvalue(luav value) {
+  return (upvalue_t*) LUAV_DATA(value);
 }
 
 /**
