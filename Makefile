@@ -1,6 +1,7 @@
 LUAC     = luac
 CC       = gcc
-CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g
+CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g \
+					 -Wno-unused-parameter
 OBJDIR   = objs
 SRCDIR   = src
 TESTDIR  = tests
@@ -18,7 +19,7 @@ OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
 				 printf readonly sieve sort table trace-calls trace-globals xd \
-				 bool func smallfun
+				 bool func smallfun multipart closure
 TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 
 CTESTS := hash types parse string
