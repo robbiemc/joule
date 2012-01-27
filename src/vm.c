@@ -60,7 +60,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   lfunc_t *func = closure->function.lua;
   u32 pc = 0;
   u32 i, a, b, c, bx, limit;
-  u32 last_ret;
+  u32 last_ret = 0;
   luav temp, bv, cv;
   double step, d1, d2;
   size_t len;
@@ -280,7 +280,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_ADD:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
           panic("Invalid argument types to +\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) + lv_getnumber(cv)));
@@ -289,7 +289,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_SUB:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
           panic("Invalid argument types to -\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) - lv_getnumber(cv)));
@@ -298,7 +298,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_MUL:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
           panic("Invalid argument types to *\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) * lv_getnumber(cv)));
@@ -307,7 +307,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_DIV:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
           panic("Invalid argument types to /\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) / lv_getnumber(cv)));
@@ -316,7 +316,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_MOD:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
           panic("Invalid argument types to %%\n");
         }
         SETREG(func, A(code), lv_number(fmod(lv_getnumber(bv), lv_getnumber(cv))));
@@ -325,7 +325,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_POW:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
           panic("Invalid argument types to ^\n");
         }
         SETREG(func, A(code), lv_number(pow(lv_getnumber(bv), lv_getnumber(cv))));
@@ -333,7 +333,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
 
       case OP_UNM:
         bv = REG(func, B(code));
-        if (lv_gettype(b) != LNUMBER) {
+        if (lv_gettype(bv) != LNUMBER) {
           panic("Invliad type for unary -\n");
         }
         SETREG(func, A(code), lv_number(-lv_getnumber(bv)));
