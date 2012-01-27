@@ -402,6 +402,21 @@ top:
         SETREG(func, A(code), lv_string(lstr_add(str, len+1, TRUE)));
         break;
 
+      case OP_SETLIST: {
+        b = B(code);
+        a = A(code);
+        c = C(code);
+        if (c == 0) {
+          c = func->instrs[pc++];
+        }
+        lhash_t *hash = lv_gettable(REG(func, a));
+        for (i = 0; i < b; i++) {
+          lhash_set(hash, lv_number((c - 1) * LFIELDS_PER_FLUSH + i),
+                          REG(func, a + i));
+        }
+        break;
+      }
+
       default:
         fprintf(stderr, "Unimplemented opcode: ");
         opcode_dump(stderr, code);
