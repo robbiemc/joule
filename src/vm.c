@@ -223,6 +223,22 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         pc += UNBIAS(PAYLOAD(code));
         break;
 
+      case OP_EQ:
+        if ((KREG(func, B(code)) == KREG(func, C(code))) != REG(func, A(code))){
+          pc++;
+        }
+        break;
+      case OP_LT:
+        if ((KREG(func, B(code)) < KREG(func, C(code))) != REG(func, A(code))) {
+          pc++;
+        }
+        break;
+      case OP_LE:
+        if ((KREG(func, B(code)) <= KREG(func, C(code))) != REG(func, A(code))){
+          pc++;
+        }
+        break;
+
       default:
         printf("Unimplemented opcode: ");
         opcode_dump(stdout, code);
