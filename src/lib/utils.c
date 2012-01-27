@@ -17,9 +17,11 @@ static luav str_function;
 static luav str_userdata;
 static luav lua_type(luav v);
 static luav lua_tostring(luav v);
+static u32  lua_print(u32 argc, luav *argv, u32 retc, luav *retv);
 
 static LUAF_1ARG(lua_type);
 static LUAF_1ARG(lua_tostring);
+static LUAF_VARARG(lua_print);
 
 INIT static void lua_utils_init() {
   str_number   = LSTR("number");
@@ -30,8 +32,9 @@ INIT static void lua_utils_init() {
   str_function = LSTR("function");
   str_userdata = LSTR("userdata");
 
-  lhash_set(&lua_globals, LSTR("type"), lv_function(&lua_type_f));
+  lhash_set(&lua_globals, LSTR("type"),     lv_function(&lua_type_f));
   lhash_set(&lua_globals, LSTR("tostring"), lv_function(&lua_tostring_f));
+  lhash_set(&lua_globals, LSTR("print"),    lv_function(&lua_print_f));
 }
 
 static luav lua_type(luav v) {
@@ -71,4 +74,17 @@ static luav lua_tostring(luav v) {
   }
 
   return lv_string(lstr_add(strbuf, strlen(strbuf), TRUE));
+}
+
+static u32 lua_print(u32 argc, luav *argv, u32 retc, luav *retv) {
+  while (argc-- > 0) {
+    luav arg = lua_tostring(*argv++);
+    lstring_t *str = lstr_get(lv_getstring(arg));
+    printf("%.*s", (int) str->length, str->ptr);
+    if (argc > 0) {
+      printf("\t"); /* TODO: is this right?! */
+    }
+  }
+  printf("\n");
+  return 0;
 }
