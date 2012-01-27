@@ -223,7 +223,6 @@ u8 lv_gettype(luav value) {
  * @param v2 the second value
  * @return <0 if v1 < v2, 0 if v1 == v2, >0 if v1 > v2
  */
-#include "debug.h"
 int lv_compare(luav v1, luav v2) {
   if (v1 == v2) { return 0; }
 
