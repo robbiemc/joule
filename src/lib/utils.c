@@ -6,6 +6,7 @@
 #include "config.h"
 #include "lhash.h"
 #include "luav.h"
+#include "panic.h"
 #include "vm.h"
 
 static luav str_number;
@@ -48,8 +49,7 @@ static luav lua_type(luav v) {
     case LUSERDATA: return str_userdata;
   }
 
-  printf("Unknown luav: 0x%016" PRIu64, v);
-  abort();
+  panic("Unknown luav: 0x%016" PRIu64, v);
 }
 
 static luav lua_tostring(luav v) {
@@ -81,8 +81,7 @@ static luav lua_tostring(luav v) {
     }
 
     default:
-      printf("Unknown luav: 0x%016" PRIu64, v);
-      abort();
+      panic("Unknown luav: 0x%016" PRIu64, v);
   }
 
   return lv_string(lstr_add(strbuf, (size_t) len, TRUE));

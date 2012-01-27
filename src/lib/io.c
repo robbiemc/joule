@@ -1,6 +1,7 @@
 #include "debug.h"
 #include "lhash.h"
 #include "lstring.h"
+#include "panic.h"
 #include "vm.h"
 
 static lhash_t lua_io;
@@ -34,8 +35,7 @@ static u32 lua_io_write(u32 argc, luav *argv, u32 retc, luav *retv) {
         break;
 
       default:
-        printf("Bad type in io.write");
-        abort();
+        panic("Bad type in io.write");
     }
   }
 

@@ -6,6 +6,7 @@
 #include "lhash.h"
 #include "luav.h"
 #include "opcode.h"
+#include "panic.h"
 #include "vm.h"
 
 #define CONST(f, n) ({ assert((n) < (f)->num_consts); (f)->consts[n]; })
@@ -154,8 +155,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
             break;
 
           default:
-            printf("Bad function type: %d\n", func2->type);
-            abort();
+            panic("Bad function type: %d\n", func2->type);
         }
 
         /* Fill in all the nils */
@@ -277,8 +277,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         b = B(code);
         c = C(code);
         if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
-          printf("Invalid argument types to +\n");
-          abort();
+          panic("Invalid argument types to +\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(b) + lv_getnumber(c)));
         break;
@@ -287,8 +286,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         b = B(code);
         c = C(code);
         if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
-          printf("Invalid argument types to -\n");
-          abort();
+          panic("Invalid argument types to -\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(b) - lv_getnumber(c)));
         break;
@@ -297,8 +295,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         b = B(code);
         c = C(code);
         if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
-          printf("Invalid argument types to *\n");
-          abort();
+          panic("Invalid argument types to *\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(b) * lv_getnumber(c)));
         break;
@@ -307,8 +304,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         b = B(code);
         c = C(code);
         if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
-          printf("Invalid argument types to /\n");
-          abort();
+          panic("Invalid argument types to /\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(b) / lv_getnumber(c)));
         break;
@@ -317,8 +313,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         b = B(code);
         c = C(code);
         if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
-          printf("Invalid argument types to %%\n");
-          abort();
+          panic("Invalid argument types to %%\n");
         }
         SETREG(func, A(code), lv_number(fmod(lv_getnumber(b), lv_getnumber(c))));
         break;
@@ -327,8 +322,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         b = B(code);
         c = C(code);
         if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
-          printf("Invalid argument types to ^\n");
-          abort();
+          panic("Invalid argument types to ^\n");
         }
         SETREG(func, A(code), lv_number(pow(lv_getnumber(b), lv_getnumber(c))));
         break;
@@ -336,8 +330,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_UNM:
         b = B(code);
         if (lv_gettype(b) != LNUMBER) {
-          printf("Invliad type for unary -\n");
-          abort();
+          panic("Invliad type for unary -\n");
         }
         SETREG(func, A(code), lv_number(-lv_getnumber(b)));
         break;
@@ -345,8 +338,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_NOT:
         b = B(code);
         if (lv_gettype(b) != LBOOLEAN) {
-          printf("Invliad type for 'not'\n");
-          abort();
+          panic("Invliad type for 'not'\n");
         }
         SETREG(func, A(code), b ^ 1);
         break;
