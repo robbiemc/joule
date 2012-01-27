@@ -34,6 +34,11 @@ INIT static void lstr_init() {
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
 }
 
+DESTROY static void lstr_destroy() {
+  free(str_table);
+  free(smap.table);
+}
+
 lstr_idx lstr_add(char *str, size_t size, int freeable) {
   // lookup the string in the hashset (see if it's already stored)
   lstr_idx index = smap_lookup(str, size);

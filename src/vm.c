@@ -42,6 +42,10 @@ INIT static void vm_setup() {
   lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
 }
 
+DESTROY static void vm_destroy() {
+  lhash_free(&lua_globals);
+}
+
 void vm_run(lfunc_t *func) {
   lclosure_t closure = {.function.lua = func, .type = LUAF_LUA};
   assert(func->num_upvalues == 0);
@@ -53,6 +57,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   lfunc_t *func = closure->function.lua;
   u32 pc = 0;
   u32 i, a, b, c, bx, limit;
+  u32 last_ret;
   luav temp;
 
   luav stack[func->max_stack];
@@ -88,6 +93,16 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
                   KREG(func, B(code)), KREG(func, C(code)));
         break;
 
+      case OP_GETUPVAL:
+        temp = UPVALUE(closure, B(code));
+        SETREG(func, A(code), lv_getupvalue(temp)->value);
+        break;
+
+      case OP_SETUPVAL:
+        temp = UPVALUE(closure, B(code));
+        lv_getupvalue(temp)->value = REG(func, A(code));
+        break;
+
       case OP_LOADK:
         SETREG(func, A(code), CONST(func, PAYLOAD(code)));
         break;
@@ -106,7 +121,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         a = A(code);
         lclosure_t *func2 = lv_getfunction(REG(func, a));
         b = B(code);
-        u32 num_args = b == 0 ? func->max_stack - a + 1 : b - 1;
+        u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
         c = C(code);
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
         u32 got;
@@ -148,6 +163,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
             SETREG(func, i, LUAV_NIL);
           }
         }
+
+        last_ret = a + got;
         break;
       }
 
@@ -210,6 +227,41 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
 
       case OP_CLOSE:
         op_close(func->max_stack - A(code), &stack[A(code)]);
+        break;
+
+      case OP_JMP:
+        pc += UNBIAS(PAYLOAD(code));
+        break;
+
+      case OP_EQ:
+        if ((KREG(func, B(code)) == KREG(func, C(code))) != A(code)) {
+          pc++;
+        }
+        break;
+      case OP_LT:
+        if ((KREG(func, B(code)) < KREG(func, C(code))) != A(code)) {
+          pc++;
+        }
+        break;
+      case OP_LE:
+        if ((KREG(func, B(code)) <= KREG(func, C(code))) != A(code)) {
+          pc++;
+        }
+        break;
+
+      case OP_TEST:
+        temp = REG(func, A(code));
+        if (lv_getbool(LUAV_BOOL(temp)) != C(code)) {
+          pc++;
+        }
+        break;
+      case OP_TESTSET:
+        temp = REG(func, B(code));
+        if (lv_getbool(LUAV_BOOL(temp)) != C(code)) {
+          SETREG(func, A(code), REG(func, B(code)));
+        } else {
+          pc++;
+        }
         break;
 
       default:
