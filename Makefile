@@ -26,7 +26,7 @@ TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
 TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 
 # Eventually this should be $(TESTS), but we're still a work in progress...
-LUATESTS := closure
+LUATESTS := closure multipart
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
 
 CTESTS := hash types parse string
@@ -51,6 +51,7 @@ ctest: ctests
 ltest: joule ltests
 	@for test in $(LUATESTS); do \
 		echo $$test.luac; \
+		lua $$test.lua > $$test.out; \
 		./joule $$test.luac > $$test.log; \
 		diff $$test.log $$test.out; \
 	done

@@ -1,8 +1,9 @@
 *.swp
 *.swo
-*.luac
 objs
 joule
 coverage
 gmon.out
-*.log
+tests/*.log
+tests/*.luac
+tests/*.out
