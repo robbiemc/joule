@@ -62,6 +62,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   u32 i, a, b, c, bx, limit;
   u32 last_ret;
   luav temp, bv, cv;
+  double step, d1, d2;
   size_t len;
   lhash_t *ht;
 
@@ -367,6 +368,35 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         ht = xmalloc(sizeof(lhash_t));
         lhash_init(ht);
         SETREG(func, A(code), lv_table(ht));
+        break;
+
+      case OP_FORPREP:
+        a = A(code);
+        if (lv_gettype(REG(func,  a )) != LNUMBER ||
+            lv_gettype(REG(func, a+1)) != LNUMBER ||
+            lv_gettype(REG(func, a+2)) != LNUMBER) {
+          panic("Invalid types for for loop\n");
+        }
+        SETREG(func, a, lv_number(lv_getnumber(REG(func, a)) -
+                                  lv_getnumber(REG(func, a+2))));
+        pc += UNBIAS(PAYLOAD(code));
+        break;
+
+      case OP_FORLOOP:
+        a = A(code);
+        step = lv_getnumber(REG(func, a+2));
+        if (lv_gettype(REG(func,  a )) != LNUMBER ||
+            lv_gettype(REG(func, a+1)) != LNUMBER ||
+            lv_gettype(REG(func, a+2)) != LNUMBER) {
+          panic("Invalid types for for loop\n");
+        }
+        SETREG(func, a, lv_number(lv_getnumber(REG(func, a)) + step));
+        d1 = lv_getnumber(REG(func, a));
+        d2 = lv_getnumber(REG(func, a+1));
+        if ((step > 0 && d1 <= d2) || (step < 0 && d1 >= d2)) {
+          SETREG(func, a+3, REG(func, a));
+          pc += UNBIAS(PAYLOAD(code));
+        }
         break;
 
       default:
