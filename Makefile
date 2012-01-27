@@ -20,7 +20,8 @@ OBJS := lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
-LUATESTS := bool closure multipart bool2 math length forint concat
+LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
+ 						length
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
 
 CTESTS := hash types parse string

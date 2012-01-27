@@ -3,7 +3,7 @@ function f(a)
 end
 
 function g()
-  return f(10)
+  return f(f(10))
 end
 
 print(g())

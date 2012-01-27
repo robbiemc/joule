@@ -70,6 +70,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   lstring_t *lstr;
 
   luav stack[func->max_stack];
+
+top:
   for (i = 0; i < func->max_stack; i++) {
     stack[i] = i < argc ? argv[i] : LUAV_NIL;
   }
@@ -190,6 +192,18 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         }
         op_close(func->max_stack, stack);
         return i;
+
+      case OP_TAILCALL:
+        a = A(code);
+        b = B(code);
+        closure = lv_getfunction(REG(func, a));
+        assert(closure->type == LUAF_LUA);
+        func = closure->function.lua;
+        assert(C(code) == 0);
+        pc = 0;
+        argc = (b == 0 ? last_ret : a + b) - a - 1;
+        argv = &stack[a + 1];
+        goto top;
 
       case OP_CLOSURE: {
         bx = PAYLOAD(code);
