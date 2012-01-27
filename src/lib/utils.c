@@ -21,7 +21,7 @@ static luav lua_tostring(luav v);
 static LUAF_1ARG(lua_type);
 static LUAF_1ARG(lua_tostring);
 
-INIT static void init_utils() {
+INIT static void lua_utils_init() {
   str_number   = LSTR("number");
   str_nil      = LSTR("nil");
   str_boolean  = LSTR("boolean");

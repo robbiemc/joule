@@ -42,6 +42,10 @@ INIT static void vm_setup() {
   lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
 }
 
+DESTROY static void vm_destroy() {
+  lhash_free(&lua_globals);
+}
+
 void vm_run(lfunc_t *func) {
   lclosure_t closure = {.function.lua = func, .type = LUAF_LUA};
   assert(func->num_upvalues == 0);
