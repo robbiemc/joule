@@ -33,6 +33,7 @@
     assert((n) < (closure)->function.lua->num_upvalues);   \
     (closure)->upvalues[n];                                \
   })
+#define DECODEFP8(v) (((u32)8 | ((v)&7)) << (((u32)(v)>>3) - 1))
 
 lhash_t lua_globals;
 
@@ -61,6 +62,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   u32 i, a, b, c, bx, limit;
   u32 last_ret;
   luav temp, bv, cv;
+  size_t len;
+  lhash_t *ht;
 
   luav stack[func->max_stack];
   for (i = 0; i < func->max_stack; i++) {
@@ -341,6 +344,29 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
           panic("Invliad type for 'not'\n");
         }
         SETREG(func, A(code), bv ^ 1);
+        break;
+
+      case OP_LEN:
+        bv = REG(func, B(code));
+        switch (lv_gettype(bv)) {
+          case LSTRING:
+            len = lstr_get(lv_getstring(bv))->length - 1;
+            SETREG(func, A(code), lv_number((double) len));
+            break;
+          case LTABLE:
+            SETREG(func, A(code), lv_number((double) lv_gettable(bv)->size));
+            break;
+          default:
+            panic("Invalid type for len\n");
+        }
+        break;
+
+      case OP_NEWTABLE:
+        // TODO - We can't currently create a table of a certain size, so we
+        //        ignore the size hints. Eventually we should use them.
+        ht = xmalloc(sizeof(lhash_t));
+        lhash_init(ht);
+        SETREG(func, A(code), lv_table(ht));
         break;
 
       default:

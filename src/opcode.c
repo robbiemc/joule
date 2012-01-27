@@ -102,7 +102,7 @@ void opcode_dump(FILE *out, uint32_t code) {
     case OP_CLOSE:
       fprintf(out, "CLOSE     %d", A(code)); break;
     case OP_CLOSURE:
-      fprintf(out, "CLOSURE   %d %d", A(code), PAYLOAD(code)); break;
+      fprintf(out, "CLOSURE   R%d = F%d", A(code), PAYLOAD(code)); break;
     case OP_VARARG:
       fprintf(out, "VARARG    %d %d", A(code), B(code)); break;
 
