@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <math.h>
+#include <string.h>
 
 #include "debug.h"
 #include "lhash.h"
@@ -65,6 +66,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   double step, d1, d2;
   size_t len;
   lhash_t *ht;
+  char *str, *pos;
+  lstring_t *lstr;
 
   luav stack[func->max_stack];
   for (i = 0; i < func->max_stack; i++) {
@@ -397,6 +400,27 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
           SETREG(func, a+3, REG(func, a));
           pc += UNBIAS(PAYLOAD(code));
         }
+        break;
+
+      case OP_CONCAT:
+        len = 0;
+        c = C(code);
+        for (i = B(code); i <= c; i++) {
+          bv = REG(func, i);
+          if (lv_gettype(bv) != LSTRING) {
+            panic("Arguments to concatenate must be strings\n");
+          }
+          len += lstr_get(lv_getstring(bv))->length-1;
+        }
+        str = xmalloc(len + 1);
+        pos = str;
+        for (i = B(code); i <= c; i++) {
+          lstr = lstr_get(lv_getstring(REG(func, i)));
+          memcpy(pos, lstr->ptr, lstr->length-1);
+          pos += lstr->length-1;
+        }
+        str[len] = '\0';
+        SETREG(func, A(code), lv_string(lstr_add(str, len+1, TRUE)));
         break;
 
       default:
