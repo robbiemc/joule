@@ -1,4 +1,3 @@
-LUAC     = luac
 CC       = gcc
 CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g \
 					 -Wno-unused-parameter
@@ -20,10 +19,9 @@ OBJS := lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
 				lib/utils.o lib/io.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
-TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
-				 printf readonly sieve sort table trace-calls trace-globals xd \
-				 bool func smallfun multipart closure simplewrite bool2
-TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
+# Eventually this should be all tests, but it's a work in progres...
+LUATESTS := closure multipart bool2
+LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
 
 CTESTS := hash types parse string
 CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
@@ -33,20 +31,31 @@ all: joule
 joule: $(OBJS) $(OBJDIR)/main.o
 	$(CC) $(CFLAGS) -o joule $^ -lm
 
-# Run all of the C-tests (compiled) for now, eventually run lua tests
-test: ctests
-	@for test in $(CTESTS); do \
-		echo $$test;\
-		$$test > $$test.log || exit 1;     \
-	done
-	@echo -- All tests passed --
-
-# Targets for building all tests
-ltests: $(TESTS:.lua=.luac)
+test: ctest ltest
 ctests: $(CTESTS)
 
+# Run all compiled tests (C tests)
+ctest: ctests
+	@for test in $(CTESTS); do \
+		echo $$test; \
+		$$test > $$test.log || exit 1; \
+	done
+	@echo -- All C tests passed --
+
+# Run all lua tests
+ltest: joule
+	@mkdir -p $(OBJDIR)/tests
+	@for test in $(LUATESTS); do \
+		echo $$test.lua; \
+		luac -o $(OBJDIR)/$$test.luac $$test.lua; \
+		lua $$test.lua > $(OBJDIR)/$$test.out; \
+		./joule $(OBJDIR)/$$test.luac > $(OBJDIR)/$$test.log; \
+		diff -u $(OBJDIR)/$$test.out $(OBJDIR)/$$test.log; \
+	done
+	@echo -- All lua tests passed --
+
 coverage: CFLAGS += --coverage
-coverage: clean ctests test
+coverage: clean test
 	mkdir -p coverage
 	lcov --directory $(OBJDIR) --capture --output-file coverage/app.info -b .
 	genhtml --output-directory coverage coverage/app.info
@@ -56,9 +65,6 @@ profile: CFLAGS += -pg
 profile: clean joule ctests
 
 # Generic targets
-%.luac: %.lua
-	$(LUAC) -o $@ $<
-
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -78,4 +84,4 @@ ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
 endif
 
 clean:
-	rm -rf $(TESTDIR)/*.luac $(OBJDIR) joule coverage
+	rm -rf $(OBJDIR) joule coverage

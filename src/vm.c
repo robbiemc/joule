@@ -15,14 +15,14 @@
     luav _tmp = stack[n];                                                     \
     lv_gettype(_tmp) == LUPVALUE ? lv_getupvalue(_tmp)->value : _tmp;         \
   })
-#define SETREG(f, n, v)                \
-  ({                                   \
-    assert((n) < (f)->max_stack);      \
-    if (lv_gettype(v) == LUPVALUE) {   \
-      lv_getupvalue(v)->value = v;     \
-    } else {                           \
-      stack[n] = v;                    \
-    }                                  \
+#define SETREG(f, n, v)                       \
+  ({                                          \
+    assert((n) < (f)->max_stack);             \
+    if (lv_gettype(stack[n]) == LUPVALUE) {   \
+      lv_getupvalue(stack[n])->value = v;     \
+    } else {                                  \
+      stack[n] = v;                           \
+    }                                         \
   })
 
 /* TODO: extract out 256 */
@@ -267,7 +267,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         break;
 
       case OP_LOADBOOL:
-        SETREG(func, A(code), !!B(code));
+        SETREG(func, A(code), lv_bool((u8) B(code)));
         if (C(code)) {
           pc++;
         }

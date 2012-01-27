@@ -1,7 +1,7 @@
 function ternary(c, x, y)
   if c then
     return x
-  else 
+  else
     return y
   end
 end

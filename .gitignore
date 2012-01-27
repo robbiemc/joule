@@ -1,6 +1,5 @@
 *.swp
 *.swo
-*.luac
 objs
 joule
 coverage
