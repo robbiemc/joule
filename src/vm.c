@@ -276,9 +276,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_ADD:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          printf("Invalid argument types to +\n");
-          abort();
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          panic("Invalid argument types to +\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) + lv_getnumber(cv)));
         break;
@@ -286,9 +285,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_SUB:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          printf("Invalid argument types to -\n");
-          abort();
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          panic("Invalid argument types to -\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) - lv_getnumber(cv)));
         break;
@@ -296,9 +294,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_MUL:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          printf("Invalid argument types to *\n");
-          abort();
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          panic("Invalid argument types to *\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) * lv_getnumber(cv)));
         break;
@@ -306,9 +303,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_DIV:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          printf("Invalid argument types to /\n");
-          abort();
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          panic("Invalid argument types to /\n");
         }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) / lv_getnumber(cv)));
         break;
@@ -316,9 +312,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_MOD:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          printf("Invalid argument types to %%\n");
-          abort();
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          panic("Invalid argument types to %%\n");
         }
         SETREG(func, A(code), lv_number(fmod(lv_getnumber(bv), lv_getnumber(cv))));
         break;
@@ -326,34 +321,31 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_POW:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          printf("Invalid argument types to ^\n");
-          abort();
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          panic("Invalid argument types to ^\n");
         }
         SETREG(func, A(code), lv_number(pow(lv_getnumber(bv), lv_getnumber(cv))));
         break;
 
       case OP_UNM:
         bv = REG(func, B(code));
-        if (lv_gettype(bv) != LNUMBER) {
-          printf("Invliad type for unary -\n");
-          abort();
+        if (lv_gettype(b) != LNUMBER) {
+          panic("Invliad type for unary -\n");
         }
         SETREG(func, A(code), lv_number(-lv_getnumber(bv)));
         break;
 
       case OP_NOT:
-        b = REG(func, B(code));
+        bv = REG(func, B(code));
         if (lv_gettype(bv) != LBOOLEAN) {
-          printf("Invliad type for 'not'\n");
-          abort();
+          panic("Invliad type for 'not'\n");
         }
         SETREG(func, A(code), bv ^ 1);
         break;
 
       default:
-        printf("Unimplemented opcode: ");
-        opcode_dump(stdout, code);
+        fprintf(stderr, "Unimplemented opcode: ");
+        opcode_dump(stderr, code);
         abort();
     }
   }
