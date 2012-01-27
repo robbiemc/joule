@@ -54,27 +54,38 @@ static luav lua_type(luav v) {
 
 static luav lua_tostring(luav v) {
   /* TODO: if v has a metatable, call __tostring method */
-  /* TODO: predict size better? */
-  char *strbuf = xmalloc(100);
+  char *strbuf = xmalloc(LUAV_INIT_STRING);
+  int len;
 
   switch (lv_gettype(v)) {
-    case LNIL:      sprintf(strbuf, "nil");                               break;
-    case LBOOLEAN:  sprintf(strbuf, lv_getbool(v) ? "true" : "false");    break;
-    case LSTRING:   return v;
-    case LTABLE:    sprintf(strbuf, "table: %p", lv_gettable(v));         break;
-    case LFUNCTION: sprintf(strbuf, "function: %p", lv_getfunction(v));   break;
-    case LUSERDATA: sprintf(strbuf, "userdata: %p", lv_getuserdata(v));   break;
-
-    case LNUMBER:
-      snprintf(strbuf, sizeof(strbuf), "%.10g", lv_getnumber(v));
+    case LNIL:
+      len = sprintf(strbuf, "nil");
       break;
+    case LSTRING:
+      return v;
+    case LTABLE:
+      len = sprintf(strbuf, "table: %p", lv_gettable(v));
+      break;
+    case LFUNCTION:
+      len = sprintf(strbuf, "function: %p", lv_getfunction(v));
+      break;
+    case LUSERDATA:
+      len = sprintf(strbuf, "userdata: %p", lv_getuserdata(v));
+      break;
+    case LBOOLEAN:
+      len = sprintf(strbuf, lv_getbool(v) ? "true" : "false");
+      break;
+    case LNUMBER: {
+      len = snprintf(strbuf, LUAV_INIT_STRING, LUA_NUMBER_FMT, lv_getnumber(v));
+      break;
+    }
 
     default:
       printf("Unknown luav: 0x%016" PRIu64, v);
       abort();
   }
 
-  return lv_string(lstr_add(strbuf, strlen(strbuf), TRUE));
+  return lv_string(lstr_add(strbuf, (size_t) len, TRUE));
 }
 
 static u32 lua_print(u32 argc, luav *argv, u32 retc, luav *retv) {

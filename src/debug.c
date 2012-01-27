@@ -63,7 +63,7 @@ static void dbg_dump_func(FILE *out, lfunc_t *func, int level) {
 
 void dbg_dump_luav(FILE *out, luav value) {
   switch (lv_gettype(value)) {
-    case LNUMBER:   pr("%f", lv_getnumber(value));                  return;
+    case LNUMBER:   pr(LUA_NUMBER_FMT, lv_getnumber(value));        return;
     case LTABLE:    pr("Table: %p", lv_gettable(value));            return;
     case LBOOLEAN:  pr("%s", lv_getbool(value) ? "true" : "false"); return;
     case LNIL:      pr("nil");                                      return;
