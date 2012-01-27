@@ -93,6 +93,16 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
                   KREG(func, B(code)), KREG(func, C(code)));
         break;
 
+      case OP_GETUPVAL:
+        temp = UPVALUE(closure, B(code));
+        SETREG(func, A(code), lv_getupvalue(temp)->value);
+        break;
+
+      case OP_SETUPVAL:
+        temp = UPVALUE(closure, B(code));
+        lv_getupvalue(temp)->value = REG(func, A(code));
+        break;
+
       case OP_LOADK:
         SETREG(func, A(code), CONST(func, PAYLOAD(code)));
         break;
