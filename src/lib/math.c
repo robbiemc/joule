@@ -1,5 +1,5 @@
+#include <math.h>
 #include <stdlib.h>
-#include <limits.h>
 
 #include "lhash.h"
 #include "vm.h"
@@ -19,7 +19,7 @@ DESTROY static void lua_math_destroy() {
 }
 
 static luav lua_math_random(u32 argc, luav *argv) {
-  double num = ((double) random()) / ((double) LONG_MAX);
+  double num = ((double) rand()) / ((double) RAND_MAX);
   double upper;
   double lower;
 
@@ -27,11 +27,16 @@ static luav lua_math_random(u32 argc, luav *argv) {
     case 0:
       return lv_number(num);
     case 1:
-      return lv_number(num * (lv_getnumber(argv[0]) - 1) + 1);
+      num = num * (lv_getnumber(argv[0]) - 1) + 1;
+      break;
 
     default:
       upper = lv_getnumber(argv[1]);
       lower = lv_getnumber(argv[0]);
-      return lv_number(num * (upper - lower) + lower);
+      num = num * (upper - lower) + lower;
+      break;
   }
+
+  modf(num, &num);
+  return lv_number(num);
 }

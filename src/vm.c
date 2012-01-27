@@ -262,16 +262,20 @@ top:
           pc++;
         }
         break;
-      case OP_LT:
-        if ((KREG(func, B(code)) < KREG(func, C(code))) != A(code)) {
+      case OP_LT: {
+        int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
+        if ((cmp < 0) != A(code)) {
           pc++;
         }
         break;
-      case OP_LE:
-        if ((KREG(func, B(code)) <= KREG(func, C(code))) != A(code)) {
+      }
+      case OP_LE: {
+        int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
+        if ((cmp <= 0) != A(code)) {
           pc++;
         }
         break;
+      }
 
       case OP_TEST:
         temp = REG(func, A(code));

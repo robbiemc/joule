@@ -7,6 +7,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 #include "config.h"
 #include "lhash.h"
@@ -100,9 +101,8 @@ luav lv_upvalue(upvalue_t *ptr) {
  * @return the floating-point representation of the specified value.
  */
 double lv_getnumber(luav value) {
-  double cvt = lv_cvt(value);
   assert(lv_gettype(value) == LNUMBER);
-  return cvt;
+  return lv_cvt(value);
 }
 
 /**
@@ -214,4 +214,40 @@ u8 lv_gettype(luav value) {
   if ((msw & 0xfff0) != 0xfff0)
     return LNUMBER;
   return msw & 0xf;
+}
+
+/**
+ * @brief Compare two lua values
+ *
+ * @param v1 the first value
+ * @param v2 the second value
+ * @return <0 if v1 < v2, 0 if v1 == v2, >0 if v1 > v2
+ */
+#include "debug.h"
+int lv_compare(luav v1, luav v2) {
+  if (v1 == v2) { return 0; }
+
+  u8 type = lv_gettype(v1);
+  assert(type == lv_gettype(v2));
+
+  if (type == LNUMBER) {
+    double d1 = lv_number(v1);
+    double d2 = lv_number(v2);
+    if (d1 < d2) {
+      return -1;
+    } else if (d1 > d2) {
+      return 1;
+    }
+    return 0;
+  }
+
+  /* getstring will panic if these aren't strings */
+  lstring_t *s1 = lstr_get(lv_getstring(v1));
+  lstring_t *s2 = lstr_get(lv_getstring(v2));
+  if (s1->length < s2->length) {
+    return -1;
+  } else if (s1->length > s2->length) {
+    return 1;
+  }
+  return memcmp(s1->ptr, s2->ptr, s1->length);
 }

@@ -110,6 +110,7 @@ upvalue_t*       lv_getupvalue(luav value);
 
 u8  lv_gettype(luav value);
 u32 lv_hash(luav value);
+int lv_compare(luav v1, luav v2);
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;
