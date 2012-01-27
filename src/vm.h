@@ -10,6 +10,7 @@ struct lhash;
 extern struct lhash lua_globals;
 
 typedef u32 cvarret_t(u32, luav*, u32, luav*);
+typedef luav cnoarg_t(void);
 typedef luav conearg_t(luav);
 typedef luav ctwoarg_t(luav, luav);
 typedef luav cvararg_t(u32, luav*);
@@ -41,6 +42,7 @@ typedef struct lclosure {
   union {
     lfunc_t *lua;
     cvararg_t *vararg;
+    cnoarg_t *noarg;
     conearg_t *onearg;
     ctwoarg_t *twoarg;
     cvarret_t *varret;
@@ -49,15 +51,17 @@ typedef struct lclosure {
 } lclosure_t;
 
 #define LUAF_C_VARARG 0
-#define LUAF_C_1ARG   1
-#define LUAF_C_2ARG   2
-#define LUAF_C_VARRET 3
-#define LUAF_LUA      4
+#define LUAF_C_0ARG   1
+#define LUAF_C_1ARG   2
+#define LUAF_C_2ARG   3
+#define LUAF_C_VARRET 4
+#define LUAF_LUA      5
 #define CLOSURE_SIZE(num_upvalues) \
   (sizeof(lclosure_t) + (num_upvalues) * sizeof(luav))
 
 #define LUAF_CLOSURE(typ, fun, field) \
   lclosure_t fun ## _f = {.type = typ, .function.field = fun}
+#define LUAF_0ARG(name) LUAF_CLOSURE(LUAF_C_0ARG, name, noarg)
 #define LUAF_1ARG(name) LUAF_CLOSURE(LUAF_C_1ARG, name, onearg)
 #define LUAF_2ARG(name) LUAF_CLOSURE(LUAF_C_2ARG, name, twoarg)
 #define LUAF_VARARG(name) LUAF_CLOSURE(LUAF_C_VARARG, name, vararg)

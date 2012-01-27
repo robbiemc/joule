@@ -140,6 +140,13 @@ top:
             got = func2->function.varret(num_args, &stack[a + 1],
                                          want_ret, &stack[a]);
             break;
+          case LUAF_C_0ARG:
+            got = 1;
+            temp = func2->function.noarg();
+            if (want_ret > 0) {
+              stack[a] = temp;
+            }
+            break;
           case LUAF_C_1ARG:
             got = 1;
             temp = func2->function.onearg(num_args > 0 ? stack[a + 1]

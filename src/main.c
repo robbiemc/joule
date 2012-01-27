@@ -5,9 +5,23 @@
 #include <unistd.h>
 
 #include "debug.h"
+#include "lhash.h"
 #include "lstring.h"
 #include "parse.h"
 #include "vm.h"
+
+static lhash_t lua_arg;
+
+static void register_argv(int argc, char **argv) {
+  int i;
+  lhash_init(&lua_arg);
+  lhash_set(&lua_globals, LSTR("arg"), lv_table(&lua_arg));
+
+  for (i = 0; i < argc; i++) {
+    lstr_idx idx = lstr_add(argv[i], strlen(argv[i]) + 1, FALSE);
+    lhash_set(&lua_arg, lv_number(i - 1), lv_string(idx));
+  }
+}
 
 int main(int argc, char **argv) {
   luac_file_t file;
@@ -25,6 +39,7 @@ int main(int argc, char **argv) {
     }
   }
 
+  register_argv(argc, argv);
   vm_run(&file.func);
 
   luac_close(&file);
