@@ -79,10 +79,10 @@ void opcode_dump(FILE *out, uint32_t code) {
       fprintf(out, "LE        if (%s %s %s) PC++", RK(B(code)), A(code)?">":"<=",
                                                    RK2(C(code))); break;
     case OP_TEST:
-      fprintf(out, "TEST      if (R%d == %s) PC++", A(code), C(code)?"true":"false"); break;
+      fprintf(out, "TEST      if (R%d == %s) PC++", A(code), !C(code)?"true":"false"); break;
     case OP_TESTSET:
       fprintf(out, "TESTSET   if (R%d == %s) PC++ else R%d = R%d", A(code),
-                                            C(code)?"true":"false", A(code), B(code)); break;
+                                            !C(code)?"true":"false", A(code), B(code)); break;
     case OP_CALL:
       fprintf(out, "CALL      R%d, ..., R%d = R%d(R%d, ..., R%d)", A(code), A(code)+C(code)-2,
                                             A(code), A(code)+1, A(code)+B(code)-1); break;

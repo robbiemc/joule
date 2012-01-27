@@ -72,12 +72,18 @@ struct lhash;
 /* Macros for dealing with u64 bits for luav */
 #define LUAV_DATA_SIZE 48
 #define LUAV_NAN_MASK  0xfff0000000000000LL
-#define LUAV_NIL (LUAV_NAN_MASK | ((u64)LNIL << LUAV_DATA_SIZE))
+#define LUAV_NIL    (LUAV_NAN_MASK | ((u64) LNIL << LUAV_DATA_SIZE))
+#define LUAV_TRUE   (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 1)
+#define LUAV_FALSE  (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 0)
 #define LUAV_DATA_MASK (((u64)1 << LUAV_DATA_SIZE) - 1)
 
 #define LUAV_DATA(bits) ((bits) & LUAV_DATA_MASK)
 #define LUAV_PACK(typ, data) \
   ((LUAV_NAN_MASK | ((u64)(typ) << 48)) | ((u64)(data) & LUAV_DATA_MASK))
+
+/* Coerce any luav into a boolean (only nil, false go to false) */
+#define LUAV_BOOL(value) \
+  ((value) == LUAV_NIL || (value) == LUAV_FALSE ? LUAV_FALSE : LUAV_TRUE)
 
 typedef struct upvalue {
   u32 refcnt;

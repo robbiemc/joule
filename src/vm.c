@@ -224,17 +224,32 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         break;
 
       case OP_EQ:
-        if ((KREG(func, B(code)) == KREG(func, C(code))) != REG(func, A(code))){
+        if ((KREG(func, B(code)) == KREG(func, C(code))) != A(code)) {
           pc++;
         }
         break;
       case OP_LT:
-        if ((KREG(func, B(code)) < KREG(func, C(code))) != REG(func, A(code))) {
+        if ((KREG(func, B(code)) < KREG(func, C(code))) != A(code)) {
           pc++;
         }
         break;
       case OP_LE:
-        if ((KREG(func, B(code)) <= KREG(func, C(code))) != REG(func, A(code))){
+        if ((KREG(func, B(code)) <= KREG(func, C(code))) != A(code)) {
+          pc++;
+        }
+        break;
+
+      case OP_TEST:
+        temp = REG(func, A(code));
+        if (lv_getbool(LUAV_BOOL(temp)) != C(code)) {
+          pc++;
+        }
+        break;
+      case OP_TESTSET:
+        temp = REG(func, B(code));
+        if (lv_getbool(LUAV_BOOL(temp)) != C(code)) {
+          SETREG(func, A(code), REG(func, B(code)));
+        } else {
           pc++;
         }
         break;
