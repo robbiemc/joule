@@ -63,11 +63,6 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   u32 i, a, b, c, bx, limit;
   u32 last_ret = 0;
   luav temp, bv, cv;
-  double step, d1, d2;
-  size_t len;
-  lhash_t *ht;
-  char *str, *pos;
-  lstring_t *lstr;
 
   luav stack[func->max_stack];
 
@@ -288,7 +283,7 @@ top:
       case OP_TESTSET:
         temp = REG(func, B(code));
         if (lv_getbool(LUAV_BOOL(temp)) != C(code)) {
-          SETREG(func, A(code), REG(func, B(code)));
+          SETREG(func, A(code), temp);
         } else {
           pc++;
         }
@@ -352,10 +347,11 @@ top:
       case OP_LEN:
         bv = REG(func, B(code));
         switch (lv_gettype(bv)) {
-          case LSTRING:
-            len = lstr_get(lv_getstring(bv))->length - 1;
+          case LSTRING: {
+            size_t len = lstr_get(lv_getstring(bv))->length - 1;
             SETREG(func, A(code), lv_number((double) len));
             break;
+          }
           case LTABLE:
             SETREG(func, A(code), lv_number((double) lv_gettable(bv)->length));
             break;
@@ -364,13 +360,14 @@ top:
         }
         break;
 
-      case OP_NEWTABLE:
+      case OP_NEWTABLE: {
         // TODO - We can't currently create a table of a certain size, so we
         //        ignore the size hints. Eventually we should use them.
-        ht = xmalloc(sizeof(lhash_t));
+        lhash_t *ht = xmalloc(sizeof(lhash_t));
         lhash_init(ht);
         SETREG(func, A(code), lv_table(ht));
         break;
+      }
 
       case OP_FORPREP:
         a = A(code);
@@ -379,35 +376,37 @@ top:
         pc += UNBIAS(PAYLOAD(code));
         break;
 
-      case OP_FORLOOP:
+      case OP_FORLOOP: {
         a = A(code);
-        step = lv_getnumber(REG(func, a+2));
+        double step = lv_getnumber(REG(func, a+2));
         SETREG(func, a, lv_number(lv_getnumber(REG(func, a)) + step));
-        d1 = lv_getnumber(REG(func, a));
-        d2 = lv_getnumber(REG(func, a + 1));
+        double d1 = lv_getnumber(REG(func, a));
+        double d2 = lv_getnumber(REG(func, a + 1));
         if ((step > 0 && d1 <= d2) || (step < 0 && d1 >= d2)) {
           SETREG(func, a + 3, REG(func, a));
           pc += UNBIAS(PAYLOAD(code));
         }
         break;
+      }
 
-      case OP_CONCAT:
-        len = 0;
+      case OP_CONCAT: {
+        size_t len = 0;
         c = C(code);
         for (i = B(code); i <= c; i++) {
           bv = REG(func, i);
           len += lstr_get(lv_getstring(bv))->length-1;
         }
-        str = xmalloc(len + 1);
-        pos = str;
+        char *str = xmalloc(len + 1);
+        char *pos = str;
         for (i = B(code); i <= c; i++) {
-          lstr = lstr_get(lv_getstring(REG(func, i)));
+          lstring_t *lstr = lstr_get(lv_getstring(REG(func, i)));
           memcpy(pos, lstr->ptr, lstr->length-1);
           pos += lstr->length-1;
         }
         str[len] = '\0';
         SETREG(func, A(code), lv_string(lstr_add(str, len+1, TRUE)));
         break;
+      }
 
       case OP_SETLIST: {
         b = B(code);
@@ -417,7 +416,7 @@ top:
           c = func->instrs[pc++];
         }
         lhash_t *hash = lv_gettable(REG(func, a));
-        for (i = 0; i < b; i++) {
+        for (i = 1; i <= b; i++) {
           lhash_set(hash, lv_number((c - 1) * LFIELDS_PER_FLUSH + i),
                           REG(func, a + i));
         }
