@@ -1,4 +1,3 @@
-LUAC     = luac
 CC       = gcc
 CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g \
 					 -Wno-unused-parameter
@@ -38,6 +37,7 @@ joule: $(OBJS) $(OBJDIR)/main.o
 	$(CC) $(CFLAGS) -o joule $^
 
 test: ctest ltest
+ctests: $(CTESTS)
 
 # Run all compiled tests (C tests)
 ctest: ctests
@@ -48,21 +48,19 @@ ctest: ctests
 	@echo -- All C tests passed --
 
 # Run all lua tests
-ltest: joule ltests
+ltest: joule
+	@mkdir -p $(OBJDIR)/tests
 	@for test in $(LUATESTS); do \
-		echo $$test.luac; \
-		lua $$test.lua > $$test.out; \
-		./joule $$test.luac > $$test.log; \
-		diff $$test.log $$test.out; \
+		echo $$test.lua; \
+		luac -o $(OBJDIR)/$$test.luac $$test.lua; \
+		lua $$test.lua > $(OBJDIR)/$$test.out; \
+		./joule $(OBJDIR)/$$test.luac > $(OBJDIR)/$$test.log; \
+		diff $(OBJDIR)/$$test.log $(OBJDIR)/$$test.out; \
 	done
 	@echo -- All lua tests passed --
 
-# Targets for building all tests
-ltests: $(TESTS:.lua=.luac)
-ctests: $(CTESTS)
-
 coverage: CFLAGS += --coverage
-coverage: clean ctests test
+coverage: clean test
 	mkdir -p coverage
 	lcov --directory $(OBJDIR) --capture --output-file coverage/app.info -b .
 	genhtml --output-directory coverage coverage/app.info
@@ -72,9 +70,6 @@ profile: CFLAGS += -pg
 profile: clean joule ctests
 
 # Generic targets
-%.luac: %.lua
-	$(LUAC) -o $@ $<
-
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -94,4 +89,4 @@ ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
 endif
 
 clean:
-	rm -rf $(TESTDIR)/*.luac $(OBJDIR) joule coverage
+	rm -rf $(OBJDIR) joule coverage

@@ -4,6 +4,3 @@ objs
 joule
 coverage
 gmon.out
-tests/*.log
-tests/*.luac
-tests/*.out
