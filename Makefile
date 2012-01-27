@@ -50,7 +50,7 @@ ltest: joule
 		luac -o $(OBJDIR)/$$test.luac $$test.lua; \
 		lua $$test.lua > $(OBJDIR)/$$test.out; \
 		./joule $(OBJDIR)/$$test.luac > $(OBJDIR)/$$test.log; \
-		diff $(OBJDIR)/$$test.log $(OBJDIR)/$$test.out; \
+		diff -u $(OBJDIR)/$$test.out $(OBJDIR)/$$test.log; \
 	done
 	@echo -- All lua tests passed --
 

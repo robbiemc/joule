@@ -54,6 +54,7 @@ static luav lua_type(luav v) {
 
 static luav lua_tostring(luav v) {
   /* TODO: if v has a metatable, call __tostring method */
+  /* TODO: predict size better? */
   char *strbuf = xmalloc(100);
 
   switch (lv_gettype(v)) {
