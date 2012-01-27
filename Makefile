@@ -25,6 +25,10 @@ TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
 				 bool func smallfun multipart closure simplewrite
 TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
 
+# Eventually this should be $(TESTS), but we're still a work in progress...
+LUATESTS := closure
+LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
+
 CTESTS := hash types parse string
 CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
 
@@ -33,13 +37,24 @@ all: joule
 joule: $(OBJS) $(OBJDIR)/main.o
 	$(CC) $(CFLAGS) -o joule $^
 
-# Run all of the C-tests (compiled) for now, eventually run lua tests
-test: ctests
+test: ctest ltest
+
+# Run all compiled tests (C tests)
+ctest: ctests
 	@for test in $(CTESTS); do \
-		echo $$test;\
-		$$test > $$test.log || exit 1;     \
+		echo $$test; \
+		$$test > $$test.log || exit 1; \
 	done
-	@echo -- All tests passed --
+	@echo -- All C tests passed --
+
+# Run all lua tests
+ltest: joule ltests
+	@for test in $(LUATESTS); do \
+		echo $$test.luac; \
+		./joule $$test.luac > $$test.log; \
+		diff $$test.log $$test.out; \
+	done
+	@echo -- All lua tests passed --
 
 # Targets for building all tests
 ltests: $(TESTS:.lua=.luac)

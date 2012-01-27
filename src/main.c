@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "debug.h"
@@ -16,8 +17,13 @@ int main(int argc, char **argv) {
   luac_parse_fd(&file, fd);
   close(fd);
 
-  // TODO - do stuff with the file
-  dbg_dump_function(stdout, &(file.func));
+  int i;
+  for (i = 0; i < argc; i++) {
+    if (strcmp(argv[i], "-v") == 0) {
+      dbg_dump_function(stdout, &(file.func));
+      break;
+    }
+  }
 
   vm_run(&file.func);
 
