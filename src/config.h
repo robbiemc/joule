@@ -20,4 +20,6 @@ typedef int64_t   i64;
 #define INIT       __attribute__((constructor))
 #define DESTROY    __attribute__((destructor))
 
+#define LUAV_INIT_STRING 100
+
 #endif /* _CONFIG_H_ */
