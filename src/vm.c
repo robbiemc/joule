@@ -266,7 +266,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         break;
 
       case OP_LOADBOOL:
-        SETREG(func, A(code), !!B(code));
+        SETREG(func, A(code), lv_bool((u8) B(code)));
         if (C(code)) {
           pc++;
         }
