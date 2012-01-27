@@ -255,11 +255,19 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
           pc++;
         }
         break;
+
       case OP_TESTSET:
         temp = REG(func, B(code));
         if (lv_getbool(LUAV_BOOL(temp)) != C(code)) {
           SETREG(func, A(code), REG(func, B(code)));
         } else {
+          pc++;
+        }
+        break;
+
+      case OP_LOADBOOL:
+        SETREG(func, A(code), !!B(code));
+        if (C(code)) {
           pc++;
         }
         break;
