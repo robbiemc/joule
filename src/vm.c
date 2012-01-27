@@ -6,6 +6,7 @@
 #include "lhash.h"
 #include "luav.h"
 #include "opcode.h"
+#include "panic.h"
 #include "vm.h"
 
 #define CONST(f, n) ({ assert((n) < (f)->num_consts); (f)->consts[n]; })
@@ -154,8 +155,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
             break;
 
           default:
-            printf("Bad function type: %d\n", func2->type);
-            abort();
+            panic("Bad function type: %d\n", func2->type);
         }
 
         /* Fill in all the nils */
