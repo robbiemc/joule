@@ -219,6 +219,10 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         op_close(func->max_stack - A(code), &stack[A(code)]);
         break;
 
+      case OP_JMP:
+        pc += UNBIAS(PAYLOAD(code));
+        break;
+
       default:
         printf("Unimplemented opcode: ");
         opcode_dump(stdout, code);
