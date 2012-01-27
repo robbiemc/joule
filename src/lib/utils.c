@@ -76,17 +76,7 @@ static luav lua_tostring(luav v) {
       len = sprintf(strbuf, lv_getbool(v) ? "true" : "false");
       break;
     case LNUMBER: {
-      len = snprintf(strbuf, LUAV_INIT_STRING, "%.13lf", lv_getnumber(v));
-      char *ptr = &strbuf[len - 1];
-      while (*ptr == '0') {
-        *ptr = '\0';
-        len--;
-        ptr--;
-      }
-      if (*ptr == '.') {
-        *ptr = '\0';
-        len--;
-      }
+      len = snprintf(strbuf, LUAV_INIT_STRING, LUA_NUMBER_FMT, lv_getnumber(v));
       break;
     }
 

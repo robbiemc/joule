@@ -30,8 +30,7 @@ static u32 lua_io_write(u32 argc, luav *argv, u32 retc, luav *retv) {
         break;
 
       case LNUMBER:
-        /* TODO: unify with lua_tostring? */
-        printf("%.6g", lv_getnumber(value));
+        printf(LUA_NUMBER_FMT, lv_getnumber(value));
         break;
 
       default:
