@@ -283,71 +283,49 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_ADD:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          panic("Invalid argument types to +\n");
-        }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) + lv_getnumber(cv)));
         break;
 
       case OP_SUB:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          panic("Invalid argument types to -\n");
-        }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) - lv_getnumber(cv)));
         break;
 
       case OP_MUL:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          panic("Invalid argument types to *\n");
-        }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) * lv_getnumber(cv)));
         break;
 
       case OP_DIV:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          panic("Invalid argument types to /\n");
-        }
         SETREG(func, A(code), lv_number(lv_getnumber(bv) / lv_getnumber(cv)));
         break;
 
       case OP_MOD:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          panic("Invalid argument types to %%\n");
-        }
-        SETREG(func, A(code), lv_number(fmod(lv_getnumber(bv), lv_getnumber(cv))));
+        SETREG(func, A(code), lv_number(fmod(lv_getnumber(bv),
+                                             lv_getnumber(cv))));
         break;
 
       case OP_POW:
         bv = KREG(func, B(code));
         cv = KREG(func, C(code));
-        if (lv_gettype(bv) != LNUMBER || lv_gettype(cv) != LNUMBER) {
-          panic("Invalid argument types to ^\n");
-        }
-        SETREG(func, A(code), lv_number(pow(lv_getnumber(bv), lv_getnumber(cv))));
+        SETREG(func, A(code), lv_number(pow(lv_getnumber(bv),
+                                            lv_getnumber(cv))));
         break;
 
       case OP_UNM:
         bv = REG(func, B(code));
-        if (lv_gettype(bv) != LNUMBER) {
-          panic("Invliad type for unary -\n");
-        }
         SETREG(func, A(code), lv_number(-lv_getnumber(bv)));
         break;
 
       case OP_NOT:
         bv = REG(func, B(code));
-        if (lv_gettype(bv) != LBOOLEAN) {
-          panic("Invliad type for 'not'\n");
-        }
-        SETREG(func, A(code), bv ^ 1);
+        SETREG(func, A(code), lv_bool(lv_getbool(bv) ^ 1));
         break;
 
       case OP_LEN:
@@ -375,29 +353,19 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
 
       case OP_FORPREP:
         a = A(code);
-        if (lv_gettype(REG(func,  a )) != LNUMBER ||
-            lv_gettype(REG(func, a+1)) != LNUMBER ||
-            lv_gettype(REG(func, a+2)) != LNUMBER) {
-          panic("Invalid types for for loop\n");
-        }
         SETREG(func, a, lv_number(lv_getnumber(REG(func, a)) -
-                                  lv_getnumber(REG(func, a+2))));
+                                  lv_getnumber(REG(func, a + 2))));
         pc += UNBIAS(PAYLOAD(code));
         break;
 
       case OP_FORLOOP:
         a = A(code);
         step = lv_getnumber(REG(func, a+2));
-        if (lv_gettype(REG(func,  a )) != LNUMBER ||
-            lv_gettype(REG(func, a+1)) != LNUMBER ||
-            lv_gettype(REG(func, a+2)) != LNUMBER) {
-          panic("Invalid types for for loop\n");
-        }
         SETREG(func, a, lv_number(lv_getnumber(REG(func, a)) + step));
         d1 = lv_getnumber(REG(func, a));
-        d2 = lv_getnumber(REG(func, a+1));
+        d2 = lv_getnumber(REG(func, a + 1));
         if ((step > 0 && d1 <= d2) || (step < 0 && d1 >= d2)) {
-          SETREG(func, a+3, REG(func, a));
+          SETREG(func, a + 3, REG(func, a));
           pc += UNBIAS(PAYLOAD(code));
         }
         break;
@@ -407,9 +375,6 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         c = C(code);
         for (i = B(code); i <= c; i++) {
           bv = REG(func, i);
-          if (lv_gettype(bv) != LSTRING) {
-            panic("Arguments to concatenate must be strings\n");
-          }
           len += lstr_get(lv_getstring(bv))->length-1;
         }
         str = xmalloc(len + 1);
