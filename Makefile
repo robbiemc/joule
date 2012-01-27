@@ -19,12 +19,7 @@ OBJS := lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
 				lib/utils.o lib/io.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
-TESTS := bisect cf echo env factorial fib fibfor globals hello life luac \
-				 printf readonly sieve sort table trace-calls trace-globals xd \
-				 bool func smallfun multipart closure simplewrite
-TESTS := $(TESTS:%=$(TESTDIR)/%.lua)
-
-# Eventually this should be $(TESTS), but we're still a work in progress...
+# Eventually this should be all tests, but it's a work in progres...
 LUATESTS := closure multipart
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
 
