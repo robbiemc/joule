@@ -53,6 +53,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   lfunc_t *func = closure->function.lua;
   u32 pc = 0;
   u32 i, a, b, c, bx, limit;
+  u32 last_ret;
   luav temp;
 
   luav stack[func->max_stack];
@@ -106,7 +107,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         a = A(code);
         lclosure_t *func2 = lv_getfunction(REG(func, a));
         b = B(code);
-        u32 num_args = b == 0 ? func->max_stack - a + 1 : b - 1;
+        u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
         c = C(code);
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
         u32 got;
@@ -148,6 +149,8 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
             SETREG(func, i, LUAV_NIL);
           }
         }
+
+        last_ret = a + got;
         break;
       }
 

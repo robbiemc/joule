@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "lhash.h"
+#include "lstring.h"
 #include "vm.h"
 
 static lhash_t lua_io;
@@ -13,9 +14,28 @@ INIT static void init_io() {
 }
 
 static u32 lua_io_write(u32 argc, luav *argv, u32 retc, luav *retv) {
+  lstring_t *str;
+
   while (argc-- > 0) {
-    dbg_dump_luav(stdout, *argv++);
+    luav value = *argv++;
+
+    switch (lv_gettype(value)) {
+      case LSTRING:
+        str = lstr_get(lv_getstring(value));
+        printf("%.*s", (int) str->length, str->ptr);
+        break;
+
+      case LNUMBER:
+        /* TODO: unify with lua_tostring? */
+        printf("%.6g", lv_getnumber(value));
+        break;
+
+      default:
+        printf("Bad type in io.write");
+        abort();
+    }
   }
+
   if (retc > 0) {
     *retv = lv_bool(1);
   }

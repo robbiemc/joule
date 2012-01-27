@@ -1,6 +1,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "config.h"
 #include "lhash.h"
@@ -15,8 +16,10 @@ static luav str_table;
 static luav str_function;
 static luav str_userdata;
 static luav lua_type(luav v);
+static luav lua_tostring(luav v);
 
 static LUAF_1ARG(lua_type);
+static LUAF_1ARG(lua_tostring);
 
 INIT static void init_utils() {
   str_number   = LSTR("number");
@@ -28,6 +31,7 @@ INIT static void init_utils() {
   str_userdata = LSTR("userdata");
 
   lhash_set(&lua_globals, LSTR("type"), lv_function(&lua_type_f));
+  lhash_set(&lua_globals, LSTR("tostring"), lv_function(&lua_tostring_f));
 }
 
 static luav lua_type(luav v) {
@@ -43,4 +47,28 @@ static luav lua_type(luav v) {
 
   printf("Unknown luav: 0x%016" PRIu64, v);
   abort();
+}
+
+static luav lua_tostring(luav v) {
+  /* TODO: if v has a metatable, call __tostring method */
+  char *strbuf = xmalloc(100);
+
+  switch (lv_gettype(v)) {
+    case LNIL:      sprintf(strbuf, "nil");                               break;
+    case LBOOLEAN:  sprintf(strbuf, lv_getbool(v) ? "true" : "false");    break;
+    case LSTRING:   return v;
+    case LTABLE:    sprintf(strbuf, "table: %p", lv_gettable(v));         break;
+    case LFUNCTION: sprintf(strbuf, "function: %p", lv_getfunction(v));   break;
+    case LUSERDATA: sprintf(strbuf, "userdata: %p", lv_getuserdata(v));   break;
+
+    case LNUMBER:
+      snprintf(strbuf, sizeof(strbuf), "%.10g", lv_getnumber(v));
+      break;
+
+    default:
+      printf("Unknown luav: 0x%016" PRIu64, v);
+      abort();
+  }
+
+  return lv_string(lstr_add(strbuf, strlen(strbuf), TRUE));
 }
