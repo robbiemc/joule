@@ -16,6 +16,7 @@
 typedef struct lhash {
   u32 cap;        // capacity of the table
   u32 size;       // size of the table
+  u32 length;     // max non-empty integer index of the table (for # operator)
   struct lh_pair {
     luav key;
     luav value;

@@ -354,7 +354,7 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
             SETREG(func, A(code), lv_number((double) len));
             break;
           case LTABLE:
-            SETREG(func, A(code), lv_number((double) lv_gettable(bv)->size));
+            SETREG(func, A(code), lv_number((double) lv_gettable(bv)->length));
             break;
           default:
             panic("Invalid type for len\n");

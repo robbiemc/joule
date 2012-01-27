@@ -31,6 +31,7 @@ void lhash_init(lhash_t *map) {
   assert(map != NULL);
   map->cap = LHASH_INIT_SIZE;
   map->size = 0;
+  map->length = 0;
   map->hash = xmalloc(LHASH_INIT_SIZE * sizeof(map->hash[0]));
   for (i = 0; i < LHASH_INIT_SIZE; i++) {
     map->hash[i].key = LUAV_NIL;
@@ -106,6 +107,14 @@ void lhash_set(lhash_t *map, luav key, luav value) {
       map->size++;
       if (map->size * 100 / map->cap > LHASH_MAP_THRESH) {
         lhash_resize(map);
+      }
+      // FIXME - this doesn't always work (but will in this hashtable
+      //         implementation)
+      if (lv_gettype(key) == LNUMBER) {
+        double len = lv_getnumber(key);
+        if ((u64)len == len && len > map->length) {
+          map->length = (u32) len;
+        }
       }
       break;
     }
