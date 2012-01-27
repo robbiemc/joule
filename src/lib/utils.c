@@ -122,6 +122,7 @@ static luav lua_tonumber(u32 argc, luav *argv) {
     modf(lv_getnumber(argv[1]), &tmp);
     base = (int) tmp;
   }
+  base = base;
 
   lstring_t *str = lstr_get(lv_getstring(argv[0]));
   char *end;

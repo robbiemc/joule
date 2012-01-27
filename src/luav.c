@@ -230,8 +230,8 @@ int lv_compare(luav v1, luav v2) {
   assert(type == lv_gettype(v2));
 
   if (type == LNUMBER) {
-    double d1 = lv_number(v1);
-    double d2 = lv_number(v2);
+    double d1 = lv_getnumber(v1);
+    double d2 = lv_getnumber(v2);
     if (d1 < d2) {
       return -1;
     } else if (d1 > d2) {
