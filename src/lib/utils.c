@@ -1,4 +1,6 @@
+#include <assert.h>
 #include <inttypes.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,11 +20,13 @@ static luav str_function;
 static luav str_userdata;
 static luav lua_type(luav v);
 static luav lua_tostring(luav v);
+static luav lua_tonumber(u32 args, luav *argv);
 static u32  lua_print(u32 argc, luav *argv, u32 retc, luav *retv);
 
 static LUAF_1ARG(lua_type);
 static LUAF_1ARG(lua_tostring);
 static LUAF_VARRET(lua_print);
+static LUAF_VARARG(lua_tonumber);
 
 INIT static void lua_utils_init() {
   str_number   = LSTR("number");
@@ -36,6 +40,7 @@ INIT static void lua_utils_init() {
   lhash_set(&lua_globals, LSTR("type"),     lv_function(&lua_type_f));
   lhash_set(&lua_globals, LSTR("tostring"), lv_function(&lua_tostring_f));
   lhash_set(&lua_globals, LSTR("print"),    lv_function(&lua_print_f));
+  lhash_set(&lua_globals, LSTR("tonumber"), lv_function(&lua_tonumber_f));
 }
 
 static luav lua_type(luav v) {
@@ -98,4 +103,31 @@ static u32 lua_print(u32 argc, luav *argv, u32 retc, luav *retv) {
   }
   printf("\n");
   return 0;
+}
+
+static luav lua_tonumber(u32 argc, luav *argv) {
+  assert(argc > 0);
+  u8 type = lv_gettype(argv[0]);
+  if (type == LNUMBER) {
+    return argv[0];
+  } else if (type != LSTRING) {
+    return LUAV_NIL;
+  }
+
+  int base;
+  if (argc == 1) {
+    base = 10;
+  } else {
+    double tmp;
+    modf(lv_getnumber(argv[1]), &tmp);
+    base = (int) tmp;
+  }
+
+  lstring_t *str = lstr_get(lv_getstring(argv[0]));
+  char *end;
+  double num = strtod(str->ptr, &end);
+  if (end == NULL) {
+    return lv_number(num);
+  }
+  return LUAV_NIL;
 }
