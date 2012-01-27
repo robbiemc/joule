@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <limits.h>
+#include <math.h>
 
 #include "debug.h"
 #include "lhash.h"
@@ -270,6 +271,84 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         if (C(code)) {
           pc++;
         }
+        break;
+
+      case OP_ADD:
+        b = B(code);
+        c = C(code);
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          printf("Invalid argument types to +\n");
+          abort();
+        }
+        SETREG(func, A(code), lv_number(lv_getnumber(b) + lv_getnumber(c)));
+        break;
+
+      case OP_SUB:
+        b = B(code);
+        c = C(code);
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          printf("Invalid argument types to -\n");
+          abort();
+        }
+        SETREG(func, A(code), lv_number(lv_getnumber(b) - lv_getnumber(c)));
+        break;
+
+      case OP_MUL:
+        b = B(code);
+        c = C(code);
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          printf("Invalid argument types to *\n");
+          abort();
+        }
+        SETREG(func, A(code), lv_number(lv_getnumber(b) * lv_getnumber(c)));
+        break;
+
+      case OP_DIV:
+        b = B(code);
+        c = C(code);
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          printf("Invalid argument types to /\n");
+          abort();
+        }
+        SETREG(func, A(code), lv_number(lv_getnumber(b) / lv_getnumber(c)));
+        break;
+
+      case OP_MOD:
+        b = B(code);
+        c = C(code);
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          printf("Invalid argument types to %%\n");
+          abort();
+        }
+        SETREG(func, A(code), lv_number(fmod(lv_getnumber(b), lv_getnumber(c))));
+        break;
+
+      case OP_POW:
+        b = B(code);
+        c = C(code);
+        if (lv_gettype(b) != LNUMBER || lv_gettype(c) != LNUMBER) {
+          printf("Invalid argument types to ^\n");
+          abort();
+        }
+        SETREG(func, A(code), lv_number(pow(lv_getnumber(b), lv_getnumber(c))));
+        break;
+
+      case OP_UNM:
+        b = B(code);
+        if (lv_gettype(b) != LNUMBER) {
+          printf("Invliad type for unary -\n");
+          abort();
+        }
+        SETREG(func, A(code), lv_number(-lv_getnumber(b)));
+        break;
+
+      case OP_NOT:
+        b = B(code);
+        if (lv_gettype(b) != LBOOLEAN) {
+          printf("Invliad type for 'not'\n");
+          abort();
+        }
+        SETREG(func, A(code), b ^ 1);
         break;
 
       default:

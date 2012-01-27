@@ -31,7 +31,7 @@ CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
 all: joule
 
 joule: $(OBJS) $(OBJDIR)/main.o
-	$(CC) $(CFLAGS) -o joule $^
+	$(CC) $(CFLAGS) -o joule $^ -lm
 
 # Run all of the C-tests (compiled) for now, eventually run lua tests
 test: ctests
