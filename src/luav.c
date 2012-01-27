@@ -15,8 +15,6 @@
 #include "luav.h"
 #include "vm.h"
 
-#define LV_CPL(typ) (0xf - (typ))
-
 /**
  * @brief Convert an 8 bit value to a lua boolean
  *
