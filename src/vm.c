@@ -141,8 +141,8 @@ top:
           case LUAF_LUA:
             got = vm_fun(func2, num_args, &stack[a + 1], want_ret, &stack[a]);
             break;
-          case LUAF_C_VARARG:
-            got = func2->function.vararg(num_args, &stack[a + 1],
+          case LUAF_C_VARRET:
+            got = func2->function.varret(num_args, &stack[a + 1],
                                          want_ret, &stack[a]);
             break;
           case LUAF_C_1ARG:
@@ -158,6 +158,13 @@ top:
             temp = func2->function.twoarg(
                               num_args > 0 ? stack[a + 1] : LUAV_NIL,
                               num_args > 1 ? stack[a + 2] : LUAV_NIL);
+            if (want_ret > 0) {
+              stack[a] = temp;
+            }
+            break;
+          case LUAF_C_VARARG:
+            got = 1;
+            temp = func2->function.vararg(num_args, &stack[a + 1]);
             if (want_ret > 0) {
               stack[a] = temp;
             }

@@ -9,9 +9,10 @@
 struct lhash;
 extern struct lhash lua_globals;
 
-typedef u32 cvararg_t(u32, luav*, u32, luav*);
+typedef u32 cvarret_t(u32, luav*, u32, luav*);
 typedef luav conearg_t(luav);
 typedef luav ctwoarg_t(luav, luav);
+typedef luav cvararg_t(u32, luav*);
 
 typedef struct lfunc {
   lstr_idx      name;
@@ -42,6 +43,7 @@ typedef struct lclosure {
     cvararg_t *vararg;
     conearg_t *onearg;
     ctwoarg_t *twoarg;
+    cvarret_t *varret;
   } function;
   luav upvalues[0];
 } lclosure_t;
@@ -49,7 +51,8 @@ typedef struct lclosure {
 #define LUAF_C_VARARG 0
 #define LUAF_C_1ARG   1
 #define LUAF_C_2ARG   2
-#define LUAF_LUA      3
+#define LUAF_C_VARRET 3
+#define LUAF_LUA      4
 #define CLOSURE_SIZE(num_upvalues) \
   (sizeof(lclosure_t) + (num_upvalues) * sizeof(luav))
 
@@ -58,6 +61,7 @@ typedef struct lclosure {
 #define LUAF_1ARG(name) LUAF_CLOSURE(LUAF_C_1ARG, name, onearg)
 #define LUAF_2ARG(name) LUAF_CLOSURE(LUAF_C_2ARG, name, twoarg)
 #define LUAF_VARARG(name) LUAF_CLOSURE(LUAF_C_VARARG, name, vararg)
+#define LUAF_VARRET(name) LUAF_CLOSURE(LUAF_C_VARRET, name, varret)
 
 void vm_run(lfunc_t *fun);
 

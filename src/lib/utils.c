@@ -22,7 +22,7 @@ static u32  lua_print(u32 argc, luav *argv, u32 retc, luav *retv);
 
 static LUAF_1ARG(lua_type);
 static LUAF_1ARG(lua_tostring);
-static LUAF_VARARG(lua_print);
+static LUAF_VARRET(lua_print);
 
 INIT static void lua_utils_init() {
   str_number   = LSTR("number");

@@ -5,7 +5,7 @@
 #include "vm.h"
 
 static lhash_t lua_io;
-static u32 lua_io_write(u32 argc, luav *argv, u32 retc, luav *retv);
+static luav lua_io_write(u32 argc, luav *argv);
 static LUAF_VARARG(lua_io_write);
 
 INIT static void lua_io_init() {
@@ -18,7 +18,7 @@ DESTROY static void lua_io_destroy() {
   lhash_free(&lua_io);
 }
 
-static u32 lua_io_write(u32 argc, luav *argv, u32 retc, luav *retv) {
+static luav lua_io_write(u32 argc, luav *argv) {
   lstring_t *str;
 
   while (argc-- > 0) {
@@ -39,8 +39,5 @@ static u32 lua_io_write(u32 argc, luav *argv, u32 retc, luav *retv) {
     }
   }
 
-  if (retc > 0) {
-    *retv = lv_bool(1);
-  }
-  return !!retc;
+  return LUAV_TRUE;
 }
