@@ -331,12 +331,12 @@ top:
         SETREG(func, A(code), lv_number(lv_getnumber(bv) / lv_getnumber(cv)));
         break;
 
-      case OP_MOD:
-        bv = KREG(func, B(code));
-        cv = KREG(func, C(code));
-        SETREG(func, A(code), lv_number(fmod(lv_getnumber(bv),
-                                             lv_getnumber(cv))));
+      case OP_MOD: {
+        double bd = lv_getnumber(KREG(func, B(code)));
+        double cd = lv_getnumber(KREG(func, C(code)));
+        SETREG(func, A(code), lv_number(bd - floor(bd / cd) * cd));
         break;
+      }
 
       case OP_POW:
         bv = KREG(func, B(code));
