@@ -16,12 +16,12 @@ endif
 # Order matters in this list because object files listed first have their
 # initializers run first, and destructors run last.
 OBJS := lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
-				lib/utils.o lib/io.o lib/math.o lib/os.o
+				lib/utils.o lib/io.o lib/math.o lib/os.o lib/string.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
 LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
- 						loop sort func fib length
+ 						loop sort func fib cf length
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
 
 CTESTS := hash types parse string
