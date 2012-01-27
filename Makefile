@@ -76,7 +76,7 @@ $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 # Target for test executables
 $(OBJDIR)/%: $(OBJS) %.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ -lm
 
 # If we're cleaning, no need to regenerate all .dep files
 ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
