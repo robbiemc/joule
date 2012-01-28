@@ -9,7 +9,7 @@ local IC =  29573
 
 local LAST = 42
 function gen_random(max)
-    LAST = math.mod((LAST * IA + IC), IM)
+    LAST = math.fmod((LAST * IA + IC), IM)
     return( (max * LAST) / IM )
 end
 
