@@ -87,11 +87,12 @@ int main(int argc, char **argv) {
 
   register_argv(i, argc, argv);
   vm_run(&file.func);
+  lhash_free(&lua_arg);
 
   luac_close(&file);
   return 0;
 
 usage:
-  printf("Usage: joule [-c] [-d] <file>\n");
+  printf("Usage: %s [-c] [-d] <file>\n", argv[0]);
   return 1;
 }

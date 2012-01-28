@@ -48,9 +48,8 @@ ltest: joule
 	@mkdir -p $(OBJDIR)/tests
 	@for test in $(LUATESTS); do \
 		echo $$test.lua; \
-		luac -o $(OBJDIR)/$$test.luac $$test.lua; \
 		lua $$test.lua > $(OBJDIR)/$$test.out; \
-		./joule $(OBJDIR)/$$test.luac > $(OBJDIR)/$$test.log || exit 1; \
+		./joule $$test.lua > $(OBJDIR)/$$test.log || exit 1; \
 		diff -u $(OBJDIR)/$$test.out $(OBJDIR)/$$test.log || exit 1; \
 	done
 	@echo -- All lua tests passed --
