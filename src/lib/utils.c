@@ -130,7 +130,7 @@ static luav lua_tonumber(u32 argc, luav *argv) {
   if (base == 10) {
     num = strtod(str->ptr, &end);
   } else {
-    num = strtoul(str->ptr, &end, base);
+    num = (double) strtoul(str->ptr, &end, base);
   }
   if (end == str->ptr + str->length - 1) {
     return lv_number(num);
