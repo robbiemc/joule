@@ -21,7 +21,7 @@ OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
 LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
- 						loop sort func fib cf length
+ 						loop sort func fib
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
 
 CTESTS := hash types parse string

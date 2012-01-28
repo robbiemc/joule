@@ -122,12 +122,17 @@ static luav lua_tonumber(u32 argc, luav *argv) {
     modf(lv_getnumber(argv[1]), &tmp);
     base = (int) tmp;
   }
-  base = base;
 
   lstring_t *str = lstr_get(lv_getstring(argv[0]));
   char *end;
-  double num = strtod(str->ptr, &end);
-  if (end == NULL) {
+  double num;
+
+  if (base == 10) {
+    num = strtod(str->ptr, &end);
+  } else {
+    num = strtoul(str->ptr, &end, base);
+  }
+  if (end == str->ptr + str->length - 1) {
     return lv_number(num);
   }
   return LUAV_NIL;

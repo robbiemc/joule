@@ -3,3 +3,13 @@ function maths(a,b)
 end
 
 print(maths(4,6))
+print(math.sin(4))
+
+print(tonumber(2.34))
+print(tonumber('2'))
+print(tonumber('2b'))
+print(tonumber('2b asd'))
+print(tonumber('2 3b fsd'))
+print(tonumber('20', 3))
+print(tonumber('20.0', 4))
+-- print(tonumber('10.01', 2))
