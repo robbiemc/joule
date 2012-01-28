@@ -36,6 +36,34 @@ void luac_parse_fd(luac_file_t *file, int fd) {
 }
 
 /**
+ * @brief Parse the lua file (source code) given
+ *
+ * @param file the struct to fill in information for
+ * @param filename the filename to open
+ */
+void luac_parse_source(luac_file_t *file, char *filename) {
+  char cmd_prefix[] = "luac -o /dev/stdout ";
+  char *cmd = xmalloc(sizeof(cmd_prefix) + strlen(filename) + 1);
+  strcpy(cmd, cmd_prefix);
+  strcpy(cmd + sizeof(cmd_prefix) - 1, filename);
+  FILE *f = popen(cmd, "r");
+  free(cmd);
+
+  size_t buf_size = 1024;
+  size_t len = 0;
+  char *buf = NULL;
+  while (!feof(f) && !ferror(f)) {
+    buf_size *= 2;
+    buf = xrealloc(buf, buf_size);
+    len += fread(&buf[len], 1, buf_size - len, f);
+  }
+  assert(ferror(f) == 0);
+  pclose(f);
+  
+  luac_parse(file, buf, SRC_MALLOC);
+}
+
+/**
  * @brief Parse a luac file which is visible at the specified address
  *
  * @param file the struct to parse into

@@ -38,6 +38,7 @@ typedef struct luac_header {
 } PACKED luac_header_t;
 
 void luac_parse_fd(luac_file_t *file, int fd);
+void luac_parse_source(luac_file_t *file, char *filename);
 void luac_parse(luac_file_t *file, void *addr, int source);
 void luac_close(luac_file_t *file);
 

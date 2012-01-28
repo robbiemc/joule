@@ -32,27 +32,6 @@ static int parse_args(lflags_t *flags, int argc, char **argv) {
   return i;
 }
 
-static void *parse_file(char *filename) {
-  char cmd_prefix[] = "luac -o /dev/stdout ";
-  char *cmd = xmalloc(sizeof(cmd_prefix) + strlen(filename) + 1);
-  strcpy(cmd, cmd_prefix);
-  strcpy(cmd + sizeof(cmd_prefix) - 1, filename);
-  FILE *f = popen(cmd, "r");
-  free(cmd);
-
-  size_t buf_size = 1024;
-  size_t len = 0;
-  char *buf = NULL;
-  while (!feof(f) && !ferror(f)) {
-    buf_size *= 2;
-    buf = xrealloc(buf, buf_size);
-    len += fread(&buf[len], 1, buf_size - len, f);
-  }
-  assert(ferror(f) == 0);
-  pclose(f);
-  return buf;
-}
-
 static void register_argv(int bias, int argc, char **argv) {
   lhash_init(&lua_arg);
   lhash_set(&lua_globals, LSTR("arg"), lv_table(&lua_arg));
@@ -78,8 +57,7 @@ int main(int argc, char **argv) {
     luac_parse_fd(&file, fd);
     close(fd);
   } else {
-    void *bytecode = parse_file(argv[i]);
-    luac_parse(&file, bytecode, SRC_MALLOC);
+    luac_parse_source(&file, argv[i]);
   }
 
   if (flags.dump)
