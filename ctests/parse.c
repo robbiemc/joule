@@ -96,7 +96,7 @@ char to_parse[] =
 int main() {
   /* Right now, mainly a sanity check that parsing actually works */
   luac_file_t file;
-  luac_parse(&file, to_parse);
+  luac_parse(&file, to_parse, SRC_UNKNOWN);
 
   /* TODO: actually verify parsed entries */
 
