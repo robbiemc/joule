@@ -31,8 +31,7 @@ void luac_parse_fd(luac_file_t *file, int fd) {
   void *addr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
   assert(addr != MAP_FAILED);
 
-  luac_parse(file, addr);
-  file->mmapped = 1;
+  luac_parse(file, addr, SRC_MMAP);
   file->size = size;
 }
 
@@ -43,9 +42,9 @@ void luac_parse_fd(luac_file_t *file, int fd) {
  * @param addr the address at which the luac file is visible
  * @return the parsed description of the file.
  */
-void luac_parse(luac_file_t *file, void *addr) {
+void luac_parse(luac_file_t *file, void *addr, int source) {
   file->addr = addr;
-  file->mmapped = 0;
+  file->source = source;
 
   // read and validate the file header
   luac_header_t *header = addr;
@@ -71,8 +70,13 @@ void luac_parse(luac_file_t *file, void *addr) {
 void luac_close(luac_file_t *file) {
   // free everything then unmap the file if necessary
   luac_free_func(&file->func);
-  if (file->mmapped) {
-    munmap(file->addr, file->size);
+  switch (file->source) {
+    case SRC_MMAP:
+      munmap(file->addr, file->size);
+      break;
+    case SRC_MALLOC:
+      free(file->addr);
+      break;
   }
 }
 

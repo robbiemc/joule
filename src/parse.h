@@ -7,15 +7,19 @@
 #include "lstring.h"
 #include "vm.h"
 
-#define LUAC_TNIL      0
-#define LUAC_TBOOLEAN  1
-#define LUAC_TNUMBER   3
-#define LUAC_TSTRING   4
+#define LUAC_TNIL       0
+#define LUAC_TBOOLEAN   1
+#define LUAC_TNUMBER    3
+#define LUAC_TSTRING    4
+
+#define SRC_UNKNOWN     0
+#define SRC_MMAP        1
+#define SRC_MALLOC      2
 
 #define SKIP_STRING(ptr) ((u8*)(ptr) + ((lstring_t*)(ptr))->length + sizeof(size_t))
 
 typedef struct luac_file {
-  int       mmapped;
+  int       source;
   void*     addr;
   size_t    size;
   lfunc_t   func;
@@ -34,7 +38,7 @@ typedef struct luac_header {
 } PACKED luac_header_t;
 
 void luac_parse_fd(luac_file_t *file, int fd);
-void luac_parse(luac_file_t *file, void *addr);
+void luac_parse(luac_file_t *file, void *addr, int source);
 void luac_close(luac_file_t *file);
 
 #endif /* _PARSE_H_ */
