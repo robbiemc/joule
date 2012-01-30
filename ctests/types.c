@@ -114,5 +114,8 @@ int main() {
   assert(lv_compare(LSTR("ab"), LSTR("a")) > 0);
   assert(lv_compare(LSTR("a"), LSTR("a")) == 0);
 
+  /* tonumber */
+  assert(lv_tonumber(LSTR(""), 10) == LUAV_NIL);
+
   return 0;
 }
