@@ -98,5 +98,16 @@ int main() {
   assert(isnan(lv_cvt(f1)));
   assert(lv_getfunction(f1) == &function);
 
+  /** Comparisons **/
+  assert(lv_compare(lv_number(1), lv_number(2)) < 0);
+  assert(lv_compare(lv_number(2), lv_number(1)) > 0);
+  assert(lv_compare(lv_number(1), lv_number(1)) == 0);
+
+  assert(lv_compare(LSTR("a"), LSTR("b")) < 0);
+  assert(lv_compare(LSTR("a"), LSTR("ab")) < 0);
+  assert(lv_compare(LSTR("b"), LSTR("a")) > 0);
+  assert(lv_compare(LSTR("ab"), LSTR("a")) > 0);
+  assert(lv_compare(LSTR("a"), LSTR("a")) == 0);
+
   return 0;
 }

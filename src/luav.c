@@ -235,7 +235,7 @@ int lv_compare(luav v1, luav v2) {
     } else if (d1 > d2) {
       return 1;
     }
-    return 0;
+    panic("if num(v1) = num(v2), then v1 should = v2");
   }
 
   /* getstring will panic if these aren't strings */
