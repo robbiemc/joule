@@ -18,11 +18,13 @@ static luav str_string;
 static luav str_table;
 static luav str_function;
 static luav str_userdata;
+static u32  lua_assert(u32 argc, luav *argv, u32 retc, luav *retv);
 static luav lua_type(luav v);
 static luav lua_tostring(luav v);
 static luav lua_tonumber(luav num, luav base);
 static u32  lua_print(u32 argc, luav *argv, u32 retc, luav *retv);
 
+static LUAF_VARRET(lua_assert);
 static LUAF_1ARG(lua_type);
 static LUAF_1ARG(lua_tostring);
 static LUAF_VARRET(lua_print);
@@ -37,10 +39,27 @@ INIT static void lua_utils_init() {
   str_function = LSTR("function");
   str_userdata = LSTR("userdata");
 
+  lhash_set(&lua_globals, LSTR("assert"),   lv_function(&lua_assert_f));
   lhash_set(&lua_globals, LSTR("type"),     lv_function(&lua_type_f));
   lhash_set(&lua_globals, LSTR("tostring"), lv_function(&lua_tostring_f));
   lhash_set(&lua_globals, LSTR("print"),    lv_function(&lua_print_f));
   lhash_set(&lua_globals, LSTR("tonumber"), lv_function(&lua_tonumber_f));
+}
+
+static u32 lua_assert(u32 argc, luav *argv, u32 retc, luav *retv) {
+  assert(argc > 0);
+  luav boolean = lv_tobool(argv[0]);
+  if (boolean == LUAV_FALSE) {
+    luav msg = argc > 1 ? argv[1] : LSTR("assertion failed!");
+    lua_print(1, &msg, 0, NULL);
+    assert(0);
+  } else {
+    u32 i;
+    for (i = 0; i < argc && i < retc; i++) {
+      retv[i] = argv[i];
+    }
+    return i;
+  }
 }
 
 static luav lua_type(luav v) {
