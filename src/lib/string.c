@@ -62,10 +62,12 @@ static lhash_t lua_string;
 static luav lua_string_format(u32 argc, luav *argv);
 static luav lua_string_rep(luav string, luav n);
 static luav lua_string_sub(luav string, luav i, luav j);
+static luav lua_string_len(luav string);
 
 static LUAF_VARARG(lua_string_format);
 static LUAF_2ARG(lua_string_rep);
 static LUAF_3ARG(lua_string_sub);
+static LUAF_1ARG(lua_string_len);
 
 INIT static void lua_string_init() {
   str_empty = LSTR("");
@@ -73,6 +75,7 @@ INIT static void lua_string_init() {
   lhash_set(&lua_string, LSTR("format"), lv_function(&lua_string_format_f));
   lhash_set(&lua_string, LSTR("rep"),    lv_function(&lua_string_rep_f));
   lhash_set(&lua_string, LSTR("sub"),    lv_function(&lua_string_sub_f));
+  lhash_set(&lua_string, LSTR("len"),    lv_function(&lua_string_len_f));
 
   lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
 }
@@ -268,4 +271,9 @@ static luav lua_string_sub(luav string, luav i, luav j) {
   newstr[len] = 0;
 
   return lv_string(lstr_add(newstr, len, TRUE));
+}
+
+static luav lua_string_len(luav string) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  return lv_number((double) str->length);
 }
