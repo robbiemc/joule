@@ -144,8 +144,9 @@ static luav lua_string_format(u32 argc, luav *argv) {
         switch (lv_gettype(arg)) {
           /* Numbers are coerced to strings, but nothing else is... */
           case LNUMBER:
-            buf[i - start - 1] = 'f';
-            SNPRINTF(newstr, len, cap, buf, lv_getnumber(arg));
+            if (fmt[i] == 'q') APPEND(newstr, len, cap, '"');
+            SNPRINTF(newstr, len, cap, LUA_NUMBER_FMT, lv_getnumber(arg));
+            if (fmt[i] == 'q') APPEND(newstr, len, cap, '"');
             break;
 
           case LSTRING:
@@ -160,6 +161,8 @@ static luav lua_string_format(u32 argc, luav *argv) {
               switch (str->ptr[j]) {
                 case 0:
                   APPEND(newstr, len, cap, '\\');
+                  APPEND(newstr, len, cap, '0');
+                  APPEND(newstr, len, cap, '0');
                   APPEND(newstr, len, cap, '0');
                   break;
 
