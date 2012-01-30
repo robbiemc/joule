@@ -265,11 +265,13 @@ top:
         pc += UNBIAS(PAYLOAD(code));
         break;
 
-      case OP_EQ:
-        if ((KREG(func, B(code)) == KREG(func, C(code))) != A(code)) {
+      case OP_EQ: {
+        int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
+        if ((cmp == 0) != A(code)) {
           pc++;
         }
         break;
+      }
       case OP_LT: {
         int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
         if ((cmp < 0) != A(code)) {

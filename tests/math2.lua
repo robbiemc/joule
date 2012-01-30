@@ -43,13 +43,12 @@ assert(f(tonumber('  ', 9)) == nil)
 assert(f(tonumber('99', 8)) == nil)
 assert(tonumber('  1010  ', 2) == 10)
 assert(tonumber('10', 36) == 36)
---assert(tonumber('\n  -10  \n', 36) == -36)
---assert(tonumber('-fFfa', 16) == -(10+(16*(15+(16*(15+(16*15)))))))
+-- assert(tonumber('\n  -10  \n', 36) == -36)
+-- assert(tonumber('-fFfa', 16) == -(10+(16*(15+(16*(15+(16*15)))))))
 assert(tonumber('fFfa', 15) == nil)
--- assert(tonumber(string.rep('1', 42), 2) + 1 == 2^42)
-print(tonumber(string.rep('1', 32)))
+assert(tonumber(string.rep('1', 42), 2) + 1 == 2^42)
 assert(tonumber(string.rep('1', 32), 2) + 1 == 2^32)
---assert(tonumber('-fffffFFFFF', 16)-1 == -2^40)
+-- assert(tonumber('-fffffFFFFF', 16)-1 == -2^40)
 assert(tonumber('ffffFFFF', 16)+1 == 2^32)
 
 assert(1.1 == 1.+.1)
@@ -100,27 +99,27 @@ assert(math.abs(-10) == 10)
 assert(eq(math.atan2(1,0), math.pi/2))
 assert(math.ceil(4.5) == 5.0)
 assert(math.floor(4.5) == 4.0)
--- assert(math.mod(10,3) == 1)
+assert(math.mod(10,3) == 1)
 assert(eq(math.sqrt(10)^2, 10))
 assert(eq(math.log10(2), math.log(2)/math.log(10)))
--- assert(eq(math.exp(0), 1))
+assert(eq(math.exp(0), 1))
 assert(eq(math.sin(10), math.sin(10%(2*math.pi))))
--- local v,e = math.frexp(math.pi)
--- assert(eq(math.ldexp(v,e), math.pi))
---
--- assert(eq(math.tanh(3.5), math.sinh(3.5)/math.cosh(3.5)))
---
--- assert(tonumber(' 1.3e-2 ') == 1.3e-2)
--- assert(tonumber(' -1.00000000000001 ') == -1.00000000000001)
---
--- -- testing constant limits
--- -- 2^23 = 8388608
--- assert(8388609 + -8388609 == 0)
--- assert(8388608 + -8388608 == 0)
--- assert(8388607 + -8388607 == 0)
+local v,e = math.frexp(math.pi)
+assert(eq(math.ldexp(v,e), math.pi))
+
+assert(eq(math.tanh(3.5), math.sinh(3.5)/math.cosh(3.5)))
+
+assert(tonumber(' 1.3e-2 ') == 1.3e-2)
+assert(tonumber(' -1.00000000000001 ') == -1.00000000000001)
+
+-- testing constant limits
+-- 2^23 = 8388608
+assert(8388609 + -8388609 == 0)
+assert(8388608 + -8388608 == 0)
+assert(8388607 + -8388607 == 0)
 
 -- if rawget(_G, "_soft") then return end
---
+
 -- f = io.tmpfile()
 -- assert(f)
 -- f:write("a = {")
@@ -141,68 +140,78 @@ assert(eq(math.sin(10), math.sin(10%(2*math.pi))))
 -- assert(eq(a[200][3], 200/3))
 -- assert(eq(a[1000][3], 1000/3, 0.001))
 -- print('+')
---
--- do   -- testing NaN
---   local NaN = 10e500 - 10e400
---   assert(NaN ~= NaN)
---   assert(not (NaN < NaN))
---   assert(not (NaN <= NaN))
---   assert(not (NaN > NaN))
---   assert(not (NaN >= NaN))
---   assert(not (0 < NaN))
---   assert(not (NaN < 0))
---   local a = {}
---   assert(not pcall(function () a[NaN] = 1 end))
---   assert(a[NaN] == nil)
---   a[1] = 1
---   assert(not pcall(function () a[NaN] = 1 end))
---   assert(a[NaN] == nil)
--- end
---
--- -- require "checktable"
--- -- stat(a)
---
--- a = nil
---
--- -- testing implicit convertions
---
--- local a,b = '10', '20'
--- assert(a*b == 200 and a+b == 30 and a-b == -10 and a/b == 0.5 and -b == -20)
--- assert(a == '10' and b == '20')
---
---
--- math.randomseed(0)
---
--- local i = 0
--- local Max = 0
--- local Min = 2
--- repeat
---   local t = math.random()
---   Max = math.max(Max, t)
---   Min = math.min(Min, t)
---   i=i+1
---   flag = eq(Max, 1, 0.001) and eq(Min, 0, 0.001)
--- until flag or i>10000
--- assert(0 <= Min and Max<1)
--- assert(flag);
---
--- for i=1,10 do
---   local t = math.random(5)
---   assert(1 <= t and t <= 5)
--- end
---
--- i = 0
--- Max = -200
--- Min = 200
--- repeat
---   local t = math.random(-10,0)
---   Max = math.max(Max, t)
---   Min = math.min(Min, t)
---   i=i+1
---   flag = (Max == 0 and Min == -10)
--- until flag or i>10000
--- assert(-10 <= Min and Max<=0)
--- assert(flag);
---
---
--- print('OK')
+
+do   -- testing NaN
+  local NaN = 10e500 - 10e400
+  assert(NaN ~= NaN)
+  assert(not (NaN < NaN))
+  assert(not (NaN <= NaN))
+  assert(not (NaN > NaN))
+  assert(not (NaN >= NaN))
+  assert(not (0 < NaN))
+  assert(not (NaN < 0))
+  -- local a = {}
+  -- assert(not pcall(function () a[NaN] = 1 end))
+  -- assert(a[NaN] == nil)
+  -- a[1] = 1
+  -- assert(not pcall(function () a[NaN] = 1 end))
+  -- assert(a[NaN] == nil)
+end
+
+-- require "checktable"
+-- stat(a)
+
+a = nil
+
+-- testing implicit convertions
+
+local a,b = '10', '20'
+assert(a*b == 200 and a+b == 30 and a-b == -10 and a/b == 0.5 and -b == -20)
+assert(a == '10' and b == '20')
+
+math.randomseed(0)
+
+local i = 0
+local Max = 0
+local Min = 2
+repeat
+  local t = math.random()
+  Max = math.max(Max, t)
+  Min = math.min(Min, t)
+  i=i+1
+  flag = eq(Max, 1, 0.001) and eq(Min, 0, 0.001)
+until flag or i>10000
+assert(0 <= Min and Max<1)
+assert(flag);
+
+for i=1,10 do
+  local t = math.random(5)
+  assert(1 <= t and t <= 5)
+end
+
+i = 0
+Max = -200
+Min = 200
+repeat
+  local t = math.random(-10,0)
+  Max = math.max(Max, t)
+  Min = math.min(Min, t)
+  i=i+1
+  flag = (Max == 0 and Min == -10)
+until flag or i>10000
+assert(-10 <= Min and Max<=0)
+assert(flag);
+
+i = 0
+Max = -200
+Min = 200
+repeat
+  local t = math.random(10)
+  Max = math.max(Max, t)
+  Min = math.min(Min, t)
+  i=i+1
+  flag = (Max == 10 and Min == 1)
+until flag or i>10000
+assert(flag);
+
+print('OK')

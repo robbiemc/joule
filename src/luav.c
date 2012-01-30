@@ -228,8 +228,6 @@ u8 lv_gettype(luav value) {
  * @return <0 if v1 < v2, 0 if v1 == v2, >0 if v1 > v2
  */
 int lv_compare(luav v1, luav v2) {
-  if (v1 == v2) { return 0; }
-
   u8 type = lv_gettype(v1);
   assert(type == lv_gettype(v2));
 
@@ -241,7 +239,10 @@ int lv_compare(luav v1, luav v2) {
     } else if (d1 > d2) {
       return 1;
     }
-    panic("if num(v1) = num(v2), then v1 should = v2");
+    /* Stupid hack to get around NaN comparisons always false */
+    return isnan(d1);
+  } else if (v1 == v2) {
+    return 0;
   }
 
   /* getstring will panic if these aren't strings */

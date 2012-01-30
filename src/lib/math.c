@@ -245,18 +245,18 @@ static luav lua_math_random(u32 argc, luav *argv) {
     case 0:
       return lv_number(num);
     case 1:
-      num = num * (NUM(argv[0]) - 1) + 1;
+      num = num * NUM(argv[0]) + 1;
       break;
 
     default:
       upper = NUM(argv[1]);
       lower = NUM(argv[0]);
-      num = num * (upper - lower) + lower;
+      assert(lower < upper);
+      num = num * (upper - lower + 1) + lower;
       break;
   }
 
-  modf(num, &num);
-  return lv_number(num);
+  return lv_number(floor(num));
 }
 
 static u32 lua_math_randomseed(u32 argc, luav *argv, u32 retc, luav *retv) {
