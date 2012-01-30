@@ -1,10 +1,12 @@
-print(os.execute(3))
+os.execute(3)
 print(os.execute('ls'))
-os.execute()
-os.execute('')
-os.execute('a')
-os.execute(nil)
+print(os.execute())
+print(os.execute(''))
+print(os.execute('a'))
+print(os.execute(nil))
 
-os.execute('ls && ls')
+print(os.execute('ls && ls'))
+
+print(os.getenv('asdfsadfasdfasdfasdf'))
 
 os.exit(0)
