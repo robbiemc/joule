@@ -11,8 +11,6 @@ local function fib(n)
 end
 
 N = 0 -- global!
-local n = tonumber(arg[1] or 24)    -- for other values, do lua fib.lua XX
-local c = os.clock()
+local n = 36
 local v = fib(n)
-local t = os.clock() - c
-print(n, v, t, N)
+print(n, v)
