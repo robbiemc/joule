@@ -64,24 +64,30 @@
  *
  * TODO: this has to be wrong somehow, find a better way?
  */
-#define FIX_INDICES(i, j, len) {   \
-    if (i < -len) {                \
-      i = 0;                       \
-    } else if (i < 0) {            \
-      i += len;                    \
-    } else if (i > 0) {            \
-      i--;                         \
-    }                              \
-    if (j < -len) {                \
-      j = 0;                       \
-    } else if (j < 0) {            \
-      j += len;                    \
-    } else if (j > 0) {            \
-      j--;                         \
-      if (j >= len) {              \
-        j = len - 1;               \
-      }                            \
-    }                              \
+#define FIX_INDICES(i, j, len) {                              \
+    if ((i < -len && j < -len) || (i > len && j > len)) {     \
+      i = 0;                                                  \
+      j = -1;                                                 \
+    } else {                                                  \
+      if (i < -len) {                                         \
+        i = 0;                                                \
+      } else if (i < 0) {                                     \
+        i += len;                                             \
+      } else if (i >= len) {                                  \
+        i = len - 1;                                          \
+      } else if (i > 0) {                                     \
+        i--;                                                  \
+      }                                                       \
+      if (j < -len) {                                         \
+        j = 0;                                                \
+      } else if (j < 0) {                                     \
+        j += len;                                             \
+      } else if (j >= len) {                                  \
+        j = len - 1;                                          \
+      } else if (j > 0) {                                     \
+        j--;                                                  \
+      }                                                       \
+    }                                                         \
   }
 
 #define GETNUM(v) lv_getnumber(lv_tonumber(v, 10))
@@ -96,6 +102,7 @@ static luav lua_string_lower(luav string);
 static luav lua_string_upper(luav string);
 static luav lua_string_reverse(luav string);
 static u32  lua_string_byte(u32 argc, luav *argv, u32 retc, luav *retv);
+static luav lua_string_char(u32 argc, luav *argv);
 
 static LUAF_VARARG(lua_string_format);
 static LUAF_2ARG(lua_string_rep);
@@ -105,6 +112,7 @@ static LUAF_1ARG(lua_string_upper);
 static LUAF_1ARG(lua_string_lower);
 static LUAF_1ARG(lua_string_reverse);
 static LUAF_VARRET(lua_string_byte);
+static LUAF_VARARG(lua_string_char);
 
 INIT static void lua_string_init() {
   str_empty = LSTR("");
@@ -117,6 +125,7 @@ INIT static void lua_string_init() {
   lhash_set(&lua_string, LSTR("upper"),   lv_function(&lua_string_upper_f));
   lhash_set(&lua_string, LSTR("reverse"), lv_function(&lua_string_reverse_f));
   lhash_set(&lua_string, LSTR("byte"),    lv_function(&lua_string_byte_f));
+  lhash_set(&lua_string, LSTR("char"),    lv_function(&lua_string_char_f));
 
   lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
 }
@@ -358,9 +367,23 @@ static u32 lua_string_byte(u32 argc, luav *argv, u32 retc, luav *retv) {
   FIX_INDICES(i, j, len);
 
   u32 k;
+  if (j < i) { return 0; }
   for (k = 0; k < retc && k <= j - i; k++) {
     /* All bytes are considered unsigned, so we need to cast from char to u8 */
     retv[k] = lv_number((u8) str->ptr[i + k]);
   }
   return k;
+}
+
+static luav lua_string_char(u32 argc, luav *argv) {
+  if (argc == 0) {
+    return str_empty;
+  }
+  char *str = xmalloc(argc + 1);
+  u32 i;
+  for (i = 0; i < argc; i++) {
+    str[i] = (char) lv_getnumber(argv[i]);
+  }
+  str[i] = 0;
+  return lv_string(lstr_add(str, argc, TRUE));
 }
