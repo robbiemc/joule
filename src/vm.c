@@ -10,16 +10,18 @@
 #include "panic.h"
 #include "vm.h"
 
+/* TODO: is_vararg requires more stack, exactly how much more? */
+#define STACK_SIZE(f) ((f)->max_stack + 10)
 #define CONST(f, n) ({ assert((n) < (f)->num_consts); (f)->consts[n]; })
 #define REG(f, n)                                                             \
   ({                                                                          \
-    assert((n) < (f)->max_stack);                                             \
+    assert((n) < STACK_SIZE(f));                                              \
     luav _tmp = stack[n];                                                     \
     lv_gettype(_tmp) == LUPVALUE ? lv_getupvalue(_tmp)->value : _tmp;         \
   })
 #define SETREG(f, n, v)                       \
   ({                                          \
-    assert((n) < (f)->max_stack);             \
+    assert((n) < STACK_SIZE(f));              \
     if (lv_gettype(stack[n]) == LUPVALUE) {   \
       lv_getupvalue(stack[n])->value = v;     \
     } else {                                  \
@@ -64,10 +66,10 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   u32 last_ret = 0;
   luav temp, bv, cv;
 
-  luav stack[func->max_stack];
+  luav stack[STACK_SIZE(func)];
 
 top:
-  for (i = 0; i < func->max_stack; i++) {
+  for (i = 0; i < STACK_SIZE(func); i++) {
     stack[i] = i < argc ? argv[i] : LUAV_NIL;
   }
 
@@ -191,15 +193,14 @@ top:
         a = A(code);
         b = B(code);
         if (b == 0) {
-          limit = func->max_stack - a;
+          limit = STACK_SIZE(func) - a;
         } else {
           limit = b - 1;
         }
         for (i = 0; i < limit && i < retc; i++) {
-          assert(a + i < func->max_stack);
-          retv[i] = stack[a + i];
+          retv[i] = REG(func, a + i);
         }
-        op_close(func->max_stack, stack);
+        op_close(STACK_SIZE(func), stack);
         return i;
 
       case OP_TAILCALL:
@@ -229,7 +230,7 @@ top:
             /* Can't use the REG macro because we don't want to duplicate
                upvalues. If the register on the stack is an upvalue, we want to
                use the same upvalue... */
-            assert(B(pseudo) < func->max_stack);
+            assert(B(pseudo) < STACK_SIZE(func));
             temp = stack[B(pseudo)];
             if (lv_gettype(temp) == LUPVALUE) {
               upvalue = temp;
@@ -257,7 +258,7 @@ top:
       }
 
       case OP_CLOSE:
-        op_close(func->max_stack - A(code), &stack[A(code)]);
+        op_close(STACK_SIZE(func) - A(code), &stack[A(code)]);
         break;
 
       case OP_JMP:
