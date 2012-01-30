@@ -108,9 +108,12 @@ size_t           lv_getstring(luav value);
 struct lclosure* lv_getfunction(luav value);
 upvalue_t*       lv_getupvalue(luav value);
 
-u8  lv_gettype(luav value);
-u32 lv_hash(luav value);
-int lv_compare(luav v1, luav v2);
+u8   lv_gettype(luav value);
+u32  lv_hash(luav value);
+int  lv_compare(luav v1, luav v2);
+
+luav lv_tonumber(luav number, int base);
+luav lv_tobool(luav value);
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;

@@ -20,13 +20,13 @@ static luav str_function;
 static luav str_userdata;
 static luav lua_type(luav v);
 static luav lua_tostring(luav v);
-static luav lua_tonumber(u32 args, luav *argv);
+static luav lua_tonumber(luav num, luav base);
 static u32  lua_print(u32 argc, luav *argv, u32 retc, luav *retv);
 
 static LUAF_1ARG(lua_type);
 static LUAF_1ARG(lua_tostring);
 static LUAF_VARRET(lua_print);
-static LUAF_VARARG(lua_tonumber);
+static LUAF_2ARG(lua_tonumber);
 
 INIT static void lua_utils_init() {
   str_number   = LSTR("number");
@@ -105,35 +105,10 @@ static u32 lua_print(u32 argc, luav *argv, u32 retc, luav *retv) {
   return 0;
 }
 
-static luav lua_tonumber(u32 argc, luav *argv) {
-  assert(argc > 0);
-  u8 type = lv_gettype(argv[0]);
-  if (type == LNUMBER) {
-    return argv[0];
-  } else if (type != LSTRING) {
-    return LUAV_NIL;
+static luav lua_tonumber(luav number, luav _base) {
+  int base = 10;
+  if (_base != LUAV_NIL) {
+    base = (int) lv_getnumber(_base);
   }
-
-  int base;
-  if (argc == 1) {
-    base = 10;
-  } else {
-    double tmp;
-    modf(lv_getnumber(argv[1]), &tmp);
-    base = (int) tmp;
-  }
-
-  lstring_t *str = lstr_get(lv_getstring(argv[0]));
-  char *end;
-  double num;
-
-  if (base == 10) {
-    num = strtod(str->ptr, &end);
-  } else {
-    num = (double) strtoul(str->ptr, &end, base);
-  }
-  if (end == str->ptr + str->length - 1) {
-    return lv_number(num);
-  }
-  return LUAV_NIL;
+  return lv_tonumber(number, base);
 }

@@ -8,11 +8,13 @@
 #include <assert.h>
 #include <math.h>
 #include <string.h>
+#include <wctype.h>
 
 #include "config.h"
 #include "lhash.h"
 #include "lstring.h"
 #include "luav.h"
+#include "panic.h"
 #include "vm.h"
 
 /**
@@ -247,4 +249,51 @@ int lv_compare(luav v1, luav v2) {
     return 1;
   }
   return memcmp(s1->ptr, s2->ptr, s1->length);
+}
+
+/**
+ * @brief Cast a luav into a number
+ *
+ * Strings are parsed as numbers, numbers are just returned, and everything else
+ * is returned as nil. Malformed strings also return nil.
+ *
+ * @param number the value to cast
+ * @param base the base to parse a string as
+ * @return the value casted as a number
+ */
+luav lv_tonumber(luav number, int base) {
+  u8 type = lv_gettype(number);
+  if (type == LNUMBER) {
+    return number;
+  } else if (type != LSTRING) {
+    return LUAV_NIL;
+  }
+
+  lstring_t *str = lstr_get(lv_getstring(number));
+  char *end;
+  double num;
+
+  if (base == 10) {
+    num = strtod(str->ptr, &end);
+  } else {
+    num = (double) strtoul(str->ptr, &end, base);
+  }
+
+  while (*end != 0 && iswspace(*end)) end++;
+  if (end == str->ptr + str->length - 1) {
+    return lv_number(num);
+  }
+  return LUAV_NIL;
+}
+
+/**
+ * @brief Coerce a lua value into a boolean
+ *
+ * Only false and nil are coerced to false, everything else is true.
+ *
+ * @param value the value to coerce
+ * @return the coerced boolean
+ */
+luav lv_tobool(luav value) {
+  return value == LUAV_NIL || value == LUAV_FALSE ? LUAV_FALSE : LUAV_TRUE;
 }

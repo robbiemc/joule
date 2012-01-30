@@ -308,50 +308,50 @@ top:
         break;
 
       case OP_ADD:
-        bv = KREG(func, B(code));
-        cv = KREG(func, C(code));
+        bv = lv_tonumber(KREG(func, B(code)), 10);
+        cv = lv_tonumber(KREG(func, C(code)), 10);
         SETREG(func, A(code), lv_number(lv_getnumber(bv) + lv_getnumber(cv)));
         break;
 
       case OP_SUB:
-        bv = KREG(func, B(code));
-        cv = KREG(func, C(code));
+        bv = lv_tonumber(KREG(func, B(code)), 10);
+        cv = lv_tonumber(KREG(func, C(code)), 10);
         SETREG(func, A(code), lv_number(lv_getnumber(bv) - lv_getnumber(cv)));
         break;
 
       case OP_MUL:
-        bv = KREG(func, B(code));
-        cv = KREG(func, C(code));
+        bv = lv_tonumber(KREG(func, B(code)), 10);
+        cv = lv_tonumber(KREG(func, C(code)), 10);
         SETREG(func, A(code), lv_number(lv_getnumber(bv) * lv_getnumber(cv)));
         break;
 
       case OP_DIV:
-        bv = KREG(func, B(code));
-        cv = KREG(func, C(code));
+        bv = lv_tonumber(KREG(func, B(code)), 10);
+        cv = lv_tonumber(KREG(func, C(code)), 10);
         SETREG(func, A(code), lv_number(lv_getnumber(bv) / lv_getnumber(cv)));
         break;
 
       case OP_MOD: {
-        double bd = lv_getnumber(KREG(func, B(code)));
-        double cd = lv_getnumber(KREG(func, C(code)));
+        double bd = lv_getnumber(lv_tonumber(KREG(func, B(code)), 10));
+        double cd = lv_getnumber(lv_tonumber(KREG(func, C(code)), 10));
         SETREG(func, A(code), lv_number(bd - floor(bd / cd) * cd));
         break;
       }
 
       case OP_POW:
-        bv = KREG(func, B(code));
-        cv = KREG(func, C(code));
+        bv = lv_tonumber(KREG(func, B(code)), 10);
+        cv = lv_tonumber(KREG(func, C(code)), 10);
         SETREG(func, A(code), lv_number(pow(lv_getnumber(bv),
                                             lv_getnumber(cv))));
         break;
 
       case OP_UNM:
-        bv = REG(func, B(code));
+        bv = lv_tonumber(REG(func, B(code)), 10);
         SETREG(func, A(code), lv_number(-lv_getnumber(bv)));
         break;
 
       case OP_NOT:
-        bv = REG(func, B(code));
+        bv = lv_tobool(REG(func, B(code)));
         SETREG(func, A(code), lv_bool(lv_getbool(bv) ^ 1));
         break;
 
