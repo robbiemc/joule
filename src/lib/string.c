@@ -65,6 +65,7 @@ static luav lua_string_sub(luav string, luav i, luav j);
 static luav lua_string_len(luav string);
 static luav lua_string_lower(luav string);
 static luav lua_string_upper(luav string);
+static luav lua_string_reverse(luav string);
 
 static LUAF_VARARG(lua_string_format);
 static LUAF_2ARG(lua_string_rep);
@@ -72,16 +73,18 @@ static LUAF_3ARG(lua_string_sub);
 static LUAF_1ARG(lua_string_len);
 static LUAF_1ARG(lua_string_upper);
 static LUAF_1ARG(lua_string_lower);
+static LUAF_1ARG(lua_string_reverse);
 
 INIT static void lua_string_init() {
   str_empty = LSTR("");
   lhash_init(&lua_string);
-  lhash_set(&lua_string, LSTR("format"), lv_function(&lua_string_format_f));
-  lhash_set(&lua_string, LSTR("rep"),    lv_function(&lua_string_rep_f));
-  lhash_set(&lua_string, LSTR("sub"),    lv_function(&lua_string_sub_f));
-  lhash_set(&lua_string, LSTR("len"),    lv_function(&lua_string_len_f));
-  lhash_set(&lua_string, LSTR("lower"),  lv_function(&lua_string_lower_f));
-  lhash_set(&lua_string, LSTR("upper"),  lv_function(&lua_string_upper_f));
+  lhash_set(&lua_string, LSTR("format"),  lv_function(&lua_string_format_f));
+  lhash_set(&lua_string, LSTR("rep"),     lv_function(&lua_string_rep_f));
+  lhash_set(&lua_string, LSTR("sub"),     lv_function(&lua_string_sub_f));
+  lhash_set(&lua_string, LSTR("len"),     lv_function(&lua_string_len_f));
+  lhash_set(&lua_string, LSTR("lower"),   lv_function(&lua_string_lower_f));
+  lhash_set(&lua_string, LSTR("upper"),   lv_function(&lua_string_upper_f));
+  lhash_set(&lua_string, LSTR("reverse"), lv_function(&lua_string_reverse_f));
 
   lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
 }
@@ -290,6 +293,7 @@ static luav lua_string_len(luav string) {
 
 static luav lua_string_lower(luav string) {
   lstring_t *str = lstr_get(lv_getstring(string));
+  if (str->length == 0) { return str_empty; }
   size_t i;
   char *newstr = xmalloc(str->length + 1);
   for (i = 0; i < str->length; i++) {
@@ -301,10 +305,23 @@ static luav lua_string_lower(luav string) {
 
 static luav lua_string_upper(luav string) {
   lstring_t *str = lstr_get(lv_getstring(string));
+  if (str->length == 0) { return str_empty; }
   size_t i;
   char *newstr = xmalloc(str->length + 1);
   for (i = 0; i < str->length; i++) {
     newstr[i] = (char) toupper(str->ptr[i]);
+  }
+  newstr[i] = 0;
+  return lv_string(lstr_add(newstr, i, TRUE));
+}
+
+static luav lua_string_reverse(luav string) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  if (str->length == 0) { return str_empty; }
+  size_t i;
+  char *newstr = xmalloc(str->length + 1);
+  for (i = 0; i < str->length; i++) {
+    newstr[i] = str->ptr[str->length - i - 1];
   }
   newstr[i] = 0;
   return lv_string(lstr_add(newstr, i, TRUE));
