@@ -434,6 +434,20 @@ top:
         break;
       }
 
+      case OP_VARARG: {
+        a = A(code);
+        b = B(code);
+        u32 limit = b > 0 ? b - 1 : argc;
+        for (i = 0; i < limit && i < argc; i++) {
+          SETREG(func, a + i, argv[i]);
+        }
+        for (; i < limit; i++) {
+          SETREG(func, a + i, LUAV_NIL);
+        }
+        last_ret = a + i;
+        break;
+      }
+
       default:
         fprintf(stderr, "Unimplemented opcode: ");
         opcode_dump(stderr, code);

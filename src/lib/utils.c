@@ -18,16 +18,19 @@ static luav str_string;
 static luav str_table;
 static luav str_function;
 static luav str_userdata;
+static luav str_hash;
 static u32  lua_assert(u32 argc, luav *argv, u32 retc, luav *retv);
 static luav lua_type(luav v);
 static luav lua_tostring(luav v);
 static luav lua_tonumber(luav num, luav base);
 static u32  lua_print(u32 argc, luav *argv, u32 retc, luav *retv);
+static u32  lua_select(u32 argc, luav *argv, u32 retc, luav *retv);
 
 static LUAF_VARRET(lua_assert);
 static LUAF_1ARG(lua_type);
 static LUAF_1ARG(lua_tostring);
 static LUAF_VARRET(lua_print);
+static LUAF_VARRET(lua_select);
 static LUAF_2ARG(lua_tonumber);
 
 INIT static void lua_utils_init() {
@@ -38,12 +41,14 @@ INIT static void lua_utils_init() {
   str_table    = LSTR("table");
   str_function = LSTR("function");
   str_userdata = LSTR("userdata");
+  str_hash     = LSTR("#");
 
   lhash_set(&lua_globals, LSTR("assert"),   lv_function(&lua_assert_f));
   lhash_set(&lua_globals, LSTR("type"),     lv_function(&lua_type_f));
   lhash_set(&lua_globals, LSTR("tostring"), lv_function(&lua_tostring_f));
   lhash_set(&lua_globals, LSTR("print"),    lv_function(&lua_print_f));
   lhash_set(&lua_globals, LSTR("tonumber"), lv_function(&lua_tonumber_f));
+  lhash_set(&lua_globals, LSTR("select"),   lv_function(&lua_select_f));
 }
 
 static u32 lua_assert(u32 argc, luav *argv, u32 retc, luav *retv) {
@@ -130,4 +135,20 @@ static luav lua_tonumber(luav number, luav _base) {
     base = (int) lv_getnumber(_base);
   }
   return lv_tonumber(number, base);
+}
+
+static u32 lua_select(u32 argc, luav *argv, u32 retc, luav *retv) {
+  assert(argc > 0);
+  if (argv[0] == str_hash) {
+    if (retc > 0) {
+      retv[0] = lv_number(argc - 1);
+    }
+    return 1;
+  }
+
+  u32 i, off = (u32) lv_number(argv[0]);
+  for (i = 0; i < retc && i + off < argc; i++) {
+    retv[i] = argv[i + off];
+  }
+  return i;
 }

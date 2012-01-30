@@ -59,7 +59,7 @@ void luac_parse_source(luac_file_t *file, char *filename) {
   }
   assert(ferror(f) == 0);
   pclose(f);
-  
+
   luac_parse(file, buf, SRC_MALLOC);
 }
 
