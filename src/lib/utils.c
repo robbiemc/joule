@@ -25,6 +25,7 @@ static luav lua_tostring(luav v);
 static luav lua_tonumber(luav num, luav base);
 static u32  lua_print(u32 argc, luav *argv, u32 retc, luav *retv);
 static u32  lua_select(u32 argc, luav *argv, u32 retc, luav *retv);
+static luav lua_rawget(luav table, luav key);
 
 static LUAF_VARRET(lua_assert);
 static LUAF_1ARG(lua_type);
@@ -32,6 +33,7 @@ static LUAF_1ARG(lua_tostring);
 static LUAF_VARRET(lua_print);
 static LUAF_VARRET(lua_select);
 static LUAF_2ARG(lua_tonumber);
+static LUAF_2ARG(lua_rawget);
 
 INIT static void lua_utils_init() {
   str_number   = LSTR("number");
@@ -49,6 +51,7 @@ INIT static void lua_utils_init() {
   lhash_set(&lua_globals, LSTR("print"),    lv_function(&lua_print_f));
   lhash_set(&lua_globals, LSTR("tonumber"), lv_function(&lua_tonumber_f));
   lhash_set(&lua_globals, LSTR("select"),   lv_function(&lua_select_f));
+  lhash_set(&lua_globals, LSTR("rawget"),   lv_function(&lua_rawget_f));
 }
 
 static u32 lua_assert(u32 argc, luav *argv, u32 retc, luav *retv) {
@@ -146,9 +149,13 @@ static u32 lua_select(u32 argc, luav *argv, u32 retc, luav *retv) {
     return 1;
   }
 
-  u32 i, off = (u32) lv_number(argv[0]);
+  u32 i, off = (u32) lv_getnumber(argv[0]);
   for (i = 0; i < retc && i + off < argc; i++) {
     retv[i] = argv[i + off];
   }
   return i;
+}
+
+static luav lua_rawget(luav table, luav key) {
+  return lhash_get(lv_gettable(table), key);
 }

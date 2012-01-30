@@ -11,7 +11,7 @@
 #include "vm.h"
 
 /* TODO: is_vararg requires more stack, exactly how much more? */
-#define STACK_SIZE(f) ((f)->max_stack + 10)
+#define STACK_SIZE(f) ((u32) (f)->max_stack + 10)
 #define CONST(f, n) ({ assert((n) < (f)->num_consts); (f)->consts[n]; })
 #define REG(f, n)                                                             \
   ({                                                                          \
@@ -408,14 +408,13 @@ top:
           bv = REG(func, i);
           len += lstr_get(lv_getstring(bv))->length;
         }
-        char *str = xmalloc(len + 1);
+        char *str = xmalloc(len);
         char *pos = str;
         for (i = B(code); i <= c; i++) {
           lstring_t *lstr = lstr_get(lv_getstring(REG(func, i)));
           memcpy(pos, lstr->ptr, lstr->length);
           pos += lstr->length;
         }
-        str[len] = '\0';
         SETREG(func, A(code), lv_string(lstr_add(str, len, TRUE)));
         break;
       }
