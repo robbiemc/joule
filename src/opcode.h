@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include "vm.h"
 
 #define OP_MOVE 0
 #define OP_LOADK 1
@@ -58,5 +59,6 @@
 #define UNBIAS(v)     ((v) - 131071)
 
 void opcode_dump(FILE *out, uint32_t code);
+void opcode_dump_idx(FILE *out, lfunc_t *func, size_t idx);
 
 #endif /* _OPCODE_H */

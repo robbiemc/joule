@@ -19,6 +19,16 @@ char *rk(char *buf, u32 val) {
   return buf;
 }
 
+void opcode_dump_idx(FILE *out, lfunc_t *func, size_t idx) {
+  u32 *line = func->dbg_lines;
+  size_t size = pread8((u8**) &line);
+  if (idx > size)
+    fprintf(out, "??  ");
+  else
+    fprintf(out, "%2d  ", line[idx]);
+  opcode_dump(out, func->instrs[idx]);
+}
+
 void opcode_dump(FILE *out, uint32_t code) {
   switch (OP(code)) {
     case OP_MOVE:
