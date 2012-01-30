@@ -14,7 +14,7 @@ typedef struct lstring {
   char    *ptr;
 } lstring_t;
 
-#define LSTR(s) lv_string(lstr_add(s, sizeof(s), 0))
+#define LSTR(s) lv_string(lstr_add(s, sizeof(s) - 1, 0))
 
 lstr_idx lstr_add(char *str, size_t size, int freeable);
 lstring_t *lstr_get(lstr_idx index);

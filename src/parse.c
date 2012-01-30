@@ -118,13 +118,12 @@ static void luac_free_func(lfunc_t *func) {
 }
 
 static u8* luac_parse_func(u8 *addr, lfunc_t *func) {
-  func->name = lstr_add((char*)addr + sizeof(size_t), *((size_t*)addr), FALSE);
-
   u32 size, i;
-  size_t length;
+  size_t length = pread8(&addr);
+  func->name = lstr_add((char*) addr, length - !!length, FALSE);
 
   // read the function header
-  addr = SKIP_STRING(addr);
+  addr += length;
   size_t hdr_size = 12; // FIXME - magic number
   memcpy(&(func->start_line), addr, hdr_size);
   addr += hdr_size;
@@ -139,23 +138,22 @@ static u8* luac_parse_func(u8 *addr, lfunc_t *func) {
   for (i = 0; i < func->num_consts; i++) {
     switch (pread1(&addr)) {
       case LUAC_TNIL:
-        *c = LUAV_NIL;
+        c[i] = LUAV_NIL;
         break;
       case LUAC_TBOOLEAN:
-        *c = lv_bool(pread1(&addr));
+        c[i] = lv_bool(pread1(&addr));
         break;
       case LUAC_TNUMBER:
-        *c = lv_number(lv_cvt(pread8(&addr)));
+        c[i] = lv_number(lv_cvt(pread8(&addr)));
         break;
       case LUAC_TSTRING:
         length = pread8(&addr);
-        *c = lv_string(lstr_add((char*)addr, length, FALSE));
+        c[i] = lv_string(lstr_add((char*) addr, length - !!length, FALSE));
         addr += length;
         break;
       default:
         assert(0); // TODO - figure out how we're actually going to handle errors
     }
-    c++;
   }
 
   func->num_funcs = pread4(&addr);

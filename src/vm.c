@@ -415,7 +415,7 @@ top:
           pos += lstr->length-1;
         }
         str[len] = '\0';
-        SETREG(func, A(code), lv_string(lstr_add(str, len+1, TRUE)));
+        SETREG(func, A(code), lv_string(lstr_add(str, len, TRUE)));
         break;
       }
 

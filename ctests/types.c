@@ -95,7 +95,7 @@ int main() {
   assert(s1 != s2);
   assert(s1 == LSTR("asdf"));
   assert(lv_gettype(s1) == LSTRING);
-  assert(lv_getstring(s1) == lstr_add("asdf", 5, 0));
+  assert(lv_getstring(s1) == lstr_add("asdf", 4, 0));
 
   /** Functions **/
   lclosure_t function;

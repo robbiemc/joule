@@ -38,7 +38,7 @@ static void register_argv(int bias, int argc, char **argv) {
 
   int i;
   for (i = 0; i < argc; i++) {
-    lstr_idx idx = lstr_add(argv[i], strlen(argv[i]) + 1, FALSE);
+    lstr_idx idx = lstr_add(argv[i], strlen(argv[i]), FALSE);
     lhash_set(&lua_arg, lv_number(i - bias), lv_string(idx));
   }
 }

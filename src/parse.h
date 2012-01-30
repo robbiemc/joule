@@ -16,7 +16,7 @@
 #define SRC_MMAP        1
 #define SRC_MALLOC      2
 
-#define SKIP_STRING(ptr) ((u8*)(ptr) + ((lstring_t*)(ptr))->length + sizeof(size_t))
+#define SKIP_STRING(ptr) ((u8*)(ptr) + *((size_t*)(ptr)) + sizeof(size_t))
 
 typedef struct luac_file {
   int       source;
