@@ -360,7 +360,7 @@ top:
         bv = REG(func, B(code));
         switch (lv_gettype(bv)) {
           case LSTRING: {
-            size_t len = lstr_get(lv_getstring(bv))->length - 1;
+            size_t len = lstr_get(lv_getstring(bv))->length;
             SETREG(func, A(code), lv_number((double) len));
             break;
           }
@@ -406,14 +406,14 @@ top:
         c = C(code);
         for (i = B(code); i <= c; i++) {
           bv = REG(func, i);
-          len += lstr_get(lv_getstring(bv))->length-1;
+          len += lstr_get(lv_getstring(bv))->length;
         }
         char *str = xmalloc(len + 1);
         char *pos = str;
         for (i = B(code); i <= c; i++) {
           lstring_t *lstr = lstr_get(lv_getstring(REG(func, i)));
-          memcpy(pos, lstr->ptr, lstr->length-1);
-          pos += lstr->length-1;
+          memcpy(pos, lstr->ptr, lstr->length);
+          pos += lstr->length;
         }
         str[len] = '\0';
         SETREG(func, A(code), lv_string(lstr_add(str, len, TRUE)));

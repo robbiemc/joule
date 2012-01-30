@@ -42,7 +42,6 @@ DESTROY static void lstr_destroy() {
 lstr_idx lstr_add(char *str, size_t size, int freeable) {
   // lookup the string in the hashset (see if it's already stored)
   lstr_idx index = smap_lookup(str, size);
-  assert(size == 0 || size == strlen(str));
   if (NONEMPTY(index)) {
     if (freeable)
       free(str);
