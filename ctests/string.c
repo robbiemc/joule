@@ -3,6 +3,7 @@
 
 #include "lstring.h"
 
+#define BASE "hahahahahahahahaha"
 #define BUF_SIZE 80000
 
 char buf[BUF_SIZE + 10];
@@ -11,7 +12,7 @@ int main() {
   // generate a bunch of random characters
   size_t i;
   u8 v = 1;
-  lstr_idx base = lstr_add("hahahahahahahahaha", 10, 0);
+  lstr_idx base = lstr_add(BASE, sizeof(BASE) - 1, 0);
   base -= 1;
   for (i = 0; i < BUF_SIZE; i++)
     buf[i] = (char) v++;
