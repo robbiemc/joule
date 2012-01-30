@@ -191,7 +191,7 @@ top:
         /* Fill in all the nils */
         if (c != 0) {
           for (i = got; i < c - 1; i++) {
-            SETREG(func, i, LUAV_NIL);
+            SETREG(func, a + i, LUAV_NIL);
           }
         }
 

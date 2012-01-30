@@ -55,6 +55,35 @@
     buf[size++] = c;                  \
   }
 
+/**
+ * @brief Fix beginning/end indices for a string to be real indices
+ *
+ * @param i the variable which holds the left indice
+ * @param j the variable which holds the right indice
+ * @param len the length of the string
+ *
+ * TODO: this has to be wrong somehow, find a better way?
+ */
+#define FIX_INDICES(i, j, len) {   \
+    if (i < -len) {                \
+      i = 0;                       \
+    } else if (i < 0) {            \
+      i += len;                    \
+    } else if (i > 0) {            \
+      i--;                         \
+    }                              \
+    if (j < -len) {                \
+      j = 0;                       \
+    } else if (j < 0) {            \
+      j += len;                    \
+    } else if (j > 0) {            \
+      j--;                         \
+      if (j >= len) {              \
+        j = len - 1;               \
+      }                            \
+    }                              \
+  }
+
 #define GETNUM(v) lv_getnumber(lv_tonumber(v, 10))
 
 static luav str_empty;
@@ -66,6 +95,7 @@ static luav lua_string_len(luav string);
 static luav lua_string_lower(luav string);
 static luav lua_string_upper(luav string);
 static luav lua_string_reverse(luav string);
+static u32  lua_string_byte(u32 argc, luav *argv, u32 retc, luav *retv);
 
 static LUAF_VARARG(lua_string_format);
 static LUAF_2ARG(lua_string_rep);
@@ -74,6 +104,7 @@ static LUAF_1ARG(lua_string_len);
 static LUAF_1ARG(lua_string_upper);
 static LUAF_1ARG(lua_string_lower);
 static LUAF_1ARG(lua_string_reverse);
+static LUAF_VARRET(lua_string_byte);
 
 INIT static void lua_string_init() {
   str_empty = LSTR("");
@@ -85,6 +116,7 @@ INIT static void lua_string_init() {
   lhash_set(&lua_string, LSTR("lower"),   lv_function(&lua_string_lower_f));
   lhash_set(&lua_string, LSTR("upper"),   lv_function(&lua_string_upper_f));
   lhash_set(&lua_string, LSTR("reverse"), lv_function(&lua_string_reverse_f));
+  lhash_set(&lua_string, LSTR("byte"),    lv_function(&lua_string_byte_f));
 
   lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
 }
@@ -259,24 +291,7 @@ static luav lua_string_sub(luav string, luav i, luav j) {
     end = (ssize_t) lv_getnumber(j);
   }
 
-  /* TODO: this has to be wrong somehow, find a better way? */
-  if (start < -strlen) {
-    start = 0;
-  } else if (start < 0) {
-    start += strlen;
-  } else if (start > 0) {
-    start--;
-  }
-  if (end < -strlen) {
-    end = 0;
-  } else if (end < 0) {
-    end += strlen;
-  } else if (end > 0) {
-    end--;
-    if (end >= strlen) {
-      end = strlen - 1;
-    }
-  }
+  FIX_INDICES(start, end, strlen);
 
   if (end == 0) {
     return str_empty;
@@ -331,4 +346,21 @@ static luav lua_string_reverse(luav string) {
   }
   newstr[i] = 0;
   return lv_string(lstr_add(newstr, i, TRUE));
+}
+
+static u32 lua_string_byte(u32 argc, luav *argv, u32 retc, luav *retv) {
+  assert(argc > 0);
+  lstring_t *str = lstr_get(lv_getstring(argv[0]));
+  ssize_t i, j, len = (ssize_t) str->length;
+  i = argc < 2 || argv[1] == LUAV_NIL ? 1 : (ssize_t) lv_getnumber(argv[1]);
+  j = argc < 3 || argv[2] == LUAV_NIL ? i : (ssize_t) lv_getnumber(argv[2]);
+
+  FIX_INDICES(i, j, len);
+
+  u32 k;
+  for (k = 0; k < retc && k <= j - i; k++) {
+    /* All bytes are considered unsigned, so we need to cast from char to u8 */
+    retv[k] = lv_number((u8) str->ptr[i + k]);
+  }
+  return k;
 }
