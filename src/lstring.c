@@ -11,9 +11,10 @@
 #define NONEMPTY(p) ((p) > 1)
 
 // universal string array
-size_t str_table_cap = STRING_TABLE_CAP;
-size_t str_table_next = 2;
-lstring_t *str_table = NULL;
+static size_t str_table_cap = STRING_TABLE_CAP;
+static size_t str_table_next = 2;
+static lstring_t *str_table = NULL;
+static char zerostr = '\0';
 
 // string hash map
 typedef struct {
@@ -41,6 +42,11 @@ DESTROY static void lstr_destroy() {
 
 lstr_idx lstr_add(char *str, size_t size, int freeable) {
   // lookup the string in the hashset (see if it's already stored)
+  if (size == 0) {
+    if (freeable) free(str);
+    str = &zerostr;
+  }
+  assert(str[size] == 0);
   lstr_idx index = smap_lookup(str, size);
   if (NONEMPTY(index)) {
     if (freeable)

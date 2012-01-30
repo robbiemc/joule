@@ -33,12 +33,13 @@ static luav lua_string_rep(luav string, luav _n) {
   size_t n = (size_t) lv_getnumber(_n);
   size_t len = n * str->length;
 
-  char *newstr = xmalloc(len);
+  char *newstr = xmalloc(len + 1);
   char *ptr = newstr;
   while (n-- > 0) {
     memcpy(ptr, str->ptr, str->length);
     ptr += str->length;
   }
+  newstr[len] = 0;
 
   return lv_string(lstr_add(newstr, len, TRUE));
 }

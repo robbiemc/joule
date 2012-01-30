@@ -410,13 +410,14 @@ top:
           bv = REG(func, i);
           len += lstr_get(lv_getstring(bv))->length;
         }
-        char *str = xmalloc(len);
+        char *str = xmalloc(len + 1);
         char *pos = str;
         for (i = B(code); i <= c; i++) {
           lstring_t *lstr = lstr_get(lv_getstring(REG(func, i)));
           memcpy(pos, lstr->ptr, lstr->length);
           pos += lstr->length;
         }
+        str[len] = 0;
         SETREG(func, A(code), lv_string(lstr_add(str, len, TRUE)));
         break;
       }
