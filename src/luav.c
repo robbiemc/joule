@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <math.h>
 #include <string.h>
+#include <ctype.h>
 #include <wctype.h>
 
 #include "config.h"
