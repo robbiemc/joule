@@ -9,7 +9,6 @@
 #include <math.h>
 #include <string.h>
 #include <ctype.h>
-#include <wctype.h>
 
 #include "config.h"
 #include "lhash.h"
