@@ -29,6 +29,11 @@ int main() {
   assert(isinf(lv_getnumber(inf)));
   assert(lv_gettype(inf) == LNUMBER);
 
+  luav neginf = lv_number(-1.0/0.0);
+  assert(lv_bits(lv_getnumber(neginf)) == lv_bits(-1.0/0.0));
+  assert(isinf(lv_getnumber(neginf)));
+  assert(lv_gettype(neginf) == LNUMBER);
+
   assert(lv_hash(one) != lv_hash(two));
 
   /** Booleans **/
