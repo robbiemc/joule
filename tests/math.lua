@@ -13,3 +13,8 @@ print(tonumber('2 3b fsd'))
 print(tonumber('20', 3))
 print(tonumber('20.0', 4))
 -- print(tonumber('10.01', 2))
+
+print('0x20' + 1)
+
+print(tonumber(' 10 '))
+print(-'2')
