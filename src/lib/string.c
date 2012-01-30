@@ -57,17 +57,22 @@
 
 #define GETNUM(v) lv_getnumber(lv_tonumber(v, 10))
 
+static luav str_empty;
 static lhash_t lua_string;
 static luav lua_string_format(u32 argc, luav *argv);
 static luav lua_string_rep(luav string, luav n);
+static luav lua_string_sub(luav string, luav i, luav j);
 
 static LUAF_VARARG(lua_string_format);
 static LUAF_2ARG(lua_string_rep);
+static LUAF_3ARG(lua_string_sub);
 
 INIT static void lua_string_init() {
+  str_empty = LSTR("");
   lhash_init(&lua_string);
   lhash_set(&lua_string, LSTR("format"), lv_function(&lua_string_format_f));
   lhash_set(&lua_string, LSTR("rep"),    lv_function(&lua_string_rep_f));
+  lhash_set(&lua_string, LSTR("sub"),    lv_function(&lua_string_sub_f));
 
   lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
 }
@@ -216,6 +221,50 @@ static luav lua_string_rep(luav string, luav _n) {
     memcpy(ptr, str->ptr, str->length);
     ptr += str->length;
   }
+  newstr[len] = 0;
+
+  return lv_string(lstr_add(newstr, len, TRUE));
+}
+
+static luav lua_string_sub(luav string, luav i, luav j) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  ssize_t strlen = (ssize_t) str->length;
+  ssize_t start = (ssize_t) lv_getnumber(i);
+  ssize_t end;
+  if (j == LUAV_NIL) {
+    end = strlen;
+  } else {
+    end = (ssize_t) lv_getnumber(j);
+  }
+
+  /* TODO: this has to be wrong somehow, find a better way? */
+  if (start < -strlen) {
+    start = 0;
+  } else if (start < 0) {
+    start += strlen;
+  } else if (start > 0) {
+    start--;
+  }
+  if (end < -strlen) {
+    end = 0;
+  } else if (end < 0) {
+    end += strlen;
+  } else if (end > 0) {
+    end--;
+    if (end >= strlen) {
+      end = strlen - 1;
+    }
+  }
+
+  if (end == 0) {
+    return str_empty;
+  } else if (end < start) {
+    return str_empty;
+  }
+
+  size_t len = (size_t) (end - start + 1);
+  char *newstr = xmalloc(len + 1);
+  memcpy(newstr, str->ptr + start, len);
   newstr[len] = 0;
 
   return lv_string(lstr_add(newstr, len, TRUE));
