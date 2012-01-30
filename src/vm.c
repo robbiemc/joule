@@ -166,6 +166,16 @@ top:
               stack[a] = temp;
             }
             break;
+          case LUAF_C_3ARG:
+            got = 1;
+            temp = func2->function.threearg(
+                              num_args > 0 ? stack[a + 1] : LUAV_NIL,
+                              num_args > 1 ? stack[a + 2] : LUAV_NIL,
+                              num_args > 2 ? stack[a + 3] : LUAV_NIL);
+            if (want_ret > 0) {
+              stack[a] = temp;
+            }
+            break;
           case LUAF_C_VARARG:
             got = 1;
             temp = func2->function.vararg(num_args, &stack[a + 1]);
@@ -181,7 +191,7 @@ top:
         /* Fill in all the nils */
         if (c != 0) {
           for (i = got; i < c - 1; i++) {
-            SETREG(func, i, LUAV_NIL);
+            SETREG(func, a + i, LUAV_NIL);
           }
         }
 

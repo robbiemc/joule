@@ -248,12 +248,17 @@ int lv_compare(luav v1, luav v2) {
   /* getstring will panic if these aren't strings */
   lstring_t *s1 = lstr_get(lv_getstring(v1));
   lstring_t *s2 = lstr_get(lv_getstring(v2));
-  if (s1->length < s2->length) {
+  size_t minlen = s1->length < s2->length ? s1->length : s2->length;
+  int cmp = memcmp(s1->ptr, s2->ptr, minlen);
+  if (cmp != 0) {
+    return cmp;
+  } else if (s1->length < s2->length) {
     return -1;
-  } else if (s1->length > s2->length) {
+  } else if (s1->length > s2->length){
     return 1;
+  } else {
+    return 0;
   }
-  return memcmp(s1->ptr, s2->ptr, s1->length);
 }
 
 /**
@@ -285,7 +290,7 @@ luav lv_tonumber(luav number, int base) {
   }
 
   if (end == str->ptr) { return LUAV_NIL; }
-  while (*end != 0 && iswspace((wint_t) *end)) end++;
+  while (*end != 0 && isspace(*end)) end++;
   if (end == str->ptr + str->length) {
     return lv_number(num);
   }

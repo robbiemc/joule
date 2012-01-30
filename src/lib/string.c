@@ -55,19 +55,68 @@
     buf[size++] = c;                  \
   }
 
+/**
+ * @brief Fix beginning/end indices for a string to be real indices
+ *
+ * @param i the variable which holds the left indice
+ * @param j the variable which holds the right indice
+ * @param len the length of the string
+ *
+ * TODO: this has to be wrong somehow, find a better way?
+ */
+#define FIX_INDICES(i, j, len) {   \
+    if (i < -len) {                \
+      i = 0;                       \
+    } else if (i < 0) {            \
+      i += len;                    \
+    } else if (i > 0) {            \
+      i--;                         \
+    }                              \
+    if (j < -len) {                \
+      j = 0;                       \
+    } else if (j < 0) {            \
+      j += len;                    \
+    } else if (j > 0) {            \
+      j--;                         \
+      if (j >= len) {              \
+        j = len - 1;               \
+      }                            \
+    }                              \
+  }
+
 #define GETNUM(v) lv_getnumber(lv_tonumber(v, 10))
 
+static luav str_empty;
 static lhash_t lua_string;
 static luav lua_string_format(u32 argc, luav *argv);
 static luav lua_string_rep(luav string, luav n);
+static luav lua_string_sub(luav string, luav i, luav j);
+static luav lua_string_len(luav string);
+static luav lua_string_lower(luav string);
+static luav lua_string_upper(luav string);
+static luav lua_string_reverse(luav string);
+static u32  lua_string_byte(u32 argc, luav *argv, u32 retc, luav *retv);
 
 static LUAF_VARARG(lua_string_format);
 static LUAF_2ARG(lua_string_rep);
+static LUAF_3ARG(lua_string_sub);
+static LUAF_1ARG(lua_string_len);
+static LUAF_1ARG(lua_string_upper);
+static LUAF_1ARG(lua_string_lower);
+static LUAF_1ARG(lua_string_reverse);
+static LUAF_VARRET(lua_string_byte);
 
 INIT static void lua_string_init() {
+  str_empty = LSTR("");
   lhash_init(&lua_string);
-  lhash_set(&lua_string, LSTR("format"), lv_function(&lua_string_format_f));
-  lhash_set(&lua_string, LSTR("rep"),    lv_function(&lua_string_rep_f));
+  lhash_set(&lua_string, LSTR("format"),  lv_function(&lua_string_format_f));
+  lhash_set(&lua_string, LSTR("rep"),     lv_function(&lua_string_rep_f));
+  lhash_set(&lua_string, LSTR("sub"),     lv_function(&lua_string_sub_f));
+  lhash_set(&lua_string, LSTR("len"),     lv_function(&lua_string_len_f));
+  lhash_set(&lua_string, LSTR("lower"),   lv_function(&lua_string_lower_f));
+  lhash_set(&lua_string, LSTR("upper"),   lv_function(&lua_string_upper_f));
+  lhash_set(&lua_string, LSTR("reverse"), lv_function(&lua_string_reverse_f));
+  lhash_set(&lua_string, LSTR("byte"),    lv_function(&lua_string_byte_f));
 
   lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
 }
@@ -79,6 +128,7 @@ DESTROY static void lua_string_destroy() {
 static luav lua_string_format(u32 argc, luav *argv) {
   assert(argc > 0);
   lstring_t *lfmt = lstr_get(lv_getstring(argv[0]));
+  if (lfmt->length == 0) { return str_empty; }
   size_t len = 0, cap = LUAV_INIT_STRING;
   char *newstr = xmalloc(cap);
   char *fmt = lfmt->ptr;
@@ -95,9 +145,11 @@ static luav lua_string_format(u32 argc, luav *argv) {
        buffer to pass to snprintf() later */
     u32  start = i;
     char *pct_start = &fmt[i++];
+    if (fmt[i] == '-') i++;
     for (j = 0; j < 3 && isdigit(fmt[i]); j++) i++; /* skip the width */
     assert(!isdigit(fmt[i]));
     if (fmt[i] == '.') i++;                         /* skip period format */
+    if (fmt[i] == '-') i++;
     for (j = 0; j < 3 && isdigit(fmt[i]); j++) i++; /* skip the precision */
     assert(!isdigit(fmt[i]));
 
@@ -106,6 +158,9 @@ static luav lua_string_format(u32 argc, luav *argv) {
 
     assert(argi < argc);
     switch (fmt[i]) {
+      case '%':
+        APPEND(newstr, len, cap, '%');
+        break;
       case 'c':
         SNPRINTF(newstr, len, cap, buf, (char) GETNUM(argv[argi++]));
         break;
@@ -208,6 +263,10 @@ static luav lua_string_format(u32 argc, luav *argv) {
 static luav lua_string_rep(luav string, luav _n) {
   lstring_t *str = lstr_get(lv_getstring(string));
   size_t n = (size_t) lv_getnumber(_n);
+  /* Avoid malloc if we can */
+  if (n == 0 || str->length == 0) {
+    return str_empty;
+  }
   size_t len = n * str->length;
 
   char *newstr = xmalloc(len + 1);
@@ -219,4 +278,89 @@ static luav lua_string_rep(luav string, luav _n) {
   newstr[len] = 0;
 
   return lv_string(lstr_add(newstr, len, TRUE));
+}
+
+static luav lua_string_sub(luav string, luav i, luav j) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  ssize_t strlen = (ssize_t) str->length;
+  ssize_t start = (ssize_t) lv_getnumber(i);
+  ssize_t end;
+  if (j == LUAV_NIL) {
+    end = strlen;
+  } else {
+    end = (ssize_t) lv_getnumber(j);
+  }
+
+  FIX_INDICES(start, end, strlen);
+
+  if (end == 0) {
+    return str_empty;
+  } else if (end < start) {
+    return str_empty;
+  }
+
+  size_t len = (size_t) (end - start + 1);
+  char *newstr = xmalloc(len + 1);
+  memcpy(newstr, str->ptr + start, len);
+  newstr[len] = 0;
+
+  return lv_string(lstr_add(newstr, len, TRUE));
+}
+
+static luav lua_string_len(luav string) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  return lv_number((double) str->length);
+}
+
+static luav lua_string_lower(luav string) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  if (str->length == 0) { return str_empty; }
+  size_t i;
+  char *newstr = xmalloc(str->length + 1);
+  for (i = 0; i < str->length; i++) {
+    newstr[i] = (char) tolower(str->ptr[i]);
+  }
+  newstr[i] = 0;
+  return lv_string(lstr_add(newstr, i, TRUE));
+}
+
+static luav lua_string_upper(luav string) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  if (str->length == 0) { return str_empty; }
+  size_t i;
+  char *newstr = xmalloc(str->length + 1);
+  for (i = 0; i < str->length; i++) {
+    newstr[i] = (char) toupper(str->ptr[i]);
+  }
+  newstr[i] = 0;
+  return lv_string(lstr_add(newstr, i, TRUE));
+}
+
+static luav lua_string_reverse(luav string) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  if (str->length == 0) { return str_empty; }
+  size_t i;
+  char *newstr = xmalloc(str->length + 1);
+  for (i = 0; i < str->length; i++) {
+    newstr[i] = str->ptr[str->length - i - 1];
+  }
+  newstr[i] = 0;
+  return lv_string(lstr_add(newstr, i, TRUE));
+}
+
+static u32 lua_string_byte(u32 argc, luav *argv, u32 retc, luav *retv) {
+  assert(argc > 0);
+  lstring_t *str = lstr_get(lv_getstring(argv[0]));
+  ssize_t i, j, len = (ssize_t) str->length;
+  i = argc < 2 || argv[1] == LUAV_NIL ? 1 : (ssize_t) lv_getnumber(argv[1]);
+  j = argc < 3 || argv[2] == LUAV_NIL ? i : (ssize_t) lv_getnumber(argv[2]);
+
+  FIX_INDICES(i, j, len);
+
+  u32 k;
+  for (k = 0; k < retc && k <= j - i; k++) {
+    /* All bytes are considered unsigned, so we need to cast from char to u8 */
+    retv[k] = lv_number((u8) str->ptr[i + k]);
+  }
+  return k;
 }
