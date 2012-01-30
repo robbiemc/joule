@@ -96,6 +96,7 @@ DESTROY static void lua_string_destroy() {
 static luav lua_string_format(u32 argc, luav *argv) {
   assert(argc > 0);
   lstring_t *lfmt = lstr_get(lv_getstring(argv[0]));
+  if (lfmt->length == 0) { return str_empty; }
   size_t len = 0, cap = LUAV_INIT_STRING;
   char *newstr = xmalloc(cap);
   char *fmt = lfmt->ptr;
@@ -112,9 +113,11 @@ static luav lua_string_format(u32 argc, luav *argv) {
        buffer to pass to snprintf() later */
     u32  start = i;
     char *pct_start = &fmt[i++];
+    if (fmt[i] == '-') i++;
     for (j = 0; j < 3 && isdigit(fmt[i]); j++) i++; /* skip the width */
     assert(!isdigit(fmt[i]));
     if (fmt[i] == '.') i++;                         /* skip period format */
+    if (fmt[i] == '-') i++;
     for (j = 0; j < 3 && isdigit(fmt[i]); j++) i++; /* skip the precision */
     assert(!isdigit(fmt[i]));
 
@@ -123,6 +126,9 @@ static luav lua_string_format(u32 argc, luav *argv) {
 
     assert(argi < argc);
     switch (fmt[i]) {
+      case '%':
+        APPEND(newstr, len, cap, '%');
+        break;
       case 'c':
         SNPRINTF(newstr, len, cap, buf, (char) GETNUM(argv[argi++]));
         break;

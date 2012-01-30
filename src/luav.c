@@ -290,7 +290,7 @@ luav lv_tonumber(luav number, int base) {
   }
 
   if (end == str->ptr) { return LUAV_NIL; }
-  while (*end != 0 && iswspace((wint_t) *end)) end++;
+  while (*end != 0 && isspace(*end)) end++;
   if (end == str->ptr + str->length) {
     return lv_number(num);
   }
