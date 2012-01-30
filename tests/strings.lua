@@ -19,6 +19,7 @@ assert('\0\0\0' >= '\0\0\0')
 assert(not ('\0\0b' < '\0\0a\0'))
 print('+')
 
+assert(string.sub("123456789",1, 0) == "")
 assert(string.sub("123456789",2,4) == "234")
 assert(string.sub("123456789",7) == "789")
 assert(string.sub("123456789",7,6) == "")
@@ -57,24 +58,23 @@ assert(#"1234567890" == 10)
 
 assert(string.byte("a") == 97)
 assert(string.byte("á") > 127)
--- assert(string.byte(string.char(255)) == 255)
--- assert(string.byte(string.char(0)) == 0)
+assert(string.byte(string.char(255)) == 255)
+assert(string.byte(string.char(0)) == 0)
 assert(string.byte("\0") == 0)
 assert(string.byte("\0\0alo\0x", -1) == string.byte('x'))
 assert(string.byte("ba", 2) == 97)
 assert(string.byte("\n\n", 2, -1) == 10)
 assert(string.byte("\n\n", 2, 2) == 10)
 assert(string.byte("") == nil)
--- assert(string.byte("hi", -3) == nil)
--- assert(string.byte("hi", 3) == nil)
--- assert(string.byte("hi", 9, 10) == nil)
--- assert(string.byte("hi", 2, 1) == nil)
--- assert(string.char() == "")
--- assert(string.char(0, 255, 0) == "\0\255\0")
--- assert(string.char(0, string.byte("á"), 0) == "\0á\0")
--- assert(string.char(string.byte("ál\0óu", 1, -1)) == "ál\0óu")
+assert(string.byte("hi", -3) == nil)
+assert(string.byte("hi", 3) == nil)
+assert(string.byte("hi", 9, 10) == nil)
+assert(string.byte("hi", 2, 1) == nil)
+assert(string.char() == "")
+assert(string.char(0, 255, 0) == "\0\255\0")
+assert(string.char(string.byte("ál\0óu", 1, -1)) == "ál\0óu")
 -- assert(string.char(string.byte("ál\0óu", 1, 0)) == "")
--- assert(string.char(string.byte("ál\0óu", -10, 100)) == "ál\0óu")
+assert(string.char(string.byte("ál\0óu", -10, 100)) == "ál\0óu")
 print('+')
 
 assert(string.upper("ab\0c") == "AB\0C")
@@ -103,12 +103,10 @@ print('+')
 x = '"ílo"\n\\'
 assert(string.format('%q%s', x, x) == '"\\"ílo\\"\\\n\\\\""ílo"\n\\')
 assert(string.format('%q', "\0") == [["\000"]])
--- assert(string.format("\0%c\0%c%x\0", string.byte("á"), string.byte("b"), 140) ==
-              -- "\0á\0b8c\0")
 assert(string.format('') == "")
--- assert(string.format("%c",34)..string.format("%c",48)..string.format("%c",90)..string.format("%c",100) ==
---        string.format("%c%c%c%c", 34, 48, 90, 100))
--- assert(string.format("%s\0 is not \0%s", 'not be', 'be') == 'not be\0 is not \0be')
+assert(string.format("%c",34)..string.format("%c",48)..string.format("%c",90)..string.format("%c",100) ==
+       string.format("%c%c%c%c", 34, 48, 90, 100))
+assert(string.format("%s\0 is not \0%s", 'not be', 'be') == 'not be\0 is not \0be')
 assert(string.format("%%%d %010d", 10, 23) == "%10 0000000023")
 assert(tonumber(string.format("%f", 10.3)) == 10.3)
 x = string.format('"%-50s"', 'a')
@@ -121,10 +119,9 @@ assert(string.format('"-%20s.20s"', string.rep("%", 2000)) ==
 
 -- longest number that can be formated
 -- assert(string.len(string.format('%99.99f', -1e308)) >= 100)
---
+
 -- assert(loadstring("return 1\n--comentário sem EOL no final")() == 1)
---
---
+
 -- assert(table.concat{} == "")
 -- assert(table.concat({}, 'x') == "")
 -- assert(table.concat({'\0', '\0\1', '\0\1\2'}, '.\0.') == "\0.\0.\0\1.\0.\0\1\2")
