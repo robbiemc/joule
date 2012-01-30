@@ -450,6 +450,13 @@ top:
         break;
       }
 
+      case OP_SELF:
+        SETREG(func, A(code) + 1, REG(func, B(code)));
+        temp = KREG(func, C(code));
+        temp = lhash_get(lv_gettable(REG(func, B(code))), temp);
+        SETREG(func, A(code), temp);
+        break;
+
       default:
         fprintf(stderr, "Unimplemented opcode: ");
         opcode_dump(stderr, code);
