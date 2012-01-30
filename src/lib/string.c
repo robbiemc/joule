@@ -63,11 +63,15 @@ static luav lua_string_format(u32 argc, luav *argv);
 static luav lua_string_rep(luav string, luav n);
 static luav lua_string_sub(luav string, luav i, luav j);
 static luav lua_string_len(luav string);
+static luav lua_string_lower(luav string);
+static luav lua_string_upper(luav string);
 
 static LUAF_VARARG(lua_string_format);
 static LUAF_2ARG(lua_string_rep);
 static LUAF_3ARG(lua_string_sub);
 static LUAF_1ARG(lua_string_len);
+static LUAF_1ARG(lua_string_upper);
+static LUAF_1ARG(lua_string_lower);
 
 INIT static void lua_string_init() {
   str_empty = LSTR("");
@@ -76,6 +80,8 @@ INIT static void lua_string_init() {
   lhash_set(&lua_string, LSTR("rep"),    lv_function(&lua_string_rep_f));
   lhash_set(&lua_string, LSTR("sub"),    lv_function(&lua_string_sub_f));
   lhash_set(&lua_string, LSTR("len"),    lv_function(&lua_string_len_f));
+  lhash_set(&lua_string, LSTR("lower"),  lv_function(&lua_string_lower_f));
+  lhash_set(&lua_string, LSTR("upper"),  lv_function(&lua_string_upper_f));
 
   lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
 }
@@ -216,6 +222,10 @@ static luav lua_string_format(u32 argc, luav *argv) {
 static luav lua_string_rep(luav string, luav _n) {
   lstring_t *str = lstr_get(lv_getstring(string));
   size_t n = (size_t) lv_getnumber(_n);
+  /* Avoid malloc if we can */
+  if (n == 0 || str->length == 0) {
+    return str_empty;
+  }
   size_t len = n * str->length;
 
   char *newstr = xmalloc(len + 1);
@@ -276,4 +286,26 @@ static luav lua_string_sub(luav string, luav i, luav j) {
 static luav lua_string_len(luav string) {
   lstring_t *str = lstr_get(lv_getstring(string));
   return lv_number((double) str->length);
+}
+
+static luav lua_string_lower(luav string) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  size_t i;
+  char *newstr = xmalloc(str->length + 1);
+  for (i = 0; i < str->length; i++) {
+    newstr[i] = (char) tolower(str->ptr[i]);
+  }
+  newstr[i] = 0;
+  return lv_string(lstr_add(newstr, i, TRUE));
+}
+
+static luav lua_string_upper(luav string) {
+  lstring_t *str = lstr_get(lv_getstring(string));
+  size_t i;
+  char *newstr = xmalloc(str->length + 1);
+  for (i = 0; i < str->length; i++) {
+    newstr[i] = (char) toupper(str->ptr[i]);
+  }
+  newstr[i] = 0;
+  return lv_string(lstr_add(newstr, i, TRUE));
 }
