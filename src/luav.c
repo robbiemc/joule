@@ -283,6 +283,7 @@ luav lv_tonumber(luav number, int base) {
     num = (double) strtoul(str->ptr, &end, base);
   }
 
+  if (end == str->ptr) { return LUAV_NIL; }
   while (*end != 0 && iswspace(*end)) end++;
   if (end == str->ptr + str->length && str->length > 0) {
     return lv_number(num);

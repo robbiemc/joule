@@ -116,6 +116,7 @@ int main() {
 
   /* tonumber */
   assert(lv_tonumber(LSTR(""), 10) == LUAV_NIL);
+  assert(lv_tonumber(LSTR(" "), 10) == LUAV_NIL);
 
   return 0;
 }
