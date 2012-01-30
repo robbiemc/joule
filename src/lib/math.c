@@ -5,6 +5,8 @@
 #include "lhash.h"
 #include "vm.h"
 
+#define NUM(n) lv_getnumber(lv_tonumber(n, 10))
+
 static lhash_t lua_math;
 static luav lua_math_abs(luav x);
 static luav lua_math_acos(luav x);
@@ -24,6 +26,7 @@ static luav lua_math_log(luav x);
 static luav lua_math_log10(luav x);
 static luav lua_math_max(u32 argc, luav *argv);
 static luav lua_math_min(u32 argc, luav *argv);
+static luav lua_math_mod(luav x, luav y);
 static u32 lua_math_modf(u32 argc, luav *argv, u32 retc, luav *retv);
 static luav lua_math_pow(luav x, luav y);
 static luav lua_math_rad(luav x);
@@ -53,6 +56,7 @@ static LUAF_1ARG(lua_math_log);
 static LUAF_1ARG(lua_math_log10);
 static LUAF_VARARG(lua_math_max);
 static LUAF_VARARG(lua_math_min);
+static LUAF_2ARG(lua_math_mod);
 static LUAF_VARRET(lua_math_modf);
 static LUAF_2ARG(lua_math_pow);
 static LUAF_1ARG(lua_math_rad);
@@ -86,6 +90,7 @@ INIT static void lua_math_init() {
   lhash_set(&lua_math, LSTR("log10"), lv_function(&lua_math_log10_f));
   lhash_set(&lua_math, LSTR("min"), lv_function(&lua_math_min_f));
   lhash_set(&lua_math, LSTR("max"), lv_function(&lua_math_max_f));
+  lhash_set(&lua_math, LSTR("mod"), lv_function(&lua_math_mod_f));
   lhash_set(&lua_math, LSTR("modf"), lv_function(&lua_math_modf_f));
   lhash_set(&lua_math, LSTR("pow"), lv_function(&lua_math_pow_f));
   lhash_set(&lua_math, LSTR("rad"), lv_function(&lua_math_rad_f));
@@ -104,57 +109,57 @@ DESTROY static void lua_math_destroy() {
 }
 
 static luav lua_math_abs(luav x) {
-  return lv_number(fabs(lv_getnumber(x)));
+  return lv_number(fabs(NUM(x)));
 }
 
 static luav lua_math_acos(luav x) {
-  return lv_number(acos(lv_getnumber(x)));
+  return lv_number(acos(NUM(x)));
 }
 
 static luav lua_math_asin(luav x) {
-  return lv_number(asin(lv_getnumber(x)));
+  return lv_number(asin(NUM(x)));
 }
 
 static luav lua_math_atan(luav x) {
-  return lv_number(atan(lv_getnumber(x)));
+  return lv_number(atan(NUM(x)));
 }
 
 static luav lua_math_atan2(luav x, luav y) {
-  return lv_number(atan2(lv_getnumber(x), lv_getnumber(y)));
+  return lv_number(atan2(NUM(x), NUM(y)));
 }
 
 static luav lua_math_ceil(luav x) {
-  return lv_number(ceil(lv_getnumber(x)));
+  return lv_number(ceil(NUM(x)));
 }
 
 static luav lua_math_cos(luav x) {
-  return lv_number(cos(lv_getnumber(x)));
+  return lv_number(cos(NUM(x)));
 }
 
 static luav lua_math_cosh(luav x) {
-  return lv_number(cosh(lv_getnumber(x)));
+  return lv_number(cosh(NUM(x)));
 }
 
 static luav lua_math_deg(luav x) {
-  return lv_number(lv_getnumber(x) * 180.0 / M_PI);
+  return lv_number(NUM(x) * 180.0 / M_PI);
 }
 
 static luav lua_math_exp(luav x) {
-  return lv_number(exp(lv_getnumber(x)));
+  return lv_number(exp(NUM(x)));
 }
 
 static luav lua_math_floor(luav x) {
-  return lv_number(floor(lv_getnumber(x)));
+  return lv_number(floor(NUM(x)));
 }
 
 static luav lua_math_fmod(luav x, luav y) {
-  return lv_number(fmod(lv_getnumber(x), lv_getnumber(y)));
+  return lv_number(fmod(NUM(x), NUM(y)));
 }
 
 static u32 lua_math_frexp(u32 argc, luav *argv, u32 retc, luav *retv) {
   assert(argc > 0);
   int exp;
-  double mantissa = frexp(lv_getnumber(argv[0]), &exp);
+  double mantissa = frexp(NUM(argv[0]), &exp);
   u32 ret = 0;
   if (retc > 0) {
     retv[0] = lv_number(mantissa);
@@ -168,23 +173,23 @@ static u32 lua_math_frexp(u32 argc, luav *argv, u32 retc, luav *retv) {
 }
 
 static luav lua_math_ldexp(luav m, luav e) {
-  return lv_number(ldexp(lv_getnumber(m), (int) lv_getnumber(e)));
+  return lv_number(ldexp(NUM(m), (int) NUM(e)));
 }
 
 static luav lua_math_log(luav x) {
-  return lv_number(log(lv_getnumber(x)));
+  return lv_number(log(NUM(x)));
 }
 
 static luav lua_math_log10(luav x) {
-  return lv_number(log10(lv_getnumber(x)));
+  return lv_number(log10(NUM(x)));
 }
 
 static luav lua_math_max(u32 argc, luav *argv) {
   u32 i;
   assert(argc > 0);
-  double max = lv_getnumber(argv[0]);
+  double max = NUM(argv[0]);
   for (i = 1; i < argc; i++) {
-    double v = lv_getnumber(argv[i]);
+    double v = NUM(argv[i]);
     max = v > max ? v : max;
   }
   return lv_number(max);
@@ -193,18 +198,24 @@ static luav lua_math_max(u32 argc, luav *argv) {
 static luav lua_math_min(u32 argc, luav *argv) {
   u32 i;
   assert(argc > 0);
-  double min = lv_getnumber(argv[0]);
+  double min = NUM(argv[0]);
   for (i = 1; i < argc; i++) {
-    double v = lv_getnumber(argv[i]);
+    double v = NUM(argv[i]);
     min = v < min ? v : min;
   }
   return lv_number(min);
 }
 
+static luav lua_math_mod(luav _x, luav _y) {
+  double x = NUM(lv_tonumber(_x, 10));
+  double y = NUM(lv_tonumber(_y, 10));
+  return lv_number(fmod(x, y));
+}
+
 static u32 lua_math_modf(u32 argc, luav *argv, u32 retc, luav *retv) {
   assert(argc > 0);
   double ipart;
-  double fpart = modf(lv_getnumber(argv[0]), &ipart);
+  double fpart = modf(NUM(argv[0]), &ipart);
   u32 ret = 0;
   if (retc > 0) {
     retv[0] = lv_number(ipart);
@@ -218,11 +229,11 @@ static u32 lua_math_modf(u32 argc, luav *argv, u32 retc, luav *retv) {
 }
 
 static luav lua_math_pow(luav x, luav y) {
-  return lv_number(pow(lv_getnumber(x), lv_getnumber(y)));
+  return lv_number(pow(NUM(x), NUM(y)));
 }
 
 static luav lua_math_rad(luav x) {
-  return lv_number(lv_getnumber(x) * M_PI / 180.0);
+  return lv_number(NUM(x) * M_PI / 180.0);
 }
 
 static luav lua_math_random(u32 argc, luav *argv) {
@@ -234,12 +245,12 @@ static luav lua_math_random(u32 argc, luav *argv) {
     case 0:
       return lv_number(num);
     case 1:
-      num = num * (lv_getnumber(argv[0]) - 1) + 1;
+      num = num * (NUM(argv[0]) - 1) + 1;
       break;
 
     default:
-      upper = lv_getnumber(argv[1]);
-      lower = lv_getnumber(argv[0]);
+      upper = NUM(argv[1]);
+      lower = NUM(argv[0]);
       num = num * (upper - lower) + lower;
       break;
   }
@@ -250,26 +261,26 @@ static luav lua_math_random(u32 argc, luav *argv) {
 
 static u32 lua_math_randomseed(u32 argc, luav *argv, u32 retc, luav *retv) {
   assert(argc > 0);
-  srand((u32) lv_getnumber(argv[0]));
+  srand((u32) NUM(argv[0]));
   return 0;
 }
 
 static luav lua_math_sin(luav x) {
-  return lv_number(sin(lv_getnumber(x)));
+  return lv_number(sin(NUM(x)));
 }
 
 static luav lua_math_sinh(luav x) {
-  return lv_number(sinh(lv_getnumber(x)));
+  return lv_number(sinh(NUM(x)));
 }
 
 static luav lua_math_sqrt(luav x) {
-  return lv_number(sqrt(lv_getnumber(x)));
+  return lv_number(sqrt(NUM(x)));
 }
 
 static luav lua_math_tan(luav x) {
-  return lv_number(tan(lv_getnumber(x)));
+  return lv_number(tan(NUM(x)));
 }
 
 static luav lua_math_tanh(luav x) {
-  return lv_number(tanh(lv_getnumber(x)));
+  return lv_number(tanh(NUM(x)));
 }

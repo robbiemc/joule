@@ -135,7 +135,7 @@ static u32 lua_print(u32 argc, luav *argv, u32 retc, luav *retv) {
 static luav lua_tonumber(luav number, luav _base) {
   int base = 10;
   if (_base != LUAV_NIL) {
-    base = (int) lv_getnumber(_base);
+    base = (int) lv_getnumber(lv_tonumber(_base, 10));
   }
   return lv_tonumber(number, base);
 }
