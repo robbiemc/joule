@@ -1,10 +1,9 @@
 #include <assert.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
 
 #include "debug.h"
+#include "error.h"
 #include "lhash.h"
 #include "lstring.h"
 #include "parse.h"
@@ -51,17 +50,16 @@ int main(int argc, char **argv) {
   int i = parse_args(&flags, argc, argv);
   if (i >= argc) goto usage;
 
+  lua_program = argv[0];
   if (flags.compiled) {
-    int fd = open(argv[i], O_RDONLY);
-    assert(fd != -1);
-    luac_parse_fd(&file, fd);
-    close(fd);
+    luac_parse_compiled(&file, argv[i]);
   } else {
     luac_parse_source(&file, argv[i]);
   }
 
-  if (flags.dump)
+  if (flags.dump) {
     dbg_dump_function(stdout, &file.func);
+  }
 
   register_argv(i, argc, argv);
   vm_run(&file.func);

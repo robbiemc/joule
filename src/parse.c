@@ -1,8 +1,10 @@
 #include <assert.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "config.h"
 #include "luav.h"
@@ -11,16 +13,17 @@
 #include "vm.h"
 
 static void luac_free_func(lfunc_t *func);
-static u8* luac_parse_func(u8* addr, lfunc_t *func);
+static u8* luac_parse_func(u8* addr, lfunc_t *func, char *filename);
 
 /**
- * @brief Parse a luac file given by the file descriptor
+ * @brief Parse a precompiled file
  *
  * @param file the struct to fill in information for
- * @param fd the file descriptor which when read, will return the luac file.
+ * @param filename the path to the file to parse
  * @return the parsed description of the file.
  */
-void luac_parse_fd(luac_file_t *file, int fd) {
+void luac_parse_compiled(luac_file_t *file, char *filename) {
+  int fd = open(filename, O_RDONLY);
   // get the file size
   struct stat finfo;
   int err = fstat(fd, &finfo);
@@ -31,8 +34,9 @@ void luac_parse_fd(luac_file_t *file, int fd) {
   void *addr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
   assert(addr != MAP_FAILED);
 
-  luac_parse(file, addr, SRC_MMAP);
+  luac_parse(file, addr, SRC_MMAP, filename);
   file->size = size;
+  close(fd);
 }
 
 /**
@@ -60,7 +64,7 @@ void luac_parse_source(luac_file_t *file, char *filename) {
   pclose(f);
   free(cmd);
 
-  luac_parse(file, buf, SRC_MALLOC);
+  luac_parse(file, buf, SRC_MALLOC, filename);
 }
 
 /**
@@ -68,9 +72,11 @@ void luac_parse_source(luac_file_t *file, char *filename) {
  *
  * @param file the struct to parse into
  * @param addr the address at which the luac file is visible
+ * @param source an integer SRC_* specifying where the file came from
+ * @param filename the name that should be attributed to the source
  * @return the parsed description of the file.
  */
-void luac_parse(luac_file_t *file, void *addr, int source) {
+void luac_parse(luac_file_t *file, void *addr, int source, char *filename) {
   file->addr = addr;
   file->source = source;
 
@@ -87,7 +93,7 @@ void luac_parse(luac_file_t *file, void *addr, int source) {
   assert(header->int_flag == 0); // 0 = doubles, 1 = integers
 
   // parse the main function
-  luac_parse_func((u8*)(header + 1), &file->func);
+  luac_parse_func((u8*)(header + 1), &file->func, filename);
 }
 
 /**
@@ -117,10 +123,11 @@ static void luac_free_func(lfunc_t *func) {
   free(func->funcs);
 }
 
-static u8* luac_parse_func(u8 *addr, lfunc_t *func) {
+static u8* luac_parse_func(u8 *addr, lfunc_t *func, char *filename) {
   u32 size, i;
   size_t length = pread8(&addr);
   func->name = lstr_add((char*) addr, length - !!length, FALSE);
+  func->file = filename;
 
   // read the function header
   addr += length;
@@ -159,11 +166,11 @@ static u8* luac_parse_func(u8 *addr, lfunc_t *func) {
   func->num_funcs = pread4(&addr);
   func->funcs = xcalloc(func->num_funcs, sizeof(lfunc_t));
   for (i = 0; i < func->num_funcs; i++)
-    addr = luac_parse_func(addr, &(func->funcs[i]));
+    addr = luac_parse_func(addr, &(func->funcs[i]), filename);
 
-  func->dbg_lines = addr;
-  size = pread4(&addr);
-  addr += size * sizeof(u32);
+  func->dbg_linecount = pread4(&addr);
+  func->dbg_lines = (u32*) addr;
+  addr += func->dbg_linecount * sizeof(u32);
 
   func->dbg_locals = addr;
   size = pread4(&addr);

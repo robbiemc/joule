@@ -49,6 +49,7 @@ static u32 lua_co_running(LSTATE);
 static u32 lua_co_resume(LSTATE);
 static u32 lua_co_status(LSTATE);
 static u32 lua_co_wrap(LSTATE);
+static u32 co_wrap_trampoline(LSTATE);
 static u32 co_wrap_helper(lthread_t *co, LSTATE);
 static u32 lua_co_yield(LSTATE);
 static LUAF(lua_co_create);
@@ -57,6 +58,7 @@ static LUAF(lua_co_running);
 static LUAF(lua_co_status);
 static LUAF(lua_co_wrap);
 static LUAF(lua_co_yield);
+static cfunc_t co_wrapper_cf = {.f = co_wrap_trampoline, .name = "do not see"};
 
 INIT static void lua_coroutine_init() {
   str_running   = LSTR("running");
@@ -172,7 +174,7 @@ static u32 lua_co_wrap(LSTATE) {
   assert(lua_co_create(argc, argv, 1, &routine) == 1);
   lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
   closure->type = LUAF_C;
-  closure->function.c = co_wrap_trampoline;
+  closure->function.c = &co_wrapper_cf;
   closure->upvalues[0] = routine;
   lstate_return1(lv_function(closure));
 }

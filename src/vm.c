@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "debug.h"
+#include "error.h"
 #include "lhash.h"
 #include "luav.h"
 #include "opcode.h"
@@ -41,8 +42,8 @@
 #define DECODEFP8(v) (((u32)8 | ((v)&7)) << (((u32)(v)>>3) - 1))
 
 lhash_t lua_globals;
-jmp_buf *vm_jmpbuf;
-lclosure_t *vm_running;
+jmp_buf *vm_jmpbuf = NULL;
+lclosure_t *vm_running = NULL;
 
 static void op_close(u32 upc, luav *upv);
 
@@ -64,33 +65,35 @@ void vm_run(lfunc_t *func) {
 
 u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
                                 u32 retc, luav *retv) {
+  jmp_buf jmp;
+  closure->caller = vm_running;
   vm_running = closure;
+  int err;
+  if ((err = setjmp(jmp)) != 0) {
+    err_explain(err, closure);
+  }
+  vm_jmpbuf = &jmp;
+
   // handle c functions
   if (closure->type != LUAF_LUA) {
-    return closure->function.c(argc, argv, retc, retv);
+    return closure->function.c->f(argc, argv, retc, retv);
   }
 
   // it's a lua function
-  lfunc_t *func = closure->function.lua;
-  u32 pc = 0;
   u32 i, a, b, c, bx, limit;
   u32 last_ret = 0;
+  lfunc_t *func = closure->function.lua;
   luav temp;
-  jmp_buf jmp;
+  closure->pc = 0;
 
   luav stack[STACK_SIZE(func)];
   for (i = 0; i < STACK_SIZE(func); i++) {
     stack[i] = i < argc ? argv[i] : LUAV_NIL;
   }
 
-  if (setjmp(jmp) != 0) {
-    panic("jump reached");
-  }
-
   while (1) {
-    assert(pc < func->num_instrs);
-    u32 code = func->instrs[pc++];
-    vm_jmpbuf = &jmp;
+    assert(closure->pc < func->num_instrs);
+    u32 code = func->instrs[closure->pc++];
 
     switch (OP(code)) {
       case OP_GETGLOBAL:
@@ -146,8 +149,8 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
 
-        u32 got = vm_fun(closure2, num_args, &stack[a + 1], want_ret, &stack[a]);
-
+        u32 got = vm_fun(closure2, num_args, &stack[a + 1],
+                                   want_ret, &stack[a]);
         // fill in the nils
         if (c != 0) {
           for (i = got; i < c - 1; i++) {
@@ -190,7 +193,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         closure2->function.lua = function;
 
         for (i = 0; i < function->num_upvalues; i++) {
-          u32 pseudo = func->instrs[pc++];
+          u32 pseudo = func->instrs[closure->pc++];
           luav upvalue;
           if (OP(pseudo) == OP_MOVE) {
             /* Can't use the REG macro because we don't want to duplicate
@@ -228,32 +231,32 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         break;
 
       case OP_JMP:
-        pc += UNBIAS(PAYLOAD(code));
+        closure->pc += UNBIAS(PAYLOAD(code));
         break;
 
       case OP_EQ: {
         luav bv = KREG(func, B(code));
         luav cv = KREG(func, C(code));
         if (bv == LUAV_NIL) {
-          if ((cv == LUAV_NIL) != A(code)) pc++;
+          if ((cv == LUAV_NIL) != A(code)) closure->pc++;
         } else if (cv == LUAV_NIL) {
-          if ((bv == LUAV_NIL) != A(code)) pc++;
+          if ((bv == LUAV_NIL) != A(code)) closure->pc++;
         } else if ((lv_compare(bv, cv) == 0) != A(code)) {
-          pc++;
+          closure->pc++;
         }
         break;
       }
       case OP_LT: {
         int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
         if ((cmp < 0) != A(code)) {
-          pc++;
+          closure->pc++;
         }
         break;
       }
       case OP_LE: {
         int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
         if ((cmp <= 0) != A(code)) {
-          pc++;
+          closure->pc++;
         }
         break;
       }
@@ -261,7 +264,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_TEST:
         temp = REG(func, A(code));
         if (lv_getbool(temp, 0) != C(code)) {
-          pc++;
+          closure->pc++;
         }
         break;
 
@@ -270,14 +273,14 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         if (lv_getbool(temp, 0) != C(code)) {
           SETREG(func, A(code), temp);
         } else {
-          pc++;
+          closure->pc++;
         }
         break;
 
       case OP_LOADBOOL:
         SETREG(func, A(code), lv_bool((u8) B(code)));
         if (C(code)) {
-          pc++;
+          closure->pc++;
         }
         break;
 
@@ -367,7 +370,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         a = A(code);
         SETREG(func, a, lv_number(lv_castnumber(REG(func, a), 0) -
                                   lv_castnumber(REG(func, a + 2), 0)));
-        pc += UNBIAS(PAYLOAD(code));
+        closure->pc += UNBIAS(PAYLOAD(code));
         break;
 
       case OP_FORLOOP: {
@@ -378,7 +381,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         double d2 = lv_castnumber(REG(func, a + 1), 0);
         if ((step > 0 && d1 <= d2) || (step < 0 && d1 >= d2)) {
           SETREG(func, a + 3, REG(func, a));
-          pc += UNBIAS(PAYLOAD(code));
+          closure->pc += UNBIAS(PAYLOAD(code));
         }
         break;
       }
@@ -406,7 +409,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         a = A(code);
         c = C(code);
         if (c == 0) {
-          c = func->instrs[pc++];
+          c = func->instrs[closure->pc++];
         }
         lhash_t *hash = lv_gettable(REG(func, a), 0);
         for (i = 1; i <= b; i++) {
@@ -444,7 +447,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
                                    REG(func, c), &stack[a + 3]);
         temp = REG(func, a + 3);
         if (got == 0 || lv_gettype(temp) == LNIL) {
-          pc++;
+          closure->pc++;
         } else {
           SETREG(func, a+2, temp);
         }
@@ -461,6 +464,8 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         opcode_dump(stderr, code);
         abort();
     }
+
+    vm_jmpbuf = &jmp;
   }
 }
 

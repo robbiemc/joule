@@ -69,6 +69,7 @@ struct lthread;
 #define LUPVALUE  7
 #define LNUMBER   8
 #define LNIL      15
+#define LANY      16
 
 /* Macros for dealing with u64 bits for luav */
 #define LUAV_DATA_SIZE 48

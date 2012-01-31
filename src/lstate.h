@@ -1,14 +1,15 @@
 #ifndef _LSTATE_H
 #define _LSTATE_H
 
+#include "error.h"
 #include "luav.h"
-#include "panic.h"
 
 #define LSTATE u32 argc, luav *argv, u32 retc, luav *retv
 
-#define ERR_BADARGLEN(...) panic("uh oh")
-#define lstate_getarg(n, e) ({if ((n) >= argc) { ERR_BADARGLEN(n); } argv[n]; })
-#define lstate_getval(n) ({if ((n) >= argc) { ERR_BADARGLEN(n); } argv[n]; })
+#define lstate_getarg(n, e) \
+  ({ if ((n) >= argc) { err_missing(n, e); } argv[n]; })
+#define lstate_getval(n) \
+  ({ if ((n) >= argc) { err_missing(n, LANY); } argv[n]; })
 
 #define lstate_getnumber(n)   lv_castnumber(lstate_getarg(n, LNUMBER), n)
 #define lstate_getstring(n)   lv_caststring(lstate_getarg(n, LSTRING), n)

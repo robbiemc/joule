@@ -14,6 +14,7 @@ typedef u32 cfunction_t(LSTATE);
 
 typedef struct lfunc {
   lstr_idx      name;
+  char          *file;
   int           start_line;
   int           end_line;
   uint8_t       num_upvalues;
@@ -29,16 +30,24 @@ typedef struct lfunc {
   struct lfunc  *funcs;
 
   // raw pointers to debug information - no parsing is done for these
-  void          *dbg_lines;
+  u32           dbg_linecount;
+  u32           *dbg_lines;
   void          *dbg_locals;
   void          *dbg_upvalues;
 } lfunc_t;
 
+typedef struct cfunc {
+  cfunction_t *f;
+  char *name;
+} cfunc_t;
+
 typedef struct lclosure {
   u32 type;
+  struct lclosure *caller;
+  u32 pc;
   union {
     lfunc_t *lua;
-    cfunction_t *c;
+    cfunc_t *c;
   } function;
   luav upvalues[0];
 } lclosure_t;
@@ -50,9 +59,13 @@ typedef struct lclosure {
   (sizeof(lclosure_t) + (num_upvalues) * sizeof(luav))
 
 #define LUAF(fun) \
-  lclosure_t fun ## _f = {.type = LUAF_C, .function.c = fun}
+  cfunc_t fun ## _cf = {.f = fun}; \
+  lclosure_t fun ## _f = {.type = LUAF_C, .function.c = &fun ## _cf}
 
-#define REGISTER(tbl, str, fun) lhash_set(tbl, LSTR(str), lv_function(fun))
+#define REGISTER(tbl, str, fun) {                 \
+    lhash_set(tbl, LSTR(str), lv_function(fun));  \
+    (fun)->function.c->name = str;                \
+  }
 
 extern struct lhash lua_globals;
 extern jmp_buf *vm_jmpbuf;
