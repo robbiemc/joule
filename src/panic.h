@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #define panic(fmt, ...) {                                                     \
-    fprintf(stderr, "[panic %s at %d] - " fmt,                                \
+    fprintf(stderr, "[panic %s at %d] - " fmt "\n",                           \
             __FILE__, __LINE__, ## __VA_ARGS__);                              \
     abort();                                                                  \
   }

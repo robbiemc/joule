@@ -45,7 +45,6 @@ void err_explain(int err, lclosure_t *closure) {
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
-  printf("%d\n", func->dbg_linecount);
   assert(caller->pc < func->dbg_linecount);
   assert(lua_program != NULL);
   printf("%s: %s:%u: ", lua_program, func->file, func->dbg_lines[caller->pc]);

@@ -1,3 +1,5 @@
+#include <stdio.h>
+
 #include "error.h"
 #include "lhash.h"
 #include "lstate.h"

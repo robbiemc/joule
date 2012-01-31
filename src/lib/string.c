@@ -6,7 +6,6 @@
 #include "lhash.h"
 #include "lstate.h"
 #include "luav.h"
-#include "panic.h"
 #include "vm.h"
 
 #define MAX_FORMAT 20
@@ -102,6 +101,7 @@ static u32 lua_string_upper(LSTATE);
 static u32 lua_string_reverse(LSTATE);
 static u32 lua_string_byte(LSTATE);
 static u32 lua_string_char(LSTATE);
+static char errbuf[200];
 
 static LUAF(lua_string_format);
 static LUAF(lua_string_rep);
@@ -155,6 +155,7 @@ static u32 lua_string_format(LSTATE) {
     char *pct_start = &fmt[i++];
     if (fmt[i] == '-') i++;
     for (j = 0; j < 3 && isdigit(fmt[i]); j++) i++; /* skip the width */
+    /* TODO: take out these two asserts */
     assert(!isdigit(fmt[i]));
     if (fmt[i] == '.') i++;                         /* skip period format */
     if (fmt[i] == '-') i++;
@@ -165,7 +166,6 @@ static u32 lua_string_format(LSTATE) {
     buf[i - start + 1] = 0;
 
     argi++;
-    assert(argi < argc);
     switch (fmt[i]) {
       case '%':
         APPEND(newstr, len, cap, '%');
@@ -205,64 +205,49 @@ static u32 lua_string_format(LSTATE) {
       case 'q':
       case 's': {
         luav arg = lstate_getval(argi);
-        lstring_t *str;
-        switch (lv_gettype(arg)) {
-          /* Numbers are coerced to strings, but nothing else is... */
-          case LNUMBER:
-            if (fmt[i] == 'q') APPEND(newstr, len, cap, '"');
-            SNPRINTF(newstr, len, cap, LUA_NUMBER_FMT,
-                     lv_castnumber(arg, argi));
-            if (fmt[i] == 'q') APPEND(newstr, len, cap, '"');
-            break;
-
-          case LSTRING:
-            str = lv_caststring(arg, argi);
-            if (fmt[i] == 's') {
-              SNPRINTF(newstr, len, cap, buf, str->ptr);
-              break;
-            }
-            APPEND(newstr, len, cap, '"')
-            for (j = 0; j < str->length; j++) {
-              /* Make sure we escape all escape sequences */
-              switch (str->ptr[j]) {
-                case 0:
-                  APPEND(newstr, len, cap, '\\');
-                  APPEND(newstr, len, cap, '0');
-                  APPEND(newstr, len, cap, '0');
-                  APPEND(newstr, len, cap, '0');
-                  break;
-
-                case '"':
-                  APPEND(newstr, len, cap, '\\');
-                  APPEND(newstr, len, cap, '"');
-                  break;
-
-                case '\n':
-                  APPEND(newstr, len, cap, '\\');
-                  APPEND(newstr, len, cap, '\n');
-                  break;
-
-                case '\\':
-                  APPEND(newstr, len, cap, '\\');
-                  APPEND(newstr, len, cap, '\\');
-                  break;
-
-                default:
-                  APPEND(newstr, len, cap, str->ptr[j]);
-                  break;
-              }
-            }
-            APPEND(newstr, len, cap, '"');
-            break;
-
-          default:
-            panic("%%s expects a string, not a %d", lv_gettype(arg));
+        lstring_t *str = lv_caststring(arg, argi);
+        if (fmt[i] == 's') {
+          SNPRINTF(newstr, len, cap, buf, str->ptr);
+          break;
         }
+        APPEND(newstr, len, cap, '"');
+        for (j = 0; j < str->length; j++) {
+          /* Make sure we escape all escape sequences */
+          switch (str->ptr[j]) {
+            case 0:
+              APPEND(newstr, len, cap, '\\');
+              APPEND(newstr, len, cap, '0');
+              APPEND(newstr, len, cap, '0');
+              APPEND(newstr, len, cap, '0');
+              break;
+
+            case '"':
+              APPEND(newstr, len, cap, '\\');
+              APPEND(newstr, len, cap, '"');
+              break;
+
+            case '\n':
+              APPEND(newstr, len, cap, '\\');
+              APPEND(newstr, len, cap, '\n');
+              break;
+
+            case '\\':
+              APPEND(newstr, len, cap, '\\');
+              APPEND(newstr, len, cap, '\\');
+              break;
+
+            default:
+              APPEND(newstr, len, cap, str->ptr[j]);
+              break;
+          }
+        }
+        APPEND(newstr, len, cap, '"');
         break;
       }
 
       default:
-        panic("bad string.format() mode: %c", fmt[i]);
+        sprintf(errbuf, "invalid option '%%%c' to 'format'", fmt[i]);
+        err_rawstr(errbuf);
     }
   }
 

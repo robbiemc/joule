@@ -84,15 +84,13 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   u32 last_ret = 0;
   lfunc_t *func = closure->function.lua;
   luav temp;
-  closure->pc = 0;
 
   luav stack[STACK_SIZE(func)];
   for (i = 0; i < STACK_SIZE(func); i++) {
     stack[i] = i < argc ? argv[i] : LUAV_NIL;
   }
 
-  while (1) {
-    assert(closure->pc < func->num_instrs);
+  for (closure->pc = 0; closure->pc < func->num_instrs;) {
     u32 code = func->instrs[closure->pc++];
 
     switch (OP(code)) {
@@ -446,10 +444,10 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         u32 got = vm_fun(closure2, 2, &stack[a + 1],
                                    REG(func, c), &stack[a + 3]);
         temp = REG(func, a + 3);
-        if (got == 0 || lv_gettype(temp) == LNIL) {
+        if (got == 0 || temp == LUAV_NIL) {
           closure->pc++;
         } else {
-          SETREG(func, a+2, temp);
+          SETREG(func, a + 2, temp);
         }
         // fill in the nils
         if (c != 0) {
@@ -468,6 +466,8 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
     vm_jmpbuf = &jmp;
     vm_running = closure;
   }
+
+  panic("ran out of opcodes!");
 }
 
 static void op_close(u32 upc, luav *upv) {
