@@ -164,11 +164,11 @@ top:
 
       case OP_CALL: {
         a = A(code); b = B(code); c = C(code);
-        lclosure_t *func2 = lv_getfunction(REG(func, a));
+        lclosure_t *closure2 = lv_getfunction(REG(func, a));
         u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
 
-        u32 got = vm_fun(func2, num_args, &stack[a + 1], want_ret, &stack[a]);
+        u32 got = vm_fun(closure2, num_args, &stack[a + 1], want_ret, &stack[a]);
 
         // fill in the nils
         if (c != 0) {
@@ -448,6 +448,19 @@ top:
         temp = KREG(func, C(code));
         temp = lhash_get(lv_gettable(REG(func, B(code))), temp);
         SETREG(func, A(code), temp);
+        break;
+
+      case OP_TFORLOOP:
+        a = A(code);
+        lclosure_t *closure2 = lv_getfunction(REG(func, a));
+        u32 got = vm_fun(closure2, 2, &stack[a + 1],
+                                   REG(func, C(code)), &stack[a + 3]);
+        temp = REG(func, a + 3);
+        if (got == 0 || lv_gettype(temp) == LNIL) {
+          pc++;
+        } else {
+          SETREG(func, a+2, temp);
+        }
         break;
 
       default:
