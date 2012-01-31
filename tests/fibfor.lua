@@ -10,4 +10,4 @@ function generatefib (n)
   end)
 end
 
-for i in generatefib(1000) do print(i) end
+for i in generatefib(tonumber(arg[1] or 1000)) do print(i) end
