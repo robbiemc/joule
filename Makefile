@@ -1,5 +1,5 @@
 CC       = gcc
-CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g \
+CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g -m64 \
 					 -Wno-unused-parameter
 OBJDIR   = objs
 SRCDIR   = src
