@@ -73,7 +73,7 @@ typedef struct lclosure {
 #define LUAF_2ARG(name) LUAF_CLOSURE(LUAF_C_2ARG, name, twoarg)
 #define LUAF_3ARG(name) LUAF_CLOSURE(LUAF_C_3ARG, name, threearg)
 #define LUAF_VARARG(name) LUAF_CLOSURE(LUAF_C_VARARG, name, vararg)
-#define LUAF_BOUND(name)  LUAF_CLOSURE(LUAF_C_VARARG, name, boundarg)
+#define LUAF_BOUND(name)  LUAF_CLOSURE(LUAF_C_BOUND, name, boundarg)
 #define LUAF_VARRET(name) LUAF_CLOSURE(LUAF_C_VARRET, name, varret)
 
 void vm_run(lfunc_t *fun);
