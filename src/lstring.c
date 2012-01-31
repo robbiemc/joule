@@ -15,6 +15,7 @@ static size_t str_table_cap = STRING_TABLE_CAP;
 static size_t str_table_next = 2;
 static lstring_t *str_table = NULL;
 static char zerostr = '\0';
+static int initialized = 0;
 
 // string hash map
 typedef struct {
@@ -33,6 +34,7 @@ static u32 smap_hash(u8 *str, size_t size);
 INIT static void lstr_init() {
   str_table = xcalloc(str_table_cap, sizeof(str_table[0]));
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
+  initialized = 1;
 }
 
 DESTROY static void lstr_destroy() {
@@ -41,6 +43,7 @@ DESTROY static void lstr_destroy() {
 }
 
 lstr_idx lstr_add(char *str, size_t size, int freeable) {
+  assert(initialized);
   // lookup the string in the hashset (see if it's already stored)
   if (size == 0) {
     if (freeable) free(str);
