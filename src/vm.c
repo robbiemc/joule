@@ -94,8 +94,6 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
 
   for (frame.pc = 0; frame.pc < func->num_instrs;) {
     u32 code = func->instrs[frame.pc++];
-    // opcode_dump(stderr, code);
-    // fprintf(stderr, "\n");
 
     switch (OP(code)) {
       case OP_GETGLOBAL:
@@ -447,7 +445,7 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
         a = A(code); c = C(code);
         lclosure_t *closure2 = lv_getfunction(REG(func, a), 0);
         u32 got = vm_fun(closure2, &frame, 2, &stack[a + 1],
-                                   REG(func, c), &stack[a + 3]);
+                                   (u32) REG(func, c), &stack[a + 3]);
         temp = REG(func, a + 3);
         if (got == 0 || temp == LUAV_NIL) {
           frame.pc++;
