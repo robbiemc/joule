@@ -47,6 +47,7 @@ static void op_close(u32 upc, luav *upv);
 INIT static void vm_setup() {
   lhash_init(&lua_globals);
   lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
+  lhash_set(&lua_globals, LSTR("_G"), lv_table(&lua_globals));
 }
 
 DESTROY static void vm_destroy() {
