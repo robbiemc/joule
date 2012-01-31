@@ -454,15 +454,21 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         break;
 
       case OP_TFORLOOP:
-        a = A(code);
+        a = A(code); c = C(code);
         lclosure_t *closure2 = lv_getfunction(REG(func, a));
         u32 got = vm_fun(closure2, 2, &stack[a + 1],
-                                   REG(func, C(code)), &stack[a + 3]);
+                                   REG(func, c), &stack[a + 3]);
         temp = REG(func, a + 3);
         if (got == 0 || lv_gettype(temp) == LNIL) {
           pc++;
         } else {
           SETREG(func, a+2, temp);
+        }
+        // fill in the nils
+        if (c != 0) {
+          for (i = got; i < c; i++) {
+            SETREG(func, a + 3 + i, LUAV_NIL);
+          }
         }
         break;
 
