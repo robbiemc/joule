@@ -16,13 +16,14 @@ endif
 # Order matters in this list because object files listed first have their
 # initializers run first, and destructors run last.
 OBJS := lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
-				lib/utils.o lib/io.o lib/math.o lib/os.o lib/string.o meta.o
+				lib/utils.o lib/io.o lib/math.o lib/os.o lib/string.o meta.o \
+				lib/coroutine.o lib/co_asm.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
 LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
  						loop sort func fib select math2 bisect cf printf select smallfun \
-						os strings
+						os strings coroutine2 sieve
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
 
 CTESTS := hash types parse
@@ -69,6 +70,10 @@ profile: clean joule ctests
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.S
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -DASSEMBLER -c -o $@ $<
 
 $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 	@mkdir -p $(@D)

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "debug.h"
@@ -41,7 +42,6 @@
 
 lhash_t lua_globals;
 
-static u32 vm_fun(lclosure_t *c, u32 argc, luav *argv, u32 retc, luav *retv);
 static void op_close(u32 upc, luav *upv);
 
 INIT static void vm_setup() {
@@ -59,14 +59,17 @@ void vm_run(lfunc_t *func) {
   vm_fun(&closure, 0, NULL, 0, NULL);
 }
 
-static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
-                                       u32 retc, luav *retv) {
+u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
+                                u32 retc, luav *retv) {
   // handle c functions
   if (closure->type != LUAF_LUA) {
     luav temp;
     switch (closure->type) {
       case LUAF_C_VARRET:
         return closure->function.varret(argc, argv, retc, retv);
+      case LUAF_C_BOUND:
+        temp = closure->upvalues[0];
+        return closure->function.boundarg(temp, argc, argv, retc, retv);
       case LUAF_C_0ARG:
         temp = closure->function.noarg();
         if (retc > 0)
@@ -104,8 +107,6 @@ static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   luav temp, bv, cv;
 
   luav stack[STACK_SIZE(func)];
-
-top:
   for (i = 0; i < STACK_SIZE(func); i++) {
     stack[i] = i < argc ? argv[i] : LUAV_NIL;
   }
@@ -176,7 +177,6 @@ top:
             SETREG(func, a + i, LUAV_NIL);
           }
         }
-
         last_ret = a + got;
         break;
       }
@@ -199,13 +199,10 @@ top:
         a = A(code);
         b = B(code);
         closure = lv_getfunction(REG(func, a));
-        assert(closure->type == LUAF_LUA);
-        func = closure->function.lua;
         assert(C(code) == 0);
-        pc = 0;
         argc = (b == 0 ? last_ret : a + b) - a - 1;
         argv = &stack[a + 1];
-        goto top;
+        return vm_fun(closure, argc, argv, retc, retv);
 
       case OP_CLOSURE: {
         bx = PAYLOAD(code);
@@ -258,8 +255,13 @@ top:
         break;
 
       case OP_EQ: {
-        int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
-        if ((cmp == 0) != A(code)) {
+        bv = KREG(func, B(code));
+        cv = KREG(func, C(code));
+        if (bv == LUAV_NIL) {
+          if ((cv == LUAV_NIL) != A(code)) pc++;
+        } else if (cv == LUAV_NIL) {
+          if ((bv == LUAV_NIL) != A(code)) pc++;
+        } else if ((lv_compare(bv, cv) == 0) != A(code)) {
           pc++;
         }
         break;

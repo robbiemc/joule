@@ -78,6 +78,16 @@ luav lv_function(lclosure_t *fun) {
 }
 
 /**
+ * @brief Convert a thread pointer to a luav
+ *
+ * @param thread the thread to embed in a luav
+ * @return the lua value representing the thread
+ */
+luav lv_thread(struct lthread *thread) {
+  return LUAV_PACK(LTHREAD, (u64) thread);
+}
+
+/**
  * @brief Convert a luav to an upvalue
  *
  * Upvalues are actually pointers to the real luav. This way, the upvalue
@@ -173,6 +183,20 @@ lclosure_t* lv_getfunction(luav value) {
 lstr_idx lv_getstring(luav value) {
   assert(lv_gettype(value) == LSTRING);
   return LUAV_DATA(value);
+}
+
+/**
+ * @brief Get the thread associated with the given value
+ *
+ * It is considered a fatal error to call this function when the type of the
+ * value is not a thread
+ *
+ * @param value the lua value which is a thread
+ * @return the thread pointer
+ */
+struct lthread* lv_getthread(luav value) {
+  assert(lv_gettype(value) == LTHREAD);
+  return (struct lthread*) LUAV_DATA(value);
 }
 
 /**

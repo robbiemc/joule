@@ -67,8 +67,8 @@ void dbg_dump_luav(FILE *out, luav value) {
     case LTABLE:    pr("Table: %p", lv_gettable(value));            return;
     case LBOOLEAN:  pr("%s", lv_getbool(value) ? "true" : "false"); return;
     case LNIL:      pr("nil");                                      return;
-    case LFUNCTION: pr("Function: ?");                              return;
-    case LTHREAD:   pr("Thread: ?");                                return;
+    case LFUNCTION: pr("Function: %p", lv_getfunction(value));      return;
+    case LTHREAD:   pr("Thread: %p", lv_getthread(value));          return;
     case LUSERDATA: pr("Userdata: %p", lv_getuserdata(value));      return;
     case LSTRING:
       pr("\"");

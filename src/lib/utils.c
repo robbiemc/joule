@@ -120,6 +120,9 @@ static luav lua_tostring(luav v) {
       len = snprintf(strbuf, LUAV_INIT_STRING, LUA_NUMBER_FMT, lv_getnumber(v));
       break;
     }
+    case LTHREAD:
+      len = sprintf(strbuf, "thread: %p", lv_getthread(v));
+      break;
 
     default:
       panic("Unknown luav: 0x%016" PRIu64, v);

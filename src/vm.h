@@ -14,6 +14,7 @@ typedef luav cnoarg_t(void);
 typedef luav conearg_t(luav);
 typedef luav ctwoarg_t(luav, luav);
 typedef luav cthreearg_t(luav, luav, luav);
+typedef u32 cboundarg_t(luav, u32, luav*, u32, luav*);
 typedef luav cvararg_t(u32, luav*);
 
 typedef struct lfunc {
@@ -47,6 +48,7 @@ typedef struct lclosure {
     conearg_t *onearg;
     ctwoarg_t *twoarg;
     cthreearg_t *threearg;
+    cboundarg_t *boundarg;
     cvarret_t *varret;
   } function;
   luav upvalues[0];
@@ -59,7 +61,8 @@ typedef struct lclosure {
 #define LUAF_C_2ARG   4
 #define LUAF_C_3ARG   5
 #define LUAF_C_VARRET 6
-#define LUAF_LUA      7
+#define LUAF_C_BOUND  7
+#define LUAF_LUA      8
 #define CLOSURE_SIZE(num_upvalues) \
   (sizeof(lclosure_t) + (num_upvalues) * sizeof(luav))
 
@@ -70,8 +73,10 @@ typedef struct lclosure {
 #define LUAF_2ARG(name) LUAF_CLOSURE(LUAF_C_2ARG, name, twoarg)
 #define LUAF_3ARG(name) LUAF_CLOSURE(LUAF_C_3ARG, name, threearg)
 #define LUAF_VARARG(name) LUAF_CLOSURE(LUAF_C_VARARG, name, vararg)
+#define LUAF_BOUND(name)  LUAF_CLOSURE(LUAF_C_VARARG, name, boundarg)
 #define LUAF_VARRET(name) LUAF_CLOSURE(LUAF_C_VARRET, name, varret)
 
 void vm_run(lfunc_t *fun);
+u32 vm_fun(lclosure_t *c, u32 argc, luav *argv, u32 retc, luav *retv);
 
 #endif /* _VM_H_ */
