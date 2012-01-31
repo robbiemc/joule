@@ -67,10 +67,13 @@ INIT static void lua_utils_init() {
 }
 
 static u32 lua_assert(LSTATE) {
-  luav boolean = lstate_getbool(0);
-  if (boolean == LUAV_FALSE) {
-    // luav msg = argc > 1 ? argv[1] : LSTR("assertion failed!");
-    panic("lua assertion failed");
+  u8 boolean = lstate_getbool(0);
+  if (!boolean) {
+    char *explain = "assertion failed!";
+    if (argc > 1) {
+      explain = lstate_getstring(1)->ptr;
+    }
+    err_rawstr(explain);
   }
   u32 i;
   for (i = 0; i < argc && i < retc; i++) {

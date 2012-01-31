@@ -110,7 +110,9 @@ static void coroutine_wrapper() {
 
 static u32 lua_co_create(LSTATE) {
   lclosure_t *function = lstate_getfunction(0);
-  assert(function->type == LUAF_LUA);
+  if (function->type != LUAF_LUA) {
+    err_str(0, "Lua function expected");
+  }
   lthread_t *thread = xmalloc(sizeof(lthread_t));
   thread->status = CO_NEVER_RUN;
   thread->stack  = mmap(NULL, CO_STACK_SIZE, PROT_WRITE | PROT_READ,

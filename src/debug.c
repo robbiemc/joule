@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -6,6 +5,7 @@
 #include "debug.h"
 #include "luav.h"
 #include "opcode.h"
+#include "panic.h"
 #include "vm.h"
 
 #define __pr(...) prindent(level, out, __VA_ARGS__)
@@ -76,7 +76,7 @@ void dbg_dump_luav(FILE *out, luav value) {
       pr("\"");
       return;
   }
-  assert(0 && "lv_gettype seems to be broken...");
+  panic("lv_gettype seems to be broken...");
 }
 
 static void dbg_dump_lstring(FILE *out, lstring_t *str) {

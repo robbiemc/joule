@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <math.h>
 #include <stdlib.h>
 
@@ -235,7 +234,9 @@ static u32 lua_math_random(LSTATE) {
     default:
       upper = lstate_getnumber(1);
       lower = lstate_getnumber(0);
-      assert(lower < upper);
+      if (lower > upper) {
+        err_str(1, "interval is empty");
+      }
       num = num * (upper - lower + 1) + lower;
       break;
   }

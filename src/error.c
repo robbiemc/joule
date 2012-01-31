@@ -9,10 +9,13 @@
 
 #define ERR_MISSING 1
 #define ERR_BADTYPE 2
+#define ERR_STR     3
+#define ERR_RAWSTR  4
 
 char *lua_program = NULL;
 
 static u32 err_info[10];
+static char *err_custom;
 
 static char* typestr(u32 type) {
   switch (type) {
@@ -42,9 +45,10 @@ void err_explain(int err, lclosure_t *closure) {
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
-  assert(closure->pc < func->dbg_linecount);
+  printf("%d\n", func->dbg_linecount);
+  assert(caller->pc < func->dbg_linecount);
   assert(lua_program != NULL);
-  printf("%s: %s:%u: ", lua_program, func->file, func->dbg_lines[closure->pc]);
+  printf("%s: %s:%u: ", lua_program, func->file, func->dbg_lines[caller->pc]);
 
   switch (err) {
     case ERR_MISSING:
@@ -56,6 +60,15 @@ void err_explain(int err, lclosure_t *closure) {
       printf("bad argument #%d to '%s' (%s expected, got %s)\n",
              err_info[0] + 1, funstr(vm_running), typestr(err_info[1]),
              typestr(err_info[2]));
+      break;
+
+    case ERR_STR:
+      printf("bad argument #%d to '%s' (%s)\n",
+             err_info[0] + 1, funstr(vm_running), err_custom);
+      break;
+
+    case ERR_RAWSTR:
+      printf("%s\n", err_custom);
       break;
 
     default:
@@ -100,4 +113,15 @@ void err_badtype(u32 n, u32 expected, u32 got) {
   err_info[1] = expected;
   err_info[2] = got;
   longjmp(*vm_jmpbuf, ERR_BADTYPE);
+}
+
+void err_str(u32 n, char *explain) {
+  err_info[0] = n;
+  err_custom = explain;
+  longjmp(*vm_jmpbuf, ERR_STR);
+}
+
+void err_rawstr(char *explain) {
+  err_custom = explain;
+  longjmp(*vm_jmpbuf, ERR_RAWSTR);
 }

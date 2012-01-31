@@ -102,10 +102,6 @@ typedef struct upvalue {
 #define lv_upvalue(up)    LUAV_PACK(LUPVALUE, (u64) (up))
 #define lv_thread(thread) LUAV_PACK(LTHREAD, (u64) thread)
 
-#define lassert_argtyp(v, typ, n) ({                         \
-    if (!lv_istype(v, typ)) { panic("bad arg %d", n); }      \
-  })
-
 /* Unboxing a luav */
 double           lv_castnumberb(luav value, u32 base, u32 argnum);
 struct lstring*  lv_caststring(luav value, u32 argnum);

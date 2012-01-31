@@ -466,6 +466,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
     }
 
     vm_jmpbuf = &jmp;
+    vm_running = closure;
   }
 }
 
