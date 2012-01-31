@@ -107,23 +107,23 @@ void err_explain(int err, lframe_t *frame) {
 void err_missing(u32 n, u32 expected_type) {
   err_info[0] = n;
   err_info[1] = expected_type;
-  longjmp(vm_running->jmp, ERR_MISSING);
+  err_explain(ERR_MISSING, vm_running);
 }
 
 void err_badtype(u32 n, u32 expected, u32 got) {
   err_info[0] = n;
   err_info[1] = expected;
   err_info[2] = got;
-  longjmp(vm_running->jmp, ERR_BADTYPE);
+  err_explain(ERR_BADTYPE, vm_running);
 }
 
 void err_str(u32 n, char *explain) {
   err_info[0] = n;
   err_custom = explain;
-  longjmp(vm_running->jmp, ERR_STR);
+  err_explain(ERR_STR, vm_running);
 }
 
 void err_rawstr(char *explain) {
   err_custom = explain;
-  longjmp(vm_running->jmp, ERR_RAWSTR);
+  err_explain(ERR_RAWSTR, vm_running);
 }

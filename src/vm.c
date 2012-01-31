@@ -71,11 +71,6 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
   frame.pc      = 0;
   vm_running    = &frame;
 
-  int err;
-  if ((err = setjmp(frame.jmp)) != 0) {
-    err_explain(err, &frame);
-  }
-
   // handle c functions
   if (closure->type != LUAF_LUA) {
     return closure->function.c->f(argc, argv, retc, retv);

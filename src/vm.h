@@ -1,7 +1,6 @@
 #ifndef _VM_H_
 #define _VM_H_
 
-#include <setjmp.h>
 #include <stdint.h>
 
 #include "lstring.h"
@@ -54,7 +53,6 @@ typedef struct lframe {
   lclosure_t *closure;
   u32 pc;
   struct lframe *caller;
-  jmp_buf jmp;
 } lframe_t;
 
 #define LUAF_NIL  0
