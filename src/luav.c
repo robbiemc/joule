@@ -41,8 +41,7 @@ lhash_t* lv_gettable(luav value, u32 argnum) {
  * @return the pointer to the table struct
  */
 u8 lv_getbool(luav value, u32 argnum) {
-  assert(lv_gettype(value) == LBOOLEAN);
-  return (u8) LUAV_DATA(value);
+  return value != LUAV_NIL && value != LUAV_FALSE;
 }
 
 /**
@@ -192,16 +191,25 @@ double lv_castnumberb(luav number, u32 base, u32 argnum) {
   }
 
   lstring_t *str = lv_caststring(number, argnum);
+  double num;
+  if (lv_parsenum(str, base, &num) < 0) {
+    panic("bad number");
+  }
+  return num;
+}
+
+int lv_parsenum(lstring_t *str, u32 base, double *value) {
   char *end;
   double num = base == 10 ? strtod(str->ptr, &end) :
                             (double) strtoul(str->ptr, &end, (int) base);
 
-  if (end == str->ptr) { panic("bad number"); }
+  if (end == str->ptr) { return -1; }
   while (*end != 0 && isspace(*end)) end++;
   if (end == str->ptr + str->length) {
-    return num;
+    *value = num;
+    return 0;
   }
-  panic("bad number")
+  return -1;
 }
 
 lstring_t* lv_caststring(luav number, u32 argnum) {
@@ -209,7 +217,7 @@ lstring_t* lv_caststring(luav number, u32 argnum) {
   if (type == LSTRING) {
     return lstr_get(LUAV_DATA(number));
   } else if (type != LNUMBER) {
-    panic("bad number");
+    panic("bad string");
   }
 
   char *buf = xmalloc(20);

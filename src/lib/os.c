@@ -65,6 +65,9 @@ static u32 lua_os_exit(LSTATE) {
 }
 
 static u32 lua_os_execute(LSTATE) {
+  if (argc == 0 || argv[0] == LUAV_NIL) {
+    lstate_return1(lv_number(1));
+  }
   lstring_t *str = lstate_getstring(0);
   lstate_return1(lv_number(system(str->ptr)));
 }

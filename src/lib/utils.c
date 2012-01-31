@@ -138,9 +138,26 @@ static u32 lua_tostring(LSTATE) {
 
 static u32 lua_print(LSTATE) {
   u32 i;
+  luav value;
   for (i = 0; i < argc; i++) {
-    lstring_t *str = lstate_getstring(i);
-    printf("%.*s", (int) str->length, str->ptr);
+    value = lstate_getval(i);
+    switch (lv_gettype(value)) {
+      case LNIL:      printf("nil");                                    break;
+      case LTABLE:    printf("table: %p", lv_gettable(value, 0));       break;
+      case LFUNCTION: printf("function: %p", lv_getfunction(value, 0)); break;
+      case LUSERDATA: printf("userdata: %p", lv_getuserdata(value, 0)); break;
+      case LTHREAD:   printf("thread: %p", lv_getthread(value, 0));     break;
+      case LNUMBER:   printf(LUA_NUMBER_FMT, lv_castnumber(value, 0));  break;
+      case LBOOLEAN:  printf(lv_getbool(value, 0) ? "true" : "false");  break;
+      case LSTRING: {
+        lstring_t *str = lv_caststring(value, i);
+        printf("%.*s", (int) str->length, str->ptr);
+        break;
+      }
+
+      default:
+        panic("Unknown luav: 0x%016" PRIu64, value);
+    }
     if (i < argc - 1) {
       printf("\t");
     }
@@ -150,15 +167,33 @@ static u32 lua_print(LSTATE) {
 }
 
 static u32 lua_tonumber(LSTATE) {
-  jmp_buf jmp;
-  vm_jmpbuf = &jmp;
-  if (setjmp(jmp) != 0) {
-    lstate_return1(LUAV_NIL);
-  }
   u32 base = 10;
   if (argc > 1) {
     base = (u32) lstate_getnumber(1);
   }
+  luav value = lstate_getval(0);
+  switch (lv_gettype(value)) {
+    case LTABLE:
+    case LFUNCTION:
+    case LUSERDATA:
+    case LTHREAD:
+    case LBOOLEAN:
+    case LNIL:      lstate_return1(LUAV_NIL);
+    case LNUMBER:   lstate_return1(value);
+    case LSTRING: {
+      double ret;
+      lstring_t *str = lv_caststring(value, 0);
+      if (lv_parsenum(str, base, &ret) < 0) {
+        lstate_return1(LUAV_NIL);
+      } else {
+        lstate_return1(lv_number(ret));
+      }
+    }
+
+    default:
+      panic("Unknown luav: 0x%016" PRIu64, value);
+  }
+
   double num = lv_castnumberb(lstate_getval(0), base, 0);
   lstate_return1(lv_number(num));
 }

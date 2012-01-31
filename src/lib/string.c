@@ -140,7 +140,7 @@ static u32 lua_string_format(LSTATE) {
   size_t len = 0, cap = LUAV_INIT_STRING;
   char *newstr = xmalloc(cap);
   char *fmt = lfmt->ptr;
-  u32 i, j, argi = 1;
+  u32 i, j, argi = 0;
   char buf[MAX_FORMAT];
 
   for (i = 0; i < lfmt->length; i++) {
@@ -164,10 +164,12 @@ static u32 lua_string_format(LSTATE) {
     strncpy(buf, pct_start, i - start + 1);
     buf[i - start + 1] = 0;
 
+    argi++;
     assert(argi < argc);
     switch (fmt[i]) {
       case '%':
         APPEND(newstr, len, cap, '%');
+        argi--;
         break;
       case 'c':
         SNPRINTF(newstr, len, cap, buf, (char) lstate_getnumber(argi));
@@ -262,7 +264,6 @@ static u32 lua_string_format(LSTATE) {
       default:
         panic("bad string.format() mode: %c", fmt[i]);
     }
-    argi++;
   }
 
   APPEND(newstr, len, cap, 0);
@@ -295,7 +296,7 @@ static u32 lua_string_sub(LSTATE) {
   ssize_t strlen = (ssize_t) str->length;
   ssize_t start = (ssize_t) lstate_getnumber(1);
   ssize_t end;
-  if (argc < 2) {
+  if (argc < 3) {
     end = strlen;
   } else {
     end = (ssize_t) lstate_getnumber(2);

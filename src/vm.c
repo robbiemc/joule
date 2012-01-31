@@ -298,7 +298,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_MUL: {
         double bv = lv_castnumber(KREG(func, B(code)), 0);
         double cv = lv_castnumber(KREG(func, C(code)), 0);
-        SETREG(func, A(code), lv_number(bv + cv));
+        SETREG(func, A(code), lv_number(bv * cv));
         break;
       }
 
@@ -391,9 +391,10 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
           lstring_t *lstr = lv_caststring(REG(func, i), 0);
           while (lstr->length + len + 1 >= cap) {
             cap *= 2;
-            str = xrealloc(str, cap * 2);
+            str = xrealloc(str, cap);
           }
           memcpy(str + len, lstr->ptr, lstr->length);
+          len += lstr->length;
         }
         str[len] = 0;
         SETREG(func, A(code), lv_string(lstr_add(str, len, TRUE)));

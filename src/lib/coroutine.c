@@ -49,7 +49,7 @@ static u32 lua_co_running(LSTATE);
 static u32 lua_co_resume(LSTATE);
 static u32 lua_co_status(LSTATE);
 static u32 lua_co_wrap(LSTATE);
-static u32 co_wrap_helper(lclosure_t *co, LSTATE);
+static u32 co_wrap_helper(lthread_t *co, LSTATE);
 static u32 lua_co_yield(LSTATE);
 static LUAF(lua_co_create);
 static LUAF(lua_co_resume);
@@ -131,16 +131,15 @@ static u32 lua_co_resume(LSTATE) {
   lthread_t *thread = lstate_getthread(0);
   if (thread->status == CO_DEAD) {
     lstate_return(LUAV_FALSE, 0);
-    lstate_return(LUAV_FALSE, LSTR("cannot resume dead coroutine"));
+    lstate_return(LSTR("cannot resume dead coroutine"), 1);
     return 2;
   }
-  lclosure_t *closure = lstate_getfunction(0);
   if (retc > 0) {
-    u32 amt = co_wrap_helper(closure, argc - 1, argv + 1, retc - 1, retv + 1);
+    u32 amt = co_wrap_helper(thread, argc - 1, argv + 1, retc - 1, retv + 1);
     retv[0] = LUAV_TRUE;
     return amt + 1;
   }
-  return co_wrap_helper(closure, argc - 1, argv + 1, retc, retv);
+  return co_wrap_helper(thread, argc - 1, argv + 1, retc, retv);
 }
 
 static u32 lua_co_running(LSTATE) {
@@ -164,11 +163,13 @@ static u32 lua_co_status(LSTATE) {
 }
 
 static u32 co_wrap_trampoline(LSTATE) {
-  return co_wrap_helper(vm_running, argc, argv, retc, retv);
+  lthread_t *thread = lv_getthread(vm_running->upvalues[0], 0);
+  return co_wrap_helper(thread, argc, argv, retc, retv);
 }
 
 static u32 lua_co_wrap(LSTATE) {
-  luav routine = lua_co_create(argc, argv, retc, retv);
+  luav routine;
+  assert(lua_co_create(argc, argv, 1, &routine) == 0);
   lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
   closure->type = LUAF_C;
   closure->function.c = co_wrap_trampoline;
@@ -176,9 +177,7 @@ static u32 lua_co_wrap(LSTATE) {
   lstate_return1(lv_function(closure));
 }
 
-static u32 co_wrap_helper(lclosure_t *closure, LSTATE) {
-  lthread_t *thread = lv_getthread(closure->upvalues[0], 0);
-
+static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
   thread->retc = retc;
   thread->retv = retv;
 

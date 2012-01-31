@@ -115,6 +115,8 @@ struct lclosure* lv_getfunction(luav value, u32 argnum);
 upvalue_t*       lv_getupvalue(luav value);
 struct lthread*  lv_getthread(luav value, u32 argnum);
 
+int lv_parsenum(struct lstring *str, u32 base, double *value);
+
 #define lv_castnumber(a, b) lv_castnumberb(a, 10, b)
 
 u8  lv_gettype(luav value);
