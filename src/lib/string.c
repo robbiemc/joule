@@ -21,7 +21,7 @@
 #define RESIZE(buf, size, cap)    \
   if ((size) >= cap) {            \
     cap *= 2;                     \
-    buf = xrealloc(buf, cap * 2); \
+    buf = xrealloc(buf, cap);     \
   }
 
 /**
@@ -37,7 +37,7 @@
     int tmp;                                                                 \
     while ((size_t) (tmp = snprintf(&buf[size], cap - size, fmt)) + size >= cap) {  \
       cap *= 2;                                                              \
-      buf = xrealloc(buf, cap * 2);                                          \
+      buf = xrealloc(buf, cap);                                              \
     }                                                                        \
     len += (size_t) tmp;                                                     \
   }

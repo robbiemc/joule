@@ -99,7 +99,7 @@ static void coroutine_swap(lthread_t *to) {
 static void coroutine_wrapper() {
   luav retv[CO_RETC];
   assert(cur_thread->status == CO_RUNNING);
-  u32 retc = vm_fun(cur_thread->closure,
+  u32 retc = vm_fun(cur_thread->closure, NULL,
                     cur_thread->argc, cur_thread->argv,
                     CO_RETC, retv);
   cur_thread->status = CO_DEAD;
@@ -167,7 +167,7 @@ static u32 lua_co_status(LSTATE) {
 }
 
 static u32 co_wrap_trampoline(LSTATE) {
-  lthread_t *thread = lv_getthread(vm_running->upvalues[0], 0);
+  lthread_t *thread = lv_getthread(vm_running->closure->upvalues[0], 0);
   return co_wrap_helper(thread, argc, argv, retc, retv);
 }
 

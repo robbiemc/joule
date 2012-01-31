@@ -43,14 +43,19 @@ typedef struct cfunc {
 
 typedef struct lclosure {
   u32 type;
-  struct lclosure *caller;
-  u32 pc;
   union {
     lfunc_t *lua;
     cfunc_t *c;
   } function;
   luav upvalues[0];
 } lclosure_t;
+
+typedef struct lframe {
+  lclosure_t *closure;
+  u32 pc;
+  struct lframe *caller;
+  jmp_buf jmp;
+} lframe_t;
 
 #define LUAF_NIL  0
 #define LUAF_C    1
@@ -68,10 +73,10 @@ typedef struct lclosure {
   }
 
 extern struct lhash lua_globals;
-extern jmp_buf *vm_jmpbuf;
-extern lclosure_t *vm_running;
+extern lframe_t *vm_running;
 
 void vm_run(lfunc_t *fun);
-u32 vm_fun(lclosure_t *c, u32 argc, luav *argv, u32 retc, luav *retv);
+u32 vm_fun(lclosure_t *c, lframe_t *frame,
+           u32 argc, luav *argv, u32 retc, luav *retv);
 
 #endif /* _VM_H_ */

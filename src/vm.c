@@ -42,8 +42,7 @@
 #define DECODEFP8(v) (((u32)8 | ((v)&7)) << (((u32)(v)>>3) - 1))
 
 lhash_t lua_globals;
-jmp_buf *vm_jmpbuf = NULL;
-lclosure_t *vm_running = NULL;
+lframe_t *vm_running = NULL;
 
 static void op_close(u32 upc, luav *upv);
 
@@ -60,19 +59,22 @@ DESTROY static void vm_destroy() {
 void vm_run(lfunc_t *func) {
   lclosure_t closure = {.function.lua = func, .type = LUAF_LUA};
   assert(func->num_upvalues == 0);
-  vm_fun(&closure, 0, NULL, 0, NULL);
+  vm_fun(&closure, NULL, 0, NULL, 0, NULL);
 }
 
-u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
-                                u32 retc, luav *retv) {
-  jmp_buf jmp;
-  closure->caller = vm_running;
-  vm_running = closure;
+u32 vm_fun(lclosure_t *closure, lframe_t *parent,
+           u32 argc, luav *argv, u32 retc, luav *retv) {
+  lframe_t frame;
+
+  frame.caller  = parent;
+  frame.closure = closure;
+  frame.pc      = 0;
+  vm_running    = &frame;
+
   int err;
-  if ((err = setjmp(jmp)) != 0) {
-    err_explain(err, closure);
+  if ((err = setjmp(frame.jmp)) != 0) {
+    err_explain(err, &frame);
   }
-  vm_jmpbuf = &jmp;
 
   // handle c functions
   if (closure->type != LUAF_LUA) {
@@ -90,8 +92,10 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
     stack[i] = i < argc ? argv[i] : LUAV_NIL;
   }
 
-  for (closure->pc = 0; closure->pc < func->num_instrs;) {
-    u32 code = func->instrs[closure->pc++];
+  for (frame.pc = 0; frame.pc < func->num_instrs;) {
+    u32 code = func->instrs[frame.pc++];
+    // opcode_dump(stderr, code);
+    // fprintf(stderr, "\n");
 
     switch (OP(code)) {
       case OP_GETGLOBAL:
@@ -147,8 +151,8 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
 
-        u32 got = vm_fun(closure2, num_args, &stack[a + 1],
-                                   want_ret, &stack[a]);
+        u32 got = vm_fun(closure2, &frame, num_args, &stack[a + 1],
+                                           want_ret, &stack[a]);
         // fill in the nils
         if (c != 0) {
           for (i = got; i < c - 1; i++) {
@@ -180,7 +184,8 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         assert(C(code) == 0);
         argc = (b == 0 ? last_ret : a + b) - a - 1;
         argv = &stack[a + 1];
-        return vm_fun(closure, argc, argv, retc, retv);
+        /* TODO: this isn't actually a tail call... */
+        return vm_fun(closure, &frame, argc, argv, retc, retv);
 
       case OP_CLOSURE: {
         bx = PAYLOAD(code);
@@ -191,7 +196,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         closure2->function.lua = function;
 
         for (i = 0; i < function->num_upvalues; i++) {
-          u32 pseudo = func->instrs[closure->pc++];
+          u32 pseudo = func->instrs[frame.pc++];
           luav upvalue;
           if (OP(pseudo) == OP_MOVE) {
             /* Can't use the REG macro because we don't want to duplicate
@@ -229,32 +234,32 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         break;
 
       case OP_JMP:
-        closure->pc += UNBIAS(PAYLOAD(code));
+        frame.pc += UNBIAS(PAYLOAD(code));
         break;
 
       case OP_EQ: {
         luav bv = KREG(func, B(code));
         luav cv = KREG(func, C(code));
         if (bv == LUAV_NIL) {
-          if ((cv == LUAV_NIL) != A(code)) closure->pc++;
+          if ((cv == LUAV_NIL) != A(code)) frame.pc++;
         } else if (cv == LUAV_NIL) {
-          if ((bv == LUAV_NIL) != A(code)) closure->pc++;
+          if ((bv == LUAV_NIL) != A(code)) frame.pc++;
         } else if ((lv_compare(bv, cv) == 0) != A(code)) {
-          closure->pc++;
+          frame.pc++;
         }
         break;
       }
       case OP_LT: {
         int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
         if ((cmp < 0) != A(code)) {
-          closure->pc++;
+          frame.pc++;
         }
         break;
       }
       case OP_LE: {
         int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
         if ((cmp <= 0) != A(code)) {
-          closure->pc++;
+          frame.pc++;
         }
         break;
       }
@@ -262,7 +267,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_TEST:
         temp = REG(func, A(code));
         if (lv_getbool(temp, 0) != C(code)) {
-          closure->pc++;
+          frame.pc++;
         }
         break;
 
@@ -271,14 +276,14 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         if (lv_getbool(temp, 0) != C(code)) {
           SETREG(func, A(code), temp);
         } else {
-          closure->pc++;
+          frame.pc++;
         }
         break;
 
       case OP_LOADBOOL:
         SETREG(func, A(code), lv_bool((u8) B(code)));
         if (C(code)) {
-          closure->pc++;
+          frame.pc++;
         }
         break;
 
@@ -368,7 +373,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         a = A(code);
         SETREG(func, a, lv_number(lv_castnumber(REG(func, a), 0) -
                                   lv_castnumber(REG(func, a + 2), 0)));
-        closure->pc += UNBIAS(PAYLOAD(code));
+        frame.pc += UNBIAS(PAYLOAD(code));
         break;
 
       case OP_FORLOOP: {
@@ -379,7 +384,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         double d2 = lv_castnumber(REG(func, a + 1), 0);
         if ((step > 0 && d1 <= d2) || (step < 0 && d1 >= d2)) {
           SETREG(func, a + 3, REG(func, a));
-          closure->pc += UNBIAS(PAYLOAD(code));
+          frame.pc += UNBIAS(PAYLOAD(code));
         }
         break;
       }
@@ -407,7 +412,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         a = A(code);
         c = C(code);
         if (c == 0) {
-          c = func->instrs[closure->pc++];
+          c = func->instrs[frame.pc++];
         }
         lhash_t *hash = lv_gettable(REG(func, a), 0);
         for (i = 1; i <= b; i++) {
@@ -441,11 +446,11 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_TFORLOOP:
         a = A(code); c = C(code);
         lclosure_t *closure2 = lv_getfunction(REG(func, a), 0);
-        u32 got = vm_fun(closure2, 2, &stack[a + 1],
+        u32 got = vm_fun(closure2, &frame, 2, &stack[a + 1],
                                    REG(func, c), &stack[a + 3]);
         temp = REG(func, a + 3);
         if (got == 0 || temp == LUAV_NIL) {
-          closure->pc++;
+          frame.pc++;
         } else {
           SETREG(func, a + 2, temp);
         }
@@ -463,8 +468,8 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         abort();
     }
 
-    vm_jmpbuf = &jmp;
-    vm_running = closure;
+    /* TODO: this is a bad fix */
+    vm_running = &frame;
   }
 
   panic("ran out of opcodes!");

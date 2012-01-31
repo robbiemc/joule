@@ -38,32 +38,34 @@ static char* funstr(lclosure_t *closure) {
   return closure->function.c->name;
 }
 
-void err_explain(int err, lclosure_t *closure) {
-  lclosure_t *caller = closure->caller;
+void err_explain(int err, lframe_t *frame) {
+  assert(frame->caller != NULL);
+  lclosure_t *caller = frame->caller->closure;
   assert(caller != NULL && caller->type == LUAF_LUA);
   lfunc_t *func = caller->function.lua;
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
-  assert(caller->pc < func->dbg_linecount);
+  assert(frame->pc < func->dbg_linecount);
   assert(lua_program != NULL);
-  printf("%s: %s:%u: ", lua_program, func->file, func->dbg_lines[caller->pc]);
+  printf("%s: %s:%u: ", lua_program, func->file, func->dbg_lines[frame->pc]);
 
   switch (err) {
     case ERR_MISSING:
       printf("bad argument #%d to '%s' (%s expected, got no value)\n",
-             err_info[0] + 1, funstr(vm_running), typestr(err_info[1]));
+             err_info[0] + 1, funstr(vm_running->closure),
+             typestr(err_info[1]));
       break;
 
     case ERR_BADTYPE:
       printf("bad argument #%d to '%s' (%s expected, got %s)\n",
-             err_info[0] + 1, funstr(vm_running), typestr(err_info[1]),
+             err_info[0] + 1, funstr(vm_running->closure), typestr(err_info[1]),
              typestr(err_info[2]));
       break;
 
     case ERR_STR:
       printf("bad argument #%d to '%s' (%s)\n",
-             err_info[0] + 1, funstr(vm_running), err_custom);
+             err_info[0] + 1, funstr(vm_running->closure), err_custom);
       break;
 
     case ERR_RAWSTR:
@@ -76,14 +78,15 @@ void err_explain(int err, lclosure_t *closure) {
 
   printf("stack traceback:\n");
 
-  while (closure != NULL) {
+  while (frame != NULL) {
+    lclosure_t *closure = frame->closure;
     printf("\t");
     if (closure->type == LUAF_C) {
       printf("[C]: in function '%s'", closure->function.c->name);
     } else {
       lfunc_t *function = closure->function.lua;
-      assert(closure->pc - 1 < function->dbg_linecount);
-      printf("%s:%d: ", function->file, function->dbg_lines[closure->pc - 1]);
+      assert(frame->pc - 1 < function->dbg_linecount);
+      printf("%s:%d: ", function->file, function->dbg_lines[frame->pc - 1]);
       lstring_t *fname = lstr_get(function->name);
 
       if (fname->length == 0) {
@@ -95,7 +98,7 @@ void err_explain(int err, lclosure_t *closure) {
       }
     }
     printf("\n");
-    closure = closure->caller;
+    frame = frame->caller;
   }
 
   exit(1);
@@ -104,23 +107,23 @@ void err_explain(int err, lclosure_t *closure) {
 void err_missing(u32 n, u32 expected_type) {
   err_info[0] = n;
   err_info[1] = expected_type;
-  longjmp(*vm_jmpbuf, ERR_MISSING);
+  longjmp(vm_running->jmp, ERR_MISSING);
 }
 
 void err_badtype(u32 n, u32 expected, u32 got) {
   err_info[0] = n;
   err_info[1] = expected;
   err_info[2] = got;
-  longjmp(*vm_jmpbuf, ERR_BADTYPE);
+  longjmp(vm_running->jmp, ERR_BADTYPE);
 }
 
 void err_str(u32 n, char *explain) {
   err_info[0] = n;
   err_custom = explain;
-  longjmp(*vm_jmpbuf, ERR_STR);
+  longjmp(vm_running->jmp, ERR_STR);
 }
 
 void err_rawstr(char *explain) {
   err_custom = explain;
-  longjmp(*vm_jmpbuf, ERR_RAWSTR);
+  longjmp(vm_running->jmp, ERR_RAWSTR);
 }
