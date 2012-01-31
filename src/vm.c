@@ -42,6 +42,7 @@
 
 lhash_t lua_globals;
 jmp_buf *vm_jmpbuf;
+lclosure_t *vm_running;
 
 static void op_close(u32 upc, luav *upv);
 
@@ -63,6 +64,7 @@ void vm_run(lfunc_t *func) {
 
 u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
                                 u32 retc, luav *retv) {
+  vm_running = closure;
   // handle c functions
   if (closure->type != LUAF_LUA) {
     return closure->function.c(argc, argv, retc, retv);

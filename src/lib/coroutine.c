@@ -49,7 +49,7 @@ static u32 lua_co_running(LSTATE);
 static u32 lua_co_resume(LSTATE);
 static u32 lua_co_status(LSTATE);
 static u32 lua_co_wrap(LSTATE);
-static u32 co_wrap_helper(luav co, u32 argc, luav *argv, u32 retc, luav *retv);
+static u32 co_wrap_helper(lclosure_t *co, LSTATE);
 static u32 lua_co_yield(LSTATE);
 static LUAF(lua_co_create);
 static LUAF(lua_co_resume);
@@ -128,18 +128,19 @@ static u32 lua_co_create(LSTATE) {
 }
 
 static u32 lua_co_resume(LSTATE) {
-  lthread_t *thread = lv_getthread(0);
+  lthread_t *thread = lstate_getthread(0);
   if (thread->status == CO_DEAD) {
     lstate_return(LUAV_FALSE, 0);
     lstate_return(LUAV_FALSE, LSTR("cannot resume dead coroutine"));
     return 2;
   }
+  lclosure_t *closure = lstate_getfunction(0);
   if (retc > 0) {
-    u32 amt = co_wrap_helper(argv[0], argc - 1, argv + 1, retc - 1, retv + 1);
+    u32 amt = co_wrap_helper(closure, argc - 1, argv + 1, retc - 1, retv + 1);
     retv[0] = LUAV_TRUE;
     return amt + 1;
   }
-  return co_wrap_helper(argv[0], argc - 1, argv + 1, retc, retv);
+  return co_wrap_helper(closure, argc - 1, argv + 1, retc, retv);
 }
 
 static u32 lua_co_running(LSTATE) {
@@ -162,17 +163,21 @@ static u32 lua_co_status(LSTATE) {
   panic("Invalid thread status: %d", thread->status);
 }
 
-static u32 lua_co_wrap(LSTATE) {
-  luav routine = lua_co_create(function);
-  lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
-  closure->type = LUAF_C_BOUND;
-  closure->function.boundarg = co_wrap_helper;
-  closure->upvalues[0] = routine;
-  return lv_function(closure);
+static u32 co_wrap_trampoline(LSTATE) {
+  return co_wrap_helper(vm_running, argc, argv, retc, retv);
 }
 
-static u32 co_wrap_helper(luav co, u32 argc, luav *argv, u32 retc, luav *retv) {
-  lthread_t *thread = lv_getthread(co);
+static u32 lua_co_wrap(LSTATE) {
+  luav routine = lua_co_create(argc, argv, retc, retv);
+  lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
+  closure->type = LUAF_C;
+  closure->function.c = co_wrap_trampoline;
+  closure->upvalues[0] = routine;
+  lstate_return1(lv_function(closure));
+}
+
+static u32 co_wrap_helper(lclosure_t *closure, LSTATE) {
+  lthread_t *thread = lv_getthread(closure->upvalues[0], 0);
 
   thread->retc = retc;
   thread->retv = retv;

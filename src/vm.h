@@ -9,8 +9,6 @@
 #include "lstate.h"
 
 struct lhash;
-extern struct lhash lua_globals;
-extern jmp_buf *vm_jmpbuf;
 
 typedef u32 cfunction_t(LSTATE);
 
@@ -55,6 +53,10 @@ typedef struct lclosure {
   lclosure_t fun ## _f = {.type = LUAF_C, .function.c = fun}
 
 #define REGISTER(tbl, str, fun) lhash_set(tbl, LSTR(str), lv_function(fun))
+
+extern struct lhash lua_globals;
+extern jmp_buf *vm_jmpbuf;
+extern lclosure_t *vm_running;
 
 void vm_run(lfunc_t *fun);
 u32 vm_fun(lclosure_t *c, u32 argc, luav *argv, u32 retc, luav *retv);
