@@ -67,8 +67,8 @@ void err_explain(int err, lclosure_t *closure) {
       printf("[C]: in function '%s'", closure->function.c->name);
     } else {
       lfunc_t *function = closure->function.lua;
-      assert(closure->pc < function->dbg_linecount);
-      printf("%s:%d: ", function->file, function->dbg_lines[closure->pc]);
+      assert(closure->pc - 1 < function->dbg_linecount);
+      printf("%s:%d: ", function->file, function->dbg_lines[closure->pc - 1]);
       lstring_t *fname = lstr_get(function->name);
 
       if (fname->length == 0) {
