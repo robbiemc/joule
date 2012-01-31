@@ -1,7 +1,7 @@
+#include "error.h"
 #include "lhash.h"
 #include "lstate.h"
 #include "lstring.h"
-#include "panic.h"
 #include "vm.h"
 
 static lhash_t lua_io;
@@ -37,7 +37,7 @@ static u32 lua_io_write(LSTATE) {
         break;
 
       default:
-        panic("Bad type in io.write");
+        err_badtype(i, LSTRING, lv_gettype(value));
     }
   }
 
