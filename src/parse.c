@@ -42,12 +42,11 @@ void luac_parse_fd(luac_file_t *file, int fd) {
  * @param filename the filename to open
  */
 void luac_parse_source(luac_file_t *file, char *filename) {
-  char cmd_prefix[] = "luac -o /dev/stdout ";
+  char cmd_prefix[] = "luac -o - ";
   char *cmd = xmalloc(sizeof(cmd_prefix) + strlen(filename) + 1);
   strcpy(cmd, cmd_prefix);
   strcpy(cmd + sizeof(cmd_prefix) - 1, filename);
   FILE *f = popen(cmd, "r");
-  free(cmd);
 
   size_t buf_size = 1024;
   size_t len = 0;
@@ -59,6 +58,7 @@ void luac_parse_source(luac_file_t *file, char *filename) {
   }
   assert(ferror(f) == 0);
   pclose(f);
+  free(cmd);
 
   luac_parse(file, buf, SRC_MALLOC);
 }

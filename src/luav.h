@@ -49,6 +49,7 @@ typedef u64 luav;
 
 struct lclosure;
 struct lhash;
+struct lthread;
 
 /*
  * Must fit in 4 bits - 0 and 8 are special
@@ -90,7 +91,6 @@ typedef struct upvalue {
   luav value;
 } upvalue_t;
 
-/* TODO: thread */
 luav lv_number(double v);
 luav lv_table(struct lhash *hash);
 luav lv_bool(u8 v);
@@ -98,8 +98,8 @@ luav lv_userdata(void *data);
 luav lv_string(lstr_idx idx);
 luav lv_function(struct lclosure *fun);
 luav lv_upvalue(upvalue_t *ptr);
+luav lv_thread(struct lthread *thread);
 
-/* TODO: getthread */
 double           lv_getnumber(luav value);
 struct lhash*    lv_gettable(luav value);
 u8               lv_getbool(luav value);
@@ -107,6 +107,7 @@ void*            lv_getuserdata(luav value);
 size_t           lv_getstring(luav value);
 struct lclosure* lv_getfunction(luav value);
 upvalue_t*       lv_getupvalue(luav value);
+struct lthread*  lv_getthread(luav value);
 
 u8   lv_gettype(luav value);
 u32  lv_hash(luav value);
