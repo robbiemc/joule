@@ -11,9 +11,11 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "lhash.h"
 #include "luav.h"
+#include "meta.h"
 #include "util.h"
 
 static void lhash_resize(lhash_t *hash);
@@ -32,6 +34,8 @@ void lhash_init(lhash_t *map) {
   map->cap = LHASH_INIT_SIZE;
   map->size = 0;
   map->length = 0;
+  map->metatable = NULL;
+  map->metamethods = NULL;
   map->hash = xmalloc(LHASH_INIT_SIZE * sizeof(map->hash[0]));
   for (i = 0; i < LHASH_INIT_SIZE; i++) {
     map->hash[i].key = LUAV_NIL;
@@ -48,7 +52,36 @@ void lhash_init(lhash_t *map) {
  * @param hash the hash to deallocate
  */
 void lhash_free(lhash_t *hash) {
+  if (hash->metamethods != NULL) {
+    free(hash->metamethods);
+  }
   free(hash->hash);
+}
+
+/**
+ * @brief Checks whether the given key is a metatable event and if so, returns
+ *        its index
+ *
+ * @param key the key to check
+ * @return the metatable index of the given key, or META_INVALID if it is not a
+ *         valid event
+ */
+size_t lhash_check_meta(luav key) {
+  // first check that it's a string and it starts with '__'
+  if (lv_gettype(key) != LSTRING) {
+    return META_INVALID;
+  }
+  lstring_t *str = lstr_get(lv_getstring(key));
+  if (strcmp(str->ptr, "__") != 0) {
+    return META_INVALID;
+  }
+  size_t i;
+  for (i = 0; i < NUM_META_METHODS; i++) {
+    if (strcmp(str->ptr + 2, meta_names[i]) == 0) {
+      return i;
+    }
+  }
+  return META_INVALID;
 }
 
 /**
@@ -65,8 +98,17 @@ luav lhash_get(lhash_t *map, luav key) {
   if (key == LUAV_NIL) {
     return LUAV_NIL;
   }
-  u32 h = lv_hash(key);
 
+  // check if it's a metatable key
+  size_t meta_index = lhash_check_meta(key);
+  if (meta_index != META_INVALID) {
+    if (map->metamethods == NULL) {
+      return LUAV_NIL;
+    }
+    return map->metamethods[meta_index];
+  }
+
+  u32 h = lv_hash(key);
   for (i = 0; ; i++) {
     u32 idx = (h + i) % map->cap;
     luav cur = map->hash[idx].key;
@@ -93,6 +135,18 @@ void lhash_set(lhash_t *map, luav key, luav value) {
   assert(key != LUAV_NIL);
   assert(lv_gettype(key) != LUPVALUE);
   assert(lv_gettype(value) != LUPVALUE);
+
+  // check if it's a metatable key
+  size_t meta_index = lhash_check_meta(key);
+  if (meta_index != META_INVALID) {
+    if (map->metamethods == NULL) {
+      map->metamethods = xmalloc(NUM_META_METHODS * sizeof(luav));
+      size_t i;
+      for (i = 0; i < NUM_META_METHODS; i++)
+        map->metamethods[i] = LUAV_NIL;
+    }
+    map->metamethods[meta_index] = value;
+  }
 
   u32 i, h = lv_hash(key);
   for (i = 0; ; i++) {

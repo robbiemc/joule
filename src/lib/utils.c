@@ -8,6 +8,7 @@
 #include "config.h"
 #include "lhash.h"
 #include "luav.h"
+#include "meta.h"
 #include "panic.h"
 #include "vm.h"
 
@@ -19,6 +20,7 @@ static luav str_table;
 static luav str_function;
 static luav str_userdata;
 static luav str_hash;
+static luav str_metatable;
 static u32  lua_assert(u32 argc, luav *argv, u32 retc, luav *retv);
 static luav lua_type(luav v);
 static luav lua_tostring(luav v);
@@ -26,6 +28,8 @@ static luav lua_tonumber(luav num, luav base);
 static u32  lua_print(u32 argc, luav *argv, u32 retc, luav *retv);
 static u32  lua_select(u32 argc, luav *argv, u32 retc, luav *retv);
 static luav lua_rawget(luav table, luav key);
+static luav lua_setmetatable(luav table, luav meta);
+static luav lua_getmetatable(luav table);
 
 static LUAF_VARRET(lua_assert);
 static LUAF_1ARG(lua_type);
@@ -34,24 +38,29 @@ static LUAF_VARRET(lua_print);
 static LUAF_VARRET(lua_select);
 static LUAF_2ARG(lua_tonumber);
 static LUAF_2ARG(lua_rawget);
+static LUAF_2ARG(lua_setmetatable);
+static LUAF_1ARG(lua_getmetatable);
 
 INIT static void lua_utils_init() {
-  str_number   = LSTR("number");
-  str_nil      = LSTR("nil");
-  str_boolean  = LSTR("boolean");
-  str_string   = LSTR("string");
-  str_table    = LSTR("table");
-  str_function = LSTR("function");
-  str_userdata = LSTR("userdata");
-  str_hash     = LSTR("#");
+  str_number    = LSTR("number");
+  str_nil       = LSTR("nil");
+  str_boolean   = LSTR("boolean");
+  str_string    = LSTR("string");
+  str_table     = LSTR("table");
+  str_function  = LSTR("function");
+  str_userdata  = LSTR("userdata");
+  str_hash      = LSTR("#");
+  str_metatable = LSTR("__metatable");
 
-  lhash_set(&lua_globals, LSTR("assert"),   lv_function(&lua_assert_f));
-  lhash_set(&lua_globals, LSTR("type"),     lv_function(&lua_type_f));
-  lhash_set(&lua_globals, LSTR("tostring"), lv_function(&lua_tostring_f));
-  lhash_set(&lua_globals, LSTR("print"),    lv_function(&lua_print_f));
-  lhash_set(&lua_globals, LSTR("tonumber"), lv_function(&lua_tonumber_f));
-  lhash_set(&lua_globals, LSTR("select"),   lv_function(&lua_select_f));
-  lhash_set(&lua_globals, LSTR("rawget"),   lv_function(&lua_rawget_f));
+  REGISTER(&lua_globals, "assert",        &lua_assert_f);
+  REGISTER(&lua_globals, "type",          &lua_type_f);
+  REGISTER(&lua_globals, "tostring",      &lua_tostring_f);
+  REGISTER(&lua_globals, "print",         &lua_print_f);
+  REGISTER(&lua_globals, "tonumber",      &lua_tonumber_f);
+  REGISTER(&lua_globals, "select",        &lua_select_f);
+  REGISTER(&lua_globals, "rawget",        &lua_rawget_f);
+  REGISTER(&lua_globals, "setmetatable",  &lua_setmetatable_f);
+  REGISTER(&lua_globals, "getmetatable",  &lua_getmetatable_f);
 }
 
 static u32 lua_assert(u32 argc, luav *argv, u32 retc, luav *retv) {
@@ -158,4 +167,35 @@ static u32 lua_select(u32 argc, luav *argv, u32 retc, luav *retv) {
 
 static luav lua_rawget(luav table, luav key) {
   return lhash_get(lv_gettable(table), key);
+}
+
+static luav lua_setmetatable(luav table, luav meta) {
+  assert(lv_gettype(table) == LTABLE);
+  // make sure the current metatable isn't protected
+  lhash_t *old = lv_gettable(table)->metatable;
+  assert(old == NULL || old->metamethods[META_METATABLE] == LUAV_NIL);
+
+  switch (lv_gettype(meta)) {
+    case LNIL:
+      lv_gettable(table)->metatable = NULL;
+      break;
+    case LTABLE:
+      lv_gettable(table)->metatable = lv_gettable(meta);
+      break;
+    default:
+      panic("Metatables can only be nil or a table");
+  }
+  return table;
+}
+
+static luav lua_getmetatable(luav table) {
+  if (lv_gettype(table) != LTABLE) {
+    return LUAV_NIL;
+  }
+  lhash_t *meta = lv_gettable(table)->metatable;
+  luav meta_field = meta->metamethods[META_METATABLE];
+  if (meta_field != LUAV_NIL) {
+    return meta_field;
+  }
+  return lv_table(meta);
 }

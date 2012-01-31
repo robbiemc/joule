@@ -52,13 +52,14 @@ typedef struct lclosure {
   luav upvalues[0];
 } lclosure_t;
 
-#define LUAF_C_VARARG 0
-#define LUAF_C_0ARG   1
-#define LUAF_C_1ARG   2
-#define LUAF_C_2ARG   3
-#define LUAF_C_3ARG   4
-#define LUAF_C_VARRET 5
-#define LUAF_LUA      6
+#define LUAF_NIL      0
+#define LUAF_C_VARARG 1
+#define LUAF_C_0ARG   2
+#define LUAF_C_1ARG   3
+#define LUAF_C_2ARG   4
+#define LUAF_C_3ARG   5
+#define LUAF_C_VARRET 6
+#define LUAF_LUA      7
 #define CLOSURE_SIZE(num_upvalues) \
   (sizeof(lclosure_t) + (num_upvalues) * sizeof(luav))
 

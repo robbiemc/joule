@@ -3,7 +3,7 @@ Set.mt = {}
 
 function Set.new (t)
   local set = {}
-  setmetatable(set, Set.mt);
+  setmetatable(set, Set.mt)
   for _, l in ipairs(t) do set[l] = true end
   return set
 end
@@ -39,7 +39,6 @@ end
 
 Set.mt.__add = Set.union
 Set.mt.__mul = Set.intersection
-
 
 s1 = Set.new{10,20,30,40,50}
 s2 = Set.new{1,5,15,25,35}

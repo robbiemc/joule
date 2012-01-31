@@ -3,6 +3,8 @@
 
 #include "config.h"
 
+#define REGISTER(tbl, str, fun) lhash_set((tbl), LSTR((str)), lv_function((fun)))
+
 u8   pread1(u8 **p);
 u32  pread4(u8 **p);
 u64  pread8(u8 **p);

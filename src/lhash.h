@@ -21,6 +21,8 @@ typedef struct lhash {
     luav key;
     luav value;
   } *hash;        // hash table, array of key/value pairs
+  struct lhash *metatable;   // the metatable for this table
+  luav *metamethods;  // metamethods if this is a metatable
 } lhash_t;
 
 void lhash_init(lhash_t *map);
