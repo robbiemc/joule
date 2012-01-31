@@ -36,6 +36,7 @@
     assert((n) < (closure)->function.lua->num_upvalues);   \
     (closure)->upvalues[n];                                \
   })
+#define ARG(i) (argc > (i) ? argv[(i)] : LUAV_NIL)
 #define DECODEFP8(v) (((u32)8 | ((v)&7)) << (((u32)(v)>>3) - 1))
 
 lhash_t lua_globals;
@@ -60,6 +61,42 @@ void vm_run(lfunc_t *func) {
 
 static u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
                                        u32 retc, luav *retv) {
+  // handle c functions
+  if (closure->type != LUAF_LUA) {
+    luav temp;
+    switch (closure->type) {
+      case LUAF_C_VARRET:
+        return closure->function.varret(argc, argv, retc, retv);
+      case LUAF_C_0ARG:
+        temp = closure->function.noarg();
+        if (retc > 0)
+          *retv = temp;
+        return 1;
+      case LUAF_C_1ARG:
+        temp = closure->function.onearg(ARG(0));
+        if (retc > 0)
+          *retv = temp;
+        return 1;
+      case LUAF_C_2ARG:
+        temp = closure->function.twoarg(ARG(0), ARG(1));
+        if (retc > 0)
+          *retv = temp;
+        return 1;
+      case LUAF_C_3ARG:
+        temp = closure->function.threearg(ARG(0), ARG(1), ARG(2));
+        if (retc > 0)
+          *retv = temp;
+        return 1;
+      case LUAF_C_VARARG:
+        temp = closure->function.vararg(argc, argv);
+        if (retc > 0)
+          *retv = temp;
+        return 1;
+    }
+    panic("Bad function type: %d\n", closure->type);
+  }
+
+  // it's a lua function
   lfunc_t *func = closure->function.lua;
   u32 pc = 0;
   u32 i, a, b, c, bx, limit;
@@ -126,69 +163,14 @@ top:
         break;
 
       case OP_CALL: {
-        a = A(code);
+        a = A(code); b = B(code); c = C(code);
         lclosure_t *func2 = lv_getfunction(REG(func, a));
-        b = B(code);
         u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
-        c = C(code);
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
-        u32 got;
 
-        switch (func2->type) {
-          case LUAF_LUA:
-            got = vm_fun(func2, num_args, &stack[a + 1], want_ret, &stack[a]);
-            break;
-          case LUAF_C_VARRET:
-            got = func2->function.varret(num_args, &stack[a + 1],
-                                         want_ret, &stack[a]);
-            break;
-          case LUAF_C_0ARG:
-            got = 1;
-            temp = func2->function.noarg();
-            if (want_ret > 0) {
-              stack[a] = temp;
-            }
-            break;
-          case LUAF_C_1ARG:
-            got = 1;
-            temp = func2->function.onearg(num_args > 0 ? stack[a + 1]
-                                                       : LUAV_NIL);
-            if (want_ret > 0) {
-              stack[a] = temp;
-            }
-            break;
-          case LUAF_C_2ARG:
-            got = 1;
-            temp = func2->function.twoarg(
-                              num_args > 0 ? stack[a + 1] : LUAV_NIL,
-                              num_args > 1 ? stack[a + 2] : LUAV_NIL);
-            if (want_ret > 0) {
-              stack[a] = temp;
-            }
-            break;
-          case LUAF_C_3ARG:
-            got = 1;
-            temp = func2->function.threearg(
-                              num_args > 0 ? stack[a + 1] : LUAV_NIL,
-                              num_args > 1 ? stack[a + 2] : LUAV_NIL,
-                              num_args > 2 ? stack[a + 3] : LUAV_NIL);
-            if (want_ret > 0) {
-              stack[a] = temp;
-            }
-            break;
-          case LUAF_C_VARARG:
-            got = 1;
-            temp = func2->function.vararg(num_args, &stack[a + 1]);
-            if (want_ret > 0) {
-              stack[a] = temp;
-            }
-            break;
+        u32 got = vm_fun(func2, num_args, &stack[a + 1], want_ret, &stack[a]);
 
-          default:
-            panic("Bad function type: %d\n", func2->type);
-        }
-
-        /* Fill in all the nils */
+        // fill in the nils
         if (c != 0) {
           for (i = got; i < c - 1; i++) {
             SETREG(func, a + i, LUAV_NIL);
