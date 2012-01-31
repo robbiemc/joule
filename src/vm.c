@@ -41,6 +41,7 @@
 #define DECODEFP8(v) (((u32)8 | ((v)&7)) << (((u32)(v)>>3) - 1))
 
 lhash_t lua_globals;
+jmp_buf *vm_jmpbuf;
 
 static void op_close(u32 upc, luav *upv);
 
@@ -64,40 +65,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
                                 u32 retc, luav *retv) {
   // handle c functions
   if (closure->type != LUAF_LUA) {
-    luav temp;
-    switch (closure->type) {
-      case LUAF_C_VARRET:
-        return closure->function.varret(argc, argv, retc, retv);
-      case LUAF_C_BOUND:
-        temp = closure->upvalues[0];
-        return closure->function.boundarg(temp, argc, argv, retc, retv);
-      case LUAF_C_0ARG:
-        temp = closure->function.noarg();
-        if (retc > 0)
-          *retv = temp;
-        return 1;
-      case LUAF_C_1ARG:
-        temp = closure->function.onearg(ARG(0));
-        if (retc > 0)
-          *retv = temp;
-        return 1;
-      case LUAF_C_2ARG:
-        temp = closure->function.twoarg(ARG(0), ARG(1));
-        if (retc > 0)
-          *retv = temp;
-        return 1;
-      case LUAF_C_3ARG:
-        temp = closure->function.threearg(ARG(0), ARG(1), ARG(2));
-        if (retc > 0)
-          *retv = temp;
-        return 1;
-      case LUAF_C_VARARG:
-        temp = closure->function.vararg(argc, argv);
-        if (retc > 0)
-          *retv = temp;
-        return 1;
-    }
-    panic("Bad function type: %d\n", closure->type);
+    return closure->function.c(argc, argv, retc, retv);
   }
 
   // it's a lua function
@@ -105,16 +73,22 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
   u32 pc = 0;
   u32 i, a, b, c, bx, limit;
   u32 last_ret = 0;
-  luav temp, bv, cv;
+  luav temp;
+  jmp_buf jmp;
 
   luav stack[STACK_SIZE(func)];
   for (i = 0; i < STACK_SIZE(func); i++) {
     stack[i] = i < argc ? argv[i] : LUAV_NIL;
   }
 
+  if (setjmp(jmp) != 0) {
+    panic("jump reached");
+  }
+
   while (1) {
     assert(pc < func->num_instrs);
     u32 code = func->instrs[pc++];
+    vm_jmpbuf = &jmp;
 
     switch (OP(code)) {
       case OP_GETGLOBAL:
@@ -131,12 +105,12 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
 
       case OP_GETTABLE:
         temp = KREG(func, C(code));
-        temp = lhash_get(lv_gettable(REG(func, B(code))), temp);
+        temp = lhash_get(lv_gettable(REG(func, B(code)), 0), temp);
         SETREG(func, A(code), temp);
         break;
 
       case OP_SETTABLE:
-        lhash_set(lv_gettable(REG(func, A(code))),
+        lhash_set(lv_gettable(REG(func, A(code)), 0),
                   KREG(func, B(code)), KREG(func, C(code)));
         break;
 
@@ -166,7 +140,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
 
       case OP_CALL: {
         a = A(code); b = B(code); c = C(code);
-        lclosure_t *closure2 = lv_getfunction(REG(func, a));
+        lclosure_t *closure2 = lv_getfunction(REG(func, a), 0);
         u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
 
@@ -199,7 +173,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_TAILCALL:
         a = A(code);
         b = B(code);
-        closure = lv_getfunction(REG(func, a));
+        closure = lv_getfunction(REG(func, a), 0);
         assert(C(code) == 0);
         argc = (b == 0 ? last_ret : a + b) - a - 1;
         argv = &stack[a + 1];
@@ -256,8 +230,8 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         break;
 
       case OP_EQ: {
-        bv = KREG(func, B(code));
-        cv = KREG(func, C(code));
+        luav bv = KREG(func, B(code));
+        luav cv = KREG(func, C(code));
         if (bv == LUAV_NIL) {
           if ((cv == LUAV_NIL) != A(code)) pc++;
         } else if (cv == LUAV_NIL) {
@@ -284,14 +258,14 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
 
       case OP_TEST:
         temp = REG(func, A(code));
-        if (lv_getbool(LUAV_BOOL(temp)) != C(code)) {
+        if (lv_getbool(temp, 0) != C(code)) {
           pc++;
         }
         break;
 
       case OP_TESTSET:
         temp = REG(func, B(code));
-        if (lv_getbool(LUAV_BOOL(temp)) != C(code)) {
+        if (lv_getbool(temp, 0) != C(code)) {
           SETREG(func, A(code), temp);
         } else {
           pc++;
@@ -305,69 +279,78 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         }
         break;
 
-      case OP_ADD:
-        bv = lv_tonumber(KREG(func, B(code)), 10);
-        cv = lv_tonumber(KREG(func, C(code)), 10);
-        SETREG(func, A(code), lv_number(lv_getnumber(bv) + lv_getnumber(cv)));
-        break;
-
-      case OP_SUB:
-        bv = lv_tonumber(KREG(func, B(code)), 10);
-        cv = lv_tonumber(KREG(func, C(code)), 10);
-        SETREG(func, A(code), lv_number(lv_getnumber(bv) - lv_getnumber(cv)));
-        break;
-
-      case OP_MUL:
-        bv = lv_tonumber(KREG(func, B(code)), 10);
-        cv = lv_tonumber(KREG(func, C(code)), 10);
-        SETREG(func, A(code), lv_number(lv_getnumber(bv) * lv_getnumber(cv)));
-        break;
-
-      case OP_DIV:
-        bv = lv_tonumber(KREG(func, B(code)), 10);
-        cv = lv_tonumber(KREG(func, C(code)), 10);
-        SETREG(func, A(code), lv_number(lv_getnumber(bv) / lv_getnumber(cv)));
-        break;
-
-      case OP_MOD: {
-        double bd = lv_getnumber(lv_tonumber(KREG(func, B(code)), 10));
-        double cd = lv_getnumber(lv_tonumber(KREG(func, C(code)), 10));
-        SETREG(func, A(code), lv_number(bd - floor(bd / cd) * cd));
+      case OP_ADD: {
+        double bv = lv_castnumber(KREG(func, B(code)), 0);
+        double cv = lv_castnumber(KREG(func, C(code)), 0);
+        SETREG(func, A(code), lv_number(bv + cv));
         break;
       }
 
-      case OP_POW:
-        bv = lv_tonumber(KREG(func, B(code)), 10);
-        cv = lv_tonumber(KREG(func, C(code)), 10);
-        SETREG(func, A(code), lv_number(pow(lv_getnumber(bv),
-                                            lv_getnumber(cv))));
+      case OP_SUB: {
+        double bv = lv_castnumber(KREG(func, B(code)), 0);
+        double cv = lv_castnumber(KREG(func, C(code)), 0);
+        SETREG(func, A(code), lv_number(bv - cv));
         break;
+      }
 
-      case OP_UNM:
-        bv = lv_tonumber(REG(func, B(code)), 10);
-        SETREG(func, A(code), lv_number(-lv_getnumber(bv)));
+      case OP_MUL: {
+        double bv = lv_castnumber(KREG(func, B(code)), 0);
+        double cv = lv_castnumber(KREG(func, C(code)), 0);
+        SETREG(func, A(code), lv_number(bv + cv));
         break;
+      }
 
-      case OP_NOT:
-        bv = lv_tobool(REG(func, B(code)));
-        SETREG(func, A(code), lv_bool(lv_getbool(bv) ^ 1));
+      case OP_DIV: {
+        double bv = lv_castnumber(KREG(func, B(code)), 0);
+        double cv = lv_castnumber(KREG(func, C(code)), 0);
+        SETREG(func, A(code), lv_number(bv / cv));
         break;
+      }
 
-      case OP_LEN:
-        bv = REG(func, B(code));
+      case OP_MOD: {
+        double bv = lv_castnumber(KREG(func, B(code)), 0);
+        double cv = lv_castnumber(KREG(func, C(code)), 0);
+        SETREG(func, A(code), lv_number(fmod(bv, cv)));
+        break;
+      }
+
+      case OP_POW: {
+        double bv = lv_castnumber(KREG(func, B(code)), 0);
+        double cv = lv_castnumber(KREG(func, C(code)), 0);
+        SETREG(func, A(code), lv_number(pow(bv, cv)));
+        break;
+      }
+
+      case OP_UNM: {
+        double bv = lv_castnumber(REG(func, B(code)), 0);
+        SETREG(func, A(code), lv_number(-bv));
+        break;
+      }
+
+      case OP_NOT: {
+        u8 bv = lv_getbool(REG(func, B(code)), 0);
+        SETREG(func, A(code), lv_bool(bv ^ 1));
+        break;
+      }
+
+      case OP_LEN: {
+        luav bv = REG(func, B(code));
         switch (lv_gettype(bv)) {
           case LSTRING: {
-            size_t len = lstr_get(lv_getstring(bv))->length;
+            size_t len = lv_caststring(bv, 0)->length;
             SETREG(func, A(code), lv_number((double) len));
             break;
           }
-          case LTABLE:
-            SETREG(func, A(code), lv_number((double) lv_gettable(bv)->length));
+          case LTABLE: {
+            size_t len = lv_gettable(bv, 0)->length;
+            SETREG(func, A(code), lv_number((double) len));
             break;
+          }
           default:
             panic("Invalid type for len\n");
         }
         break;
+      }
 
       case OP_NEWTABLE: {
         // TODO - We can't currently create a table of a certain size, so we
@@ -380,17 +363,17 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
 
       case OP_FORPREP:
         a = A(code);
-        SETREG(func, a, lv_number(lv_getnumber(REG(func, a)) -
-                                  lv_getnumber(REG(func, a + 2))));
+        SETREG(func, a, lv_number(lv_castnumber(REG(func, a), 0) -
+                                  lv_castnumber(REG(func, a + 2), 0)));
         pc += UNBIAS(PAYLOAD(code));
         break;
 
       case OP_FORLOOP: {
         a = A(code);
-        double step = lv_getnumber(REG(func, a+2));
-        SETREG(func, a, lv_number(lv_getnumber(REG(func, a)) + step));
-        double d1 = lv_getnumber(REG(func, a));
-        double d2 = lv_getnumber(REG(func, a + 1));
+        double step = lv_castnumber(REG(func, a+2), 0);
+        SETREG(func, a, lv_number(lv_castnumber(REG(func, a), 0) + step));
+        double d1 = lv_castnumber(REG(func, a), 0);
+        double d2 = lv_castnumber(REG(func, a + 1), 0);
         if ((step > 0 && d1 <= d2) || (step < 0 && d1 >= d2)) {
           SETREG(func, a + 3, REG(func, a));
           pc += UNBIAS(PAYLOAD(code));
@@ -399,18 +382,16 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       }
 
       case OP_CONCAT: {
-        size_t len = 0;
+        size_t len = 0, cap = LUAV_INIT_STRING;
         c = C(code);
+        char *str = xmalloc(cap);
         for (i = B(code); i <= c; i++) {
-          bv = REG(func, i);
-          len += lstr_get(lv_getstring(bv))->length;
-        }
-        char *str = xmalloc(len + 1);
-        char *pos = str;
-        for (i = B(code); i <= c; i++) {
-          lstring_t *lstr = lstr_get(lv_getstring(REG(func, i)));
-          memcpy(pos, lstr->ptr, lstr->length);
-          pos += lstr->length;
+          lstring_t *lstr = lv_caststring(REG(func, i), 0);
+          while (lstr->length + len + 1 >= cap) {
+            cap *= 2;
+            str = xrealloc(str, cap * 2);
+          }
+          memcpy(str + len, lstr->ptr, lstr->length);
         }
         str[len] = 0;
         SETREG(func, A(code), lv_string(lstr_add(str, len, TRUE)));
@@ -424,7 +405,7 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
         if (c == 0) {
           c = func->instrs[pc++];
         }
-        lhash_t *hash = lv_gettable(REG(func, a));
+        lhash_t *hash = lv_gettable(REG(func, a), 0);
         for (i = 1; i <= b; i++) {
           lhash_set(hash, lv_number((c - 1) * LFIELDS_PER_FLUSH + i),
                           REG(func, a + i));
@@ -449,13 +430,13 @@ u32 vm_fun(lclosure_t *closure, u32 argc, luav *argv,
       case OP_SELF:
         SETREG(func, A(code) + 1, REG(func, B(code)));
         temp = KREG(func, C(code));
-        temp = lhash_get(lv_gettable(REG(func, B(code))), temp);
+        temp = lhash_get(lv_gettable(REG(func, B(code)), 0), temp);
         SETREG(func, A(code), temp);
         break;
 
       case OP_TFORLOOP:
         a = A(code); c = C(code);
-        lclosure_t *closure2 = lv_getfunction(REG(func, a));
+        lclosure_t *closure2 = lv_getfunction(REG(func, a), 0);
         u32 got = vm_fun(closure2, 2, &stack[a + 1],
                                    REG(func, c), &stack[a + 3]);
         temp = REG(func, a + 3);

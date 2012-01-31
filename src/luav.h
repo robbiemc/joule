@@ -91,30 +91,35 @@ typedef struct upvalue {
   luav value;
 } upvalue_t;
 
-luav lv_number(double v);
-luav lv_table(struct lhash *hash);
-luav lv_bool(u8 v);
-luav lv_userdata(void *data);
-luav lv_string(lstr_idx idx);
-luav lv_function(struct lclosure *fun);
-luav lv_upvalue(upvalue_t *ptr);
-luav lv_thread(struct lthread *thread);
+/* Boxing a luav */
+#define lv_number(n)      lv_bits(n)
+#define lv_table(hash)    LUAV_PACK(LTABLE, (u64) (hash))
+#define lv_bool(v)        LUAV_PACK(LBOOLEAN, !!(v))
+#define lv_userdata(data) LUAV_PACK(LUSERDATA, (u64) (data))
+#define lv_string(idx)    LUAV_PACK(LSTRING, (u64) (idx))
+#define lv_function(fun)  LUAV_PACK(LFUNCTION, (u64) (fun))
+#define lv_upvalue(up)    LUAV_PACK(LUPVALUE, (u64) (up))
+#define lv_thread(thread) LUAV_PACK(LTHREAD, (u64) thread)
 
-double           lv_getnumber(luav value);
-struct lhash*    lv_gettable(luav value);
-u8               lv_getbool(luav value);
-void*            lv_getuserdata(luav value);
-size_t           lv_getstring(luav value);
-struct lclosure* lv_getfunction(luav value);
+#define lassert_argtyp(v, typ, n) ({                         \
+    if (!lv_istype(v, typ)) { panic("bad arg %d", n); }      \
+  })
+
+/* Unboxing a luav */
+double           lv_castnumberb(luav value, u32 base, u32 argnum);
+struct lstring*  lv_caststring(luav value, u32 argnum);
+struct lhash*    lv_gettable(luav value, u32 argnum);
+u8               lv_getbool(luav value, u32 argnum);
+void*            lv_getuserdata(luav value, u32 argnum);
+struct lclosure* lv_getfunction(luav value, u32 argnum);
 upvalue_t*       lv_getupvalue(luav value);
-struct lthread*  lv_getthread(luav value);
+struct lthread*  lv_getthread(luav value, u32 argnum);
 
-u8   lv_gettype(luav value);
-u32  lv_hash(luav value);
-int  lv_compare(luav v1, luav v2);
+#define lv_castnumber(a, b) lv_castnumberb(a, 10, b)
 
-luav lv_tonumber(luav number, int base);
-luav lv_tobool(luav value);
+u8  lv_gettype(luav value);
+u32 lv_hash(luav value);
+int lv_compare(luav v1, luav v2);
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;

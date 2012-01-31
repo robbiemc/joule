@@ -14,7 +14,7 @@
                            for (i = 0; i < func->len; i++)
 
 static void dbg_dump_func(FILE *out, lfunc_t *func, int level);
-static void dbg_dump_lstring(FILE *out, lstr_idx index);
+static void dbg_dump_lstring(FILE *out, lstring_t *str);
 static void prindent(int level, FILE *out, char *fmt, ...);
 static int log_10(u64 n);
 
@@ -27,7 +27,7 @@ static void dbg_dump_func(FILE *out, lfunc_t *func, int level) {
   int width;
 
   __pr("function ");
-  dbg_dump_lstring(out, func->name);
+  dbg_dump_lstring(out, lstr_get(func->name));
   pr(": Lines %d - %d\n", func->start_line, func->end_line);
 
   __pr("  %d parameters, ", func->num_parameters);
@@ -63,23 +63,23 @@ static void dbg_dump_func(FILE *out, lfunc_t *func, int level) {
 
 void dbg_dump_luav(FILE *out, luav value) {
   switch (lv_gettype(value)) {
-    case LNUMBER:   pr(LUA_NUMBER_FMT, lv_getnumber(value));        return;
-    case LTABLE:    pr("Table: %p", lv_gettable(value));            return;
-    case LBOOLEAN:  pr("%s", lv_getbool(value) ? "true" : "false"); return;
-    case LNIL:      pr("nil");                                      return;
-    case LFUNCTION: pr("Function: %p", lv_getfunction(value));      return;
-    case LTHREAD:   pr("Thread: %p", lv_getthread(value));          return;
-    case LUSERDATA: pr("Userdata: %p", lv_getuserdata(value));      return;
+    case LNUMBER:   pr(LUA_NUMBER_FMT, lv_castnumber(value, 0));       return;
+    case LTABLE:    pr("Table: %p", lv_gettable(value, 0));            return;
+    case LBOOLEAN:  pr("%s", lv_getbool(value, 0) ? "true" : "false"); return;
+    case LNIL:      pr("nil");                                         return;
+    case LFUNCTION: pr("Function: %p", lv_getfunction(value, 0));      return;
+    case LTHREAD:   pr("Thread: %p", lv_getthread(value, 0));          return;
+    case LUSERDATA: pr("Userdata: %p", lv_getuserdata(value, 0));      return;
     case LSTRING:
       pr("\"");
-      dbg_dump_lstring(out, lv_getstring(value));
+      dbg_dump_lstring(out, lv_caststring(value, 0));
       pr("\"");
       return;
   }
   assert(0 && "lv_gettype seems to be broken...");
 }
 
-static void dbg_dump_lstring(FILE *out, lstr_idx index) {
+static void dbg_dump_lstring(FILE *out, lstring_t *str) {
   /*
    * The default lua interpreter conveniently stops printing strings
    * when it encounters a null character, so so will we. This means
@@ -90,7 +90,6 @@ static void dbg_dump_lstring(FILE *out, lstr_idx index) {
    * the first 2-billion characters of a string. I think the safety
    * in this case outweighs the limitation.
    */
-  lstring_t *str = lstr_get(index);
   fprintf(out, "%.*s", (int) str->length, str->ptr);
 }
 

@@ -71,7 +71,7 @@ size_t lhash_check_meta(luav key) {
   if (lv_gettype(key) != LSTRING) {
     return META_INVALID;
   }
-  lstring_t *str = lstr_get(lv_getstring(key));
+  lstring_t *str = lv_caststring(key, 0);
   if (strcmp(str->ptr, "__") != 0) {
     return META_INVALID;
   }
@@ -165,7 +165,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
       // FIXME - this doesn't always work (but will in this hashtable
       //         implementation)
       if (lv_gettype(key) == LNUMBER) {
-        double len = lv_getnumber(key);
+        double len = lv_castnumber(key, 0);
         if ((u64)len == len && len > map->length) {
           map->length = (u32) len;
         }

@@ -44,19 +44,19 @@ static luav str_normal;
 static luav str_dead;
 
 extern void coroutine_swap_asm(void **stacksave, void *newstack);
-static luav lua_co_create(luav function);
-static luav lua_co_running(void);
-static u32  lua_co_resume(u32 argc, luav *argv, u32 retc, luav *retv);
-static luav lua_co_status(luav co);
-static luav lua_co_wrap(luav function);
-static u32  co_wrap_helper(luav co, u32 argc, luav *argv, u32 retc, luav *retv);
-static u32  lua_co_yield(u32 argc, luav *argv, u32 retc, luav *retv);
-static LUAF_1ARG(lua_co_create);
-static LUAF_VARRET(lua_co_resume);
-static LUAF_0ARG(lua_co_running);
-static LUAF_1ARG(lua_co_status);
-static LUAF_1ARG(lua_co_wrap);
-static LUAF_VARRET(lua_co_yield);
+static u32 lua_co_create(LSTATE);
+static u32 lua_co_running(LSTATE);
+static u32 lua_co_resume(LSTATE);
+static u32 lua_co_status(LSTATE);
+static u32 lua_co_wrap(LSTATE);
+static u32 co_wrap_helper(luav co, u32 argc, luav *argv, u32 retc, luav *retv);
+static u32 lua_co_yield(LSTATE);
+static LUAF(lua_co_create);
+static LUAF(lua_co_resume);
+static LUAF(lua_co_running);
+static LUAF(lua_co_status);
+static LUAF(lua_co_wrap);
+static LUAF(lua_co_yield);
 
 INIT static void lua_coroutine_init() {
   str_running   = LSTR("running");
@@ -64,13 +64,14 @@ INIT static void lua_coroutine_init() {
   str_normal    = LSTR("normal");
   str_dead      = LSTR("dead");
   cur_thread = &main_thread;
+
   lhash_init(&lua_coroutine);
-  lhash_set(&lua_coroutine, LSTR("create"),  lv_function(&lua_co_create_f));
-  lhash_set(&lua_coroutine, LSTR("resume"),  lv_function(&lua_co_resume_f));
-  lhash_set(&lua_coroutine, LSTR("running"), lv_function(&lua_co_running_f));
-  lhash_set(&lua_coroutine, LSTR("status"),  lv_function(&lua_co_status_f));
-  lhash_set(&lua_coroutine, LSTR("wrap"),    lv_function(&lua_co_wrap_f));
-  lhash_set(&lua_coroutine, LSTR("yield"),   lv_function(&lua_co_yield_f));
+  REGISTER(&lua_coroutine, "create",  &lua_co_create_f);
+  REGISTER(&lua_coroutine, "resume",  &lua_co_resume_f);
+  REGISTER(&lua_coroutine, "running", &lua_co_running_f);
+  REGISTER(&lua_coroutine, "status",  &lua_co_status_f);
+  REGISTER(&lua_coroutine, "wrap",    &lua_co_wrap_f);
+  REGISTER(&lua_coroutine, "yield",   &lua_co_yield_f);
 
   lhash_set(&lua_globals, LSTR("coroutine"), lv_table(&lua_coroutine));
 }
@@ -105,7 +106,9 @@ static void coroutine_wrapper() {
   panic("coroutine went too far");
 }
 
-static luav lua_co_create(luav function) {
+static u32 lua_co_create(LSTATE) {
+  lclosure_t *function = lstate_getfunction(0);
+  assert(function->type == LUAF_LUA);
   lthread_t *thread = xmalloc(sizeof(lthread_t));
   thread->status = CO_NEVER_RUN;
   thread->stack  = mmap(NULL, CO_STACK_SIZE, PROT_WRITE | PROT_READ,
@@ -113,8 +116,7 @@ static luav lua_co_create(luav function) {
   assert(thread->stack != MAP_FAILED);
 
   thread->caller  = NULL;
-  thread->closure = lv_getfunction(function);
-  assert(thread->closure->type == LUAF_LUA);
+  thread->closure = function;
 
   u64 *stack = (u64*) ((u64) thread->stack + CO_STACK_SIZE);
   /* Bogus return address, and then actual address to return to */
@@ -122,23 +124,15 @@ static luav lua_co_create(luav function) {
   *(stack - 2) = (u64) coroutine_wrapper;
   thread->curstack = stack - 8; /* 6 callee regs, and two return addresses */
 
-  return lv_thread(thread);
+  lstate_return1(lv_thread(thread));
 }
 
-static u32 lua_co_resume(u32 argc, luav *argv, u32 retc, luav *retv) {
-  assert(argc > 0);
-  lthread_t *thread = lv_getthread(argv[0]);
+static u32 lua_co_resume(LSTATE) {
+  lthread_t *thread = lv_getthread(0);
   if (thread->status == CO_DEAD) {
-    switch (retc) {
-      default:
-      case 2:
-        retv[1] = LSTR("cannot resume dead coroutine");
-      case 1:
-        retv[0] = LUAV_FALSE;
-      case 0:
-        break;
-    }
-    return retc > 2 ? 2 : retc;
+    lstate_return(LUAV_FALSE, 0);
+    lstate_return(LUAV_FALSE, LSTR("cannot resume dead coroutine"));
+    return 2;
   }
   if (retc > 0) {
     u32 amt = co_wrap_helper(argv[0], argc - 1, argv + 1, retc - 1, retv + 1);
@@ -148,27 +142,27 @@ static u32 lua_co_resume(u32 argc, luav *argv, u32 retc, luav *retv) {
   return co_wrap_helper(argv[0], argc - 1, argv + 1, retc, retv);
 }
 
-static luav lua_co_running() {
+static u32 lua_co_running(LSTATE) {
   if (cur_thread == &main_thread) {
-    return LUAV_NIL;
+    lstate_return1(LUAV_NIL);
   }
-  return lv_thread(cur_thread);
+  lstate_return1(lv_thread(cur_thread));
 }
 
-static luav lua_co_status(luav co) {
-  lthread_t *thread = lv_getthread(co);
+static u32 lua_co_status(LSTATE) {
+  lthread_t *thread = lstate_getthread(0);
   switch (thread->status) {
-    case CO_RUNNING:      return str_running;
+    case CO_RUNNING:      lstate_return1(str_running);
     case CO_NEVER_RUN:
-    case CO_SUSPENDED:    return str_suspended;
-    case CO_NORMAL:       return str_normal;
-    case CO_DEAD:         return str_dead;
+    case CO_SUSPENDED:    lstate_return1(str_suspended);
+    case CO_NORMAL:       lstate_return1(str_normal);
+    case CO_DEAD:         lstate_return1(str_dead);
   }
 
   panic("Invalid thread status: %d", thread->status);
 }
 
-static luav lua_co_wrap(luav function) {
+static u32 lua_co_wrap(LSTATE) {
   luav routine = lua_co_create(function);
   lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
   closure->type = LUAF_C_BOUND;
@@ -211,7 +205,7 @@ static u32 co_wrap_helper(luav co, u32 argc, luav *argv, u32 retc, luav *retv) {
   return thread->retc;
 }
 
-static u32 lua_co_yield(u32 argc, luav *argv, u32 retc, luav *retv) {
+static u32 lua_co_yield(LSTATE) {
   u32 i;
   /* Fill in return values from where coroutine.resume() was called a long
      time ago */

@@ -18,104 +18,6 @@
 #include "vm.h"
 
 /**
- * @brief Convert an 8 bit value to a lua boolean
- *
- * @param v the value to convert (0 = false, nonzero = true)
- * @return the lua value for the corresponding boolean
- */
-luav lv_bool(u8 v) {
-  return LUAV_PACK(LBOOLEAN, !!v);
-}
-
-/**
- * @brief Convert a floating point number to a lua number
- *
- * @param d the double-precision float to convert
- * @return the lua value for this number
- */
-luav lv_number(double d) {
-  return lv_bits(d);
-}
-
-/**
- * @brief Convert a hash table to the lua value for the table
- *
- * @param hash the allocated table to convert to a value
- * @return the lua value representing the hash table
- */
-luav lv_table(lhash_t *hash) {
-  return LUAV_PACK(LTABLE, (u64) hash);
-}
-
-/**
- * @brief Convert some user data to a lua value
- *
- * @param data raw data to pass around in lua, cannot be modified
- * @return the lua value representing the pointer
- */
-luav lv_userdata(void *data) {
-  return LUAV_PACK(LUSERDATA, (u64) data);
-}
-
-/**
- * @brief Convert a string index to a luav
- *
- * @param idx the index of the string in the global string array
- * @return the lua value representing the string
- */
-luav lv_string(size_t idx) {
-  return LUAV_PACK(LSTRING, idx);
-}
-
-/**
- * @brief Convert a function pointer to a luav
- *
- * @param fun the function to embed in a luav
- * @return the lua value representing the function
- */
-luav lv_function(lclosure_t *fun) {
-  return LUAV_PACK(LFUNCTION, (u64) fun);
-}
-
-/**
- * @brief Convert a thread pointer to a luav
- *
- * @param thread the thread to embed in a luav
- * @return the lua value representing the thread
- */
-luav lv_thread(struct lthread *thread) {
-  return LUAV_PACK(LTHREAD, (u64) thread);
-}
-
-/**
- * @brief Convert a luav to an upvalue
- *
- * Upvalues are actually pointers to the real luav. This way, the upvalue
- * can be shared across all functions which can access it, and any can return
- * without destroying the variable. Also, modifications are visible to everyone.
- *
- * @param value the pointer to the actual lua value
- * @return the lua value representing the function
- */
-luav lv_upvalue(upvalue_t *ptr) {
-  return LUAV_PACK(LUPVALUE, (u64) ptr);
-}
-
-/**
- * @brief Get the number associated with the given value
- *
- * It is considered a fatal error to call this function when the type of the
- * value is not a number
- *
- * @param value the lua value which is a number
- * @return the floating-point representation of the specified value.
- */
-double lv_getnumber(luav value) {
-  assert(lv_gettype(value) == LNUMBER);
-  return lv_cvt(value);
-}
-
-/**
  * @brief Get the table associated with the given value
  *
  * It is considered a fatal error to call this function when the type of the
@@ -124,7 +26,7 @@ double lv_getnumber(luav value) {
  * @param value the lua value which is a table
  * @return the pointer to the table struct
  */
-lhash_t* lv_gettable(luav value) {
+lhash_t* lv_gettable(luav value, u32 argnum) {
   assert(lv_gettype(value) == LTABLE);
   return (lhash_t*) LUAV_DATA(value);
 }
@@ -138,7 +40,7 @@ lhash_t* lv_gettable(luav value) {
  * @param value the lua value which is a table
  * @return the pointer to the table struct
  */
-u8 lv_getbool(luav value) {
+u8 lv_getbool(luav value, u32 argnum) {
   assert(lv_gettype(value) == LBOOLEAN);
   return (u8) LUAV_DATA(value);
 }
@@ -152,7 +54,7 @@ u8 lv_getbool(luav value) {
  * @param value the lua value which is a user data
  * @return the pointer to the data
  */
-void* lv_getuserdata(luav value) {
+void* lv_getuserdata(luav value, u32 argnum) {
   assert(lv_gettype(value) == LUSERDATA);
   return (void*) LUAV_DATA(value);
 }
@@ -166,23 +68,9 @@ void* lv_getuserdata(luav value) {
  * @param value the lua value which is a function
  * @return the pointer to the function
  */
-lclosure_t* lv_getfunction(luav value) {
+lclosure_t* lv_getfunction(luav value, u32 argnum) {
   assert(lv_gettype(value) == LFUNCTION);
   return (lclosure_t*) LUAV_DATA(value);
-}
-
-/**
- * @brief Get the string associated with the given value
- *
- * It is considered a fatal error to call this function when the type of the
- * value is not a string
- *
- * @param value the lua value which is a string
- * @return the index of the string
- */
-lstr_idx lv_getstring(luav value) {
-  assert(lv_gettype(value) == LSTRING);
-  return LUAV_DATA(value);
 }
 
 /**
@@ -194,7 +82,7 @@ lstr_idx lv_getstring(luav value) {
  * @param value the lua value which is a thread
  * @return the thread pointer
  */
-struct lthread* lv_getthread(luav value) {
+struct lthread* lv_getthread(luav value, u32 argnum) {
   assert(lv_gettype(value) == LTHREAD);
   return (struct lthread*) LUAV_DATA(value);
 }
@@ -256,8 +144,8 @@ int lv_compare(luav v1, luav v2) {
   assert(type == lv_gettype(v2));
 
   if (type == LNUMBER) {
-    double d1 = lv_getnumber(v1);
-    double d2 = lv_getnumber(v2);
+    double d1 = lv_castnumber(v1, 0);
+    double d2 = lv_castnumber(v2, 1);
     if (d1 < d2) {
       return -1;
     } else if (d1 > d2) {
@@ -270,8 +158,8 @@ int lv_compare(luav v1, luav v2) {
   }
 
   /* getstring will panic if these aren't strings */
-  lstring_t *s1 = lstr_get(lv_getstring(v1));
-  lstring_t *s2 = lstr_get(lv_getstring(v2));
+  lstring_t *s1 = lv_caststring(v1, 0);
+  lstring_t *s2 = lv_caststring(v2, 1);
   size_t minlen = s1->length < s2->length ? s1->length : s2->length;
   int cmp = memcmp(s1->ptr, s2->ptr, minlen);
   if (cmp != 0) {
@@ -295,40 +183,36 @@ int lv_compare(luav v1, luav v2) {
  * @param base the base to parse a string as
  * @return the value casted as a number
  */
-luav lv_tonumber(luav number, int base) {
+double lv_castnumberb(luav number, u32 base, u32 argnum) {
   u8 type = lv_gettype(number);
   if (type == LNUMBER) {
-    return number;
+    return lv_cvt(number);
   } else if (type != LSTRING) {
-    return LUAV_NIL;
+    panic("bad number");
   }
 
-  lstring_t *str = lstr_get(lv_getstring(number));
+  lstring_t *str = lv_caststring(number, argnum);
   char *end;
-  double num;
+  double num = base == 10 ? strtod(str->ptr, &end) :
+                            (double) strtoul(str->ptr, &end, (int) base);
 
-  if (base == 10) {
-    num = strtod(str->ptr, &end);
-  } else {
-    num = (double) strtoul(str->ptr, &end, base);
-  }
-
-  if (end == str->ptr) { return LUAV_NIL; }
+  if (end == str->ptr) { panic("bad number"); }
   while (*end != 0 && isspace(*end)) end++;
   if (end == str->ptr + str->length) {
-    return lv_number(num);
+    return num;
   }
-  return LUAV_NIL;
+  panic("bad number")
 }
 
-/**
- * @brief Coerce a lua value into a boolean
- *
- * Only false and nil are coerced to false, everything else is true.
- *
- * @param value the value to coerce
- * @return the coerced boolean
- */
-luav lv_tobool(luav value) {
-  return value == LUAV_NIL || value == LUAV_FALSE ? LUAV_FALSE : LUAV_TRUE;
+lstring_t* lv_caststring(luav number, u32 argnum) {
+  u8 type = lv_gettype(number);
+  if (type == LSTRING) {
+    return lstr_get(LUAV_DATA(number));
+  } else if (type != LNUMBER) {
+    panic("bad number");
+  }
+
+  char *buf = xmalloc(20);
+  int len = snprintf(buf, 20, LUA_NUMBER_FMT, lv_castnumber(number, argnum));
+  return lstr_get(lstr_add(buf, (size_t) len, TRUE));
 }
