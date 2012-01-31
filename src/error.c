@@ -53,6 +53,9 @@ void err_explain(int err, lclosure_t *closure) {
       break;
 
     case ERR_BADTYPE:
+      printf("bad argument #%d to '%s' (%s expected, got %s)\n",
+             err_info[0] + 1, funstr(vm_running), typestr(err_info[1]),
+             typestr(err_info[2]));
       break;
 
     default:
@@ -92,8 +95,9 @@ void err_missing(u32 n, u32 expected_type) {
   longjmp(*vm_jmpbuf, ERR_MISSING);
 }
 
-void err_badtype(u32 n, u32 type) {
+void err_badtype(u32 n, u32 expected, u32 got) {
   err_info[0] = n;
-  err_info[1] = type;
+  err_info[1] = expected;
+  err_info[2] = got;
   longjmp(*vm_jmpbuf, ERR_BADTYPE);
 }

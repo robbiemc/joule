@@ -8,7 +8,7 @@ struct lclosure;
 extern char *lua_program;
 
 void err_explain(int err, struct lclosure *closure) NORETURN;
-void err_missing(u32 n, u32 expected_type);
-void err_badtype(u32 n, u32 type);
+void err_missing(u32 n, u32 expected_type) NORETURN;
+void err_badtype(u32 n, u32 expected_type, u32 got_type) NORETURN;
 
 #endif /* _ERROR_H */

@@ -6,15 +6,15 @@
  */
 
 #include <assert.h>
-#include <math.h>
-#include <string.h>
 #include <ctype.h>
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "config.h"
 #include "lhash.h"
 #include "lstring.h"
 #include "luav.h"
-#include "panic.h"
 #include "vm.h"
 
 /**
@@ -187,13 +187,13 @@ double lv_castnumberb(luav number, u32 base, u32 argnum) {
   if (type == LNUMBER) {
     return lv_cvt(number);
   } else if (type != LSTRING) {
-    panic("bad number");
+    err_badtype(argnum, LNUMBER, type);
   }
 
   lstring_t *str = lv_caststring(number, argnum);
   double num;
   if (lv_parsenum(str, base, &num) < 0) {
-    panic("bad number");
+    err_badtype(argnum, LNUMBER, LSTRING);
   }
   return num;
 }
@@ -217,7 +217,7 @@ lstring_t* lv_caststring(luav number, u32 argnum) {
   if (type == LSTRING) {
     return lstr_get(LUAV_DATA(number));
   } else if (type != LNUMBER) {
-    panic("bad string");
+    err_badtype(argnum, LSTRING, type);
   }
 
   char *buf = xmalloc(20);
