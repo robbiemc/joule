@@ -5,6 +5,7 @@ OBJDIR   = objs
 SRCDIR   = src
 TESTDIR  = tests
 CTESTDIR = ctests
+BENCHDIR = bench
 
 # Different flags for opt vs debug
 ifeq ($(BUILD),opt)
@@ -26,6 +27,9 @@ LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
 						os strings coroutine2 sieve
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
 
+BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2
+BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%)
+
 CTESTS := hash types parse
 CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
 
@@ -34,7 +38,7 @@ all: joule
 joule: $(OBJS) $(OBJDIR)/main.o
 	$(CC) $(CFLAGS) -o joule $^ -lm
 
-test: ctest ltest
+test: ctest ltest btest
 ctests: $(CTESTS)
 
 # Run all compiled tests (C tests)
@@ -47,7 +51,7 @@ ctest: ctests
 
 # Run all lua tests
 ltest: joule
-	@mkdir -p $(OBJDIR)/tests
+	@mkdir -p $(OBJDIR)/$(TESTDIR)
 	@for test in $(LUATESTS); do \
 		echo $$test.lua; \
 		lua $$test.lua > $(OBJDIR)/$$test.out; \
@@ -55,6 +59,17 @@ ltest: joule
 		diff -u $(OBJDIR)/$$test.out $(OBJDIR)/$$test.log || exit 1; \
 	done
 	@echo -- All lua tests passed --
+
+# Run all benchmark tests
+btest: joule
+	@mkdir -p $(OBJDIR)/$(BENCHDIR)
+	@for test in $(BENCHTESTS); do \
+		echo $$test.lua; \
+		lua $$test.lua > $(OBJDIR)/$$test.out; \
+		./joule $$test.lua > $(OBJDIR)/$$test.log || exit 1; \
+		diff -u $(OBJDIR)/$$test.out $(OBJDIR)/$$test.log || exit 1; \
+	done
+	@echo -- All bench tests passed --
 
 coverage: CFLAGS += --coverage
 coverage: clean test
