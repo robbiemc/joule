@@ -169,7 +169,7 @@ static u32 co_wrap_trampoline(LSTATE) {
 
 static u32 lua_co_wrap(LSTATE) {
   luav routine;
-  assert(lua_co_create(argc, argv, 1, &routine) == 0);
+  assert(lua_co_create(argc, argv, 1, &routine) == 1);
   lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
   closure->type = LUAF_C;
   closure->function.c = co_wrap_trampoline;
