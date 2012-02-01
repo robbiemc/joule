@@ -75,6 +75,7 @@ struct lthread;
 #define LUAV_DATA_SIZE 48
 #define LUAV_NAN_MASK  0xfff0000000000000ULL
 #define LUAV_TYPE_MASK 0xffff000000000000ULL
+#define LUAV_NAN       0xfff8000000000000ULL
 #define LUAV_NIL       0xffffffffffffffffULL
 #define LUAV_TRUE      (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 1)
 #define LUAV_FALSE     (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 0)

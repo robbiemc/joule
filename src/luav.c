@@ -139,8 +139,6 @@ u8 lv_gettype(luav value) {
  * @return <0 if v1 < v2, 0 if v1 == v2, >0 if v1 > v2
  */
 int lv_compare(luav v1, luav v2) {
-  if (v1 == v2) return 0;
-
   if (lv_isnumber(v1) && lv_isnumber(v2)) {
     double d1 = lv_cvt(v1);
     double d2 = lv_cvt(v2);
@@ -149,6 +147,9 @@ int lv_compare(luav v1, luav v2) {
     /* Stupid hack to get around NaN comparisons always false */
     return isnan(d1);
   }
+
+  // this has to go here because NaN != NaN
+  if (v1 == v2) return 0;
 
   if (lv_isstring(v1) && lv_isstring(v2)) {
     lstring_t *s1 = lstr_get(LUAV_DATA(v1));

@@ -50,6 +50,8 @@
 #define BINOP_DIV(a,b) ((a)/(b))
 #define BINOP_MOD(a,b) ((a) - floor((a)/(b))*(b))
 #define BINOP_POW(a,b) (pow((a), (b)))
+#define BINOP_LT(a,b)  (a < b)
+#define BINOP_LE(a,b)  (a <= b)
 #define META_ARITH_BINARY(op, idx)                                \
   {                                                               \
     a = A(code);                                                  \
@@ -67,6 +69,19 @@
     double bd = lv_castnumber(bv, 0);                             \
     double cd = lv_castnumber(cv, 1);                             \
     SETREG(func, a, lv_number(op(bd, cd)));                       \
+  }
+#define META_COMPARE(op, idx)                                     \
+  {                                                               \
+    u32 lt; luav res;                                             \
+    luav bv = KREG(func, B(code)); luav cv = KREG(func, C(code)); \
+    if (lv_istable(bv) && lv_istable(cv) &&                       \
+        meta_eq(TBL(bv), TBL(cv), idx, bv, cv, &res, &frame)) {   \
+      lt = lv_getbool(res, 0);                                    \
+    } else {                                                      \
+      lt = op(lv_compare(bv, cv), 0);                             \
+    }                                                             \
+    if (lt != A(code))                                            \
+      frame.pc++;                                                 \
   }
 
 lhash_t lua_globals;
@@ -264,11 +279,11 @@ top:
         frame.pc += UNBIAS(PAYLOAD(code));
         break;
 
-      case OP_EQ: {
+      case OP_EQ: { // could use META_COMPARE, but this should be faster
         luav res;
         luav bv = KREG(func, B(code));
         luav cv = KREG(func, C(code));
-        u32 eq = (bv == cv);
+        u32 eq = (bv != LUAV_NAN) && (bv == cv);
         if (!eq && lv_istable(bv) && lv_istable(cv) &&
             meta_eq(TBL(bv), TBL(cv), META_EQ, bv, cv, &res, &frame)) {
           eq = lv_getbool(res, 0);
@@ -277,36 +292,9 @@ top:
           frame.pc++;
         break;
       }
-      case OP_LT: {
-        u32 lt;
-        luav res;
-        luav bv = KREG(func, B(code));
-        luav cv = KREG(func, C(code));
-        if (lv_istable(bv) && lv_istable(cv) &&
-            meta_eq(TBL(bv), TBL(cv), META_LT, bv, cv, &res, &frame)) {
-          lt = lv_getbool(res, 0);
-        } else {
-          lt = (lv_compare(bv, cv) < 0);
-        }
-        if (lt != A(code))
-          frame.pc++;
-        break;
-      }
-      case OP_LE: {
-        u32 le;
-        luav res;
-        luav bv = KREG(func, B(code));
-        luav cv = KREG(func, C(code));
-        if (lv_istable(bv) && lv_istable(cv) &&
-            meta_eq(TBL(bv), TBL(cv), META_LE, bv, cv, &res, &frame)) {
-          le = lv_getbool(res, 0);
-        } else {
-          le = (lv_compare(bv, cv) <= 0);
-        }
-        if (le != A(code))
-          frame.pc++;
-        break;
-      }
+
+      case OP_LT: META_COMPARE(BINOP_LT, META_LT); break;
+      case OP_LE: META_COMPARE(BINOP_LE, META_LE); break;
 
       case OP_TEST:
         temp = REG(func, A(code));
