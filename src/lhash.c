@@ -231,3 +231,17 @@ static void lhash_resize(lhash_t *map) {
   }
   free(old);
 }
+
+void lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval) {
+  u32 i, h = (lv_hash(key) % map->cap) + 1;
+  if (key == LUAV_NIL) { h = 0; }
+  for (i = h; i < map->cap; i++) {
+    if (map->hash[i].key != LUAV_NIL) {
+      *nxtkey = map->hash[i].key;
+      *nxtval = map->hash[i].value;
+      return;
+    }
+  }
+  *nxtkey = LUAV_NIL;
+  *nxtval = LUAV_NIL;
+}

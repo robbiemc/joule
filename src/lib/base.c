@@ -37,6 +37,8 @@ static u32  lua_loadstring(LSTATE);
 static u32  lua_pcall(LSTATE);
 static u32  lua_xpcall(LSTATE);
 static u32  lua_error(LSTATE);
+static u32  lua_next(LSTATE);
+static u32  lua_pairs(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -51,6 +53,8 @@ static LUAF(lua_loadstring);
 static LUAF(lua_pcall);
 static LUAF(lua_xpcall);
 static LUAF(lua_error);
+static LUAF(lua_next);
+static LUAF(lua_pairs);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -77,6 +81,8 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "pcall",         &lua_pcall_f);
   REGISTER(&lua_globals, "xpcall",        &lua_xpcall_f);
   REGISTER(&lua_globals, "error",         &lua_error_f);
+  REGISTER(&lua_globals, "next",          &lua_next_f);
+  REGISTER(&lua_globals, "pairs",         &lua_pairs_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -349,4 +355,24 @@ static u32 lua_error(LSTATE) {
   }
 
   err_fromframe(frame, message->ptr);
+}
+
+static u32 lua_next(LSTATE) {
+  lhash_t *table = lstate_gettable(0);
+  luav key = LUAV_NIL;
+  if (argc > 1) {
+    key = lstate_getval(1);
+  }
+  luav t1, t2, *nxtkey = &t1, *nxtvalue = &t2;
+  if (retc > 0) nxtkey = retv;
+  if (retc > 1) nxtvalue = retv + 1;
+  lhash_next(table, key, nxtkey, nxtvalue);
+  return 2;
+}
+
+static u32 lua_pairs(LSTATE) {
+  lstate_return(lv_function(&lua_next_f), 0);
+  lstate_return(lv_table(lstate_gettable(0)), 1);
+  lstate_return(LUAV_NIL, 2);
+  return 3;
 }
