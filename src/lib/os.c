@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -6,6 +5,7 @@
 #include "lhash.h"
 #include "lstring.h"
 #include "luav.h"
+#include "panic.h"
 #include "vm.h"
 
 static luav str_sec;
@@ -101,7 +101,7 @@ static u32 lua_os_date(LSTATE) {
   } else {
     stm = localtime(&t);
   }
-  assert(stm != NULL);
+  xassert(stm != NULL);
 
   if (strcmp("*t", format) == 0) {
     lhash_t *hash = xmalloc(sizeof(lhash_t));

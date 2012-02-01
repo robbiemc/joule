@@ -83,8 +83,9 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
   luav temp;
 
   luav stack[STACK_SIZE(func)];
-  for (i = 0; i < STACK_SIZE(func); i++) {
-    stack[i] = i < argc ? argv[i] : LUAV_NIL;
+  memcpy(stack, argv, sizeof(luav) * argc);
+  for (i = argc; i < STACK_SIZE(func); i++) {
+    stack[i] = LUAV_NIL;
   }
 
   for (frame.pc = 0; frame.pc < func->num_instrs;) {

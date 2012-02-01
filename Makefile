@@ -9,7 +9,11 @@ BENCHDIR = bench
 
 # Different flags for opt vs debug
 ifeq ($(BUILD),opt)
-CFLAGS += -O2
+ifeq ($(CC),clang)
+CFLAGS += -O4 -DNDEBUG
+else
+CFLAGS += -O2 -DNDEBUG
+endif
 else
 CFLAGS += -O0
 endif

@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -43,18 +42,18 @@ void err_explain(int err, lframe_t *frame) {
   lfunc_t *func;
   if (frame->caller == NULL) {
     caller = frame->closure;
-    assert(caller->type == LUAF_LUA);
+    xassert(caller->type == LUAF_LUA);
     func = caller->function.lua;
   } else {
     caller = frame->caller->closure;
-    assert(caller != NULL && caller->type == LUAF_LUA);
+    xassert(caller != NULL && caller->type == LUAF_LUA);
     func = caller->function.lua;
   }
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
-  assert(frame->pc < func->dbg_linecount);
-  assert(lua_program != NULL);
+  xassert(frame->pc < func->dbg_linecount);
+  xassert(lua_program != NULL);
   printf("%s: %s:%u: ", lua_program, func->file, func->dbg_lines[frame->pc]);
 
   switch (err) {
@@ -92,7 +91,7 @@ void err_explain(int err, lframe_t *frame) {
       printf("[C]: in function '%s'", closure->function.c->name);
     } else {
       lfunc_t *function = closure->function.lua;
-      assert(frame->pc - 1 < function->dbg_linecount);
+      xassert(frame->pc - 1 < function->dbg_linecount);
       printf("%s:%d: ", function->file, function->dbg_lines[frame->pc - 1]);
       lstring_t *fname = lstr_get(function->name);
 

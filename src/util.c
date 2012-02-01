@@ -1,6 +1,6 @@
-#include <assert.h>
 #include <stdlib.h>
 
+#include "panic.h"
 #include "util.h"
 
 u8 pread1(u8 **p) {
@@ -23,18 +23,18 @@ u64 pread8(u8 **p) {
 
 void* xmalloc(size_t s) {
   void *m = malloc(s);
-  assert(m != NULL);
+  xassert(m != NULL);
   return m;
 }
 
 void* xcalloc(size_t n, size_t s) {
   void *m = calloc(n, s);
-  assert(m != NULL);
+  xassert(m != NULL);
   return m;
 }
 
 void *xrealloc(void *p, size_t s) {
   void *m = realloc(p, s);
-  assert(m != NULL);
+  xassert(m != NULL);
   return m;
 }

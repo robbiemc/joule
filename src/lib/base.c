@@ -226,8 +226,10 @@ static u32 lua_rawget(LSTATE) {
 static u32 lua_setmetatable(LSTATE) {
   lhash_t *table = lstate_gettable(0);
   // make sure the current metatable isn't protected
+#ifndef NDEBUG
   lhash_t *old = table->metatable;
   assert(old == NULL || old->metamethods[META_METATABLE] == LUAV_NIL);
+#endif
 
   luav value = lstate_getval(1);
   switch (lv_gettype(value)) {

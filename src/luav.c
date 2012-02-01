@@ -5,7 +5,6 @@
  * @see luav.h for explanation of NaN boxing
  */
 
-#include <assert.h>
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
@@ -15,6 +14,7 @@
 #include "lhash.h"
 #include "lstring.h"
 #include "luav.h"
+#include "panic.h"
 #include "vm.h"
 
 /**
@@ -27,7 +27,7 @@
  * @return the pointer to the table struct
  */
 lhash_t* lv_gettable(luav value, u32 argnum) {
-  assert(lv_istable(value));
+  xassert(lv_istable(value));
   return (lhash_t*) LUAV_DATA(value);
 }
 
@@ -54,7 +54,7 @@ u8 lv_getbool(luav value, u32 argnum) {
  * @return the pointer to the data
  */
 void* lv_getuserdata(luav value, u32 argnum) {
-  assert(lv_isuserdata(value));
+  xassert(lv_isuserdata(value));
   return (void*) LUAV_DATA(value);
 }
 
@@ -68,7 +68,7 @@ void* lv_getuserdata(luav value, u32 argnum) {
  * @return the pointer to the function
  */
 lclosure_t* lv_getfunction(luav value, u32 argnum) {
-  assert(lv_isfunction(value));
+  xassert(lv_isfunction(value));
   return (lclosure_t*) LUAV_DATA(value);
 }
 
@@ -82,7 +82,7 @@ lclosure_t* lv_getfunction(luav value, u32 argnum) {
  * @return the thread pointer
  */
 struct lthread* lv_getthread(luav value, u32 argnum) {
-  assert(lv_isthread(value));
+  xassert(lv_isthread(value));
   return (struct lthread*) LUAV_DATA(value);
 }
 
@@ -96,7 +96,7 @@ struct lthread* lv_getthread(luav value, u32 argnum) {
  * @return the pointer to the luav the upvalue stands for
  */
 upvalue_t* lv_getupvalue(luav value) {
-  assert(lv_isupvalue(value));
+  xassert(lv_isupvalue(value));
   return (upvalue_t*) LUAV_DATA(value);
 }
 
@@ -141,7 +141,6 @@ u8 lv_gettype(luav value) {
 int lv_compare(luav v1, luav v2) {
   if (lv_isnumber(v1)) {
     if (!lv_isnumber(v2)) goto err;
-    assert(lv_isnumber(v2));
     double d1 = lv_cvt(v1);
     double d2 = lv_cvt(v2);
     if (d1 < d2) {

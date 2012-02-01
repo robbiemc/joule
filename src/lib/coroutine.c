@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <string.h>
 #include <sys/mman.h>
 
@@ -84,9 +83,9 @@ DESTROY static void lua_coroutine_destroy() {
 
 static void coroutine_swap(lthread_t *to) {
   lthread_t *old = cur_thread;
-  assert(to != NULL);
-  assert(to->status != CO_RUNNING);
-  assert(to->status != CO_DEAD);
+  xassert(to != NULL);
+  xassert(to->status != CO_RUNNING);
+  xassert(to->status != CO_DEAD);
   cur_thread = to;
   to->status = CO_RUNNING;
   coroutine_swap_asm(&old->curstack, to->curstack);
@@ -98,7 +97,7 @@ static void coroutine_swap(lthread_t *to) {
  */
 static void coroutine_wrapper() {
   luav retv[CO_RETC];
-  assert(cur_thread->status == CO_RUNNING);
+  xassert(cur_thread->status == CO_RUNNING);
   u32 retc = vm_fun(cur_thread->closure, NULL,
                     cur_thread->argc, cur_thread->argv,
                     CO_RETC, retv);
@@ -117,7 +116,7 @@ static u32 lua_co_create(LSTATE) {
   thread->status = CO_NEVER_RUN;
   thread->stack  = mmap(NULL, CO_STACK_SIZE, PROT_WRITE | PROT_READ,
                         MAP_ANON | MAP_PRIVATE, -1, 0);
-  assert(thread->stack != MAP_FAILED);
+  xassert(thread->stack != MAP_FAILED);
 
   thread->caller  = NULL;
   thread->closure = function;
@@ -173,7 +172,7 @@ static u32 co_wrap_trampoline(LSTATE) {
 
 static u32 lua_co_wrap(LSTATE) {
   luav routine;
-  assert(lua_co_create(argc, argv, 1, &routine) == 1);
+  lua_co_create(argc, argv, 1, &routine);
   lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
   closure->type = LUAF_C;
   closure->function.c = &co_wrapper_cf;
@@ -204,7 +203,7 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
     thread->argc = i;
   }
 
-  assert(thread->caller == NULL);
+  xassert(thread->caller == NULL);
   thread->caller = cur_thread;
   cur_thread->status = CO_NORMAL;
   coroutine_swap(thread);

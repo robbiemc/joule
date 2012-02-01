@@ -4,9 +4,13 @@
 #include <stdio.h>
 
 #define panic(fmt, ...) {                                                     \
-    fprintf(stderr, "[panic %s at %d] - " fmt "\n",                           \
+    fprintf(stderr, "%s:%d - " fmt "\n",                                      \
             __FILE__, __LINE__, ## __VA_ARGS__);                              \
     abort();                                                                  \
+  }
+
+#define xassert(e) {                                     \
+    if (!(e)) { panic("failed assertion: %s", #e); }     \
   }
 
 #endif /* _PANIC_H */

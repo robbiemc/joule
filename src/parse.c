@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "luav.h"
+#include "panic.h"
 #include "parse.h"
 #include "util.h"
 #include "vm.h"
@@ -27,12 +28,12 @@ void luac_parse_compiled(luac_file_t *file, char *filename) {
   // get the file size
   struct stat finfo;
   int err = fstat(fd, &finfo);
-  assert(err == 0);
+  xassert(err == 0);
   size_t size = (size_t) finfo.st_size;
 
   // mmap the file
   void *addr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-  assert(addr != MAP_FAILED);
+  xassert(addr != MAP_FAILED);
 
   luac_parse(file, addr, SRC_MMAP, filename);
   file->size = size;
@@ -56,7 +57,7 @@ void luac_parse_stream(luac_file_t *file, FILE *f, char *origin) {
     buf = xrealloc(buf, buf_size);
     len += fread(&buf[len], 1, buf_size - len, f);
   }
-  assert(ferror(f) == 0);
+  xassert(ferror(f) == 0);
 
   luac_parse(file, buf, SRC_MALLOC, origin);
 }
@@ -70,15 +71,17 @@ void luac_parse_stream(luac_file_t *file, FILE *f, char *origin) {
  * @param origin the origin of the code (filename, for example)
  */
 void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) {
-  int err;
-  ssize_t written;
+  int err = 0;
+  ssize_t written = 0;
+
   // TODO - error checks
   // create the pipes
   int in_fds[2];
   int out_fds[2];
   err = pipe(in_fds);
+  xassert(err != -1);
   err = pipe(out_fds);
-  assert(err != -1);
+  xassert(err != -1);
 
   // fork!
   if (fork() == 0) {
@@ -88,7 +91,7 @@ void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) 
     dup2(in_fds[0], STDIN_FILENO);
     dup2(out_fds[1], STDOUT_FILENO);
     execl("/bin/sh", "sh", "-c", "luac -o - -",NULL);
-    assert(0);
+    xassert(0);
   }
 
   // parent
@@ -98,7 +101,7 @@ void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) 
   // TODO - make sure it's all sent
   written = write(in_fds[1], code, csz);
   close(in_fds[1]);
-  assert(written != -1);
+  xassert(written != -1);
 
   FILE *f = fdopen(out_fds[0], "r");
   luac_parse_stream(file, f, origin);
@@ -138,15 +141,15 @@ void luac_parse(luac_file_t *file, void *addr, int source, char *filename) {
 
   // read and validate the file header
   luac_header_t *header = addr;
-  assert(header->signature == 0x61754C1B);
-  assert(header->version == 0x51);
-  assert(header->format == 0);
-  assert(header->endianness == 1); // 0 = big endian, 1 = little endian
-  assert(header->int_size == sizeof(int));
-  assert(header->size_t_size == sizeof(size_t));
-  assert(header->instr_size == 4);
-  assert(header->num_size == sizeof(double));
-  assert(header->int_flag == 0); // 0 = doubles, 1 = integers
+  xassert(header->signature == 0x61754C1B);
+  xassert(header->version == 0x51);
+  xassert(header->format == 0);
+  xassert(header->endianness == 1); // 0 = big endian, 1 = little endian
+  xassert(header->int_size == sizeof(int));
+  xassert(header->size_t_size == sizeof(size_t));
+  xassert(header->instr_size == 4);
+  xassert(header->num_size == sizeof(double));
+  xassert(header->int_flag == 0); // 0 = doubles, 1 = integers
 
   // parse the main function
   luac_parse_func((u8*)(header + 1), &file->func, filename);
@@ -217,7 +220,7 @@ static u8* luac_parse_func(u8 *addr, lfunc_t *func, char *filename) {
         addr += length;
         break;
       default:
-        assert(0); // TODO - figure out how we're actually going to handle errors
+        panic("Corrupt precompiled file");
     }
   }
 

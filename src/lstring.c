@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "lstring.h"
+#include "panic.h"
 #include "util.h"
 
 #define LOAD_FACTOR 50
@@ -43,7 +44,7 @@ DESTROY static void lstr_destroy() {
 }
 
 lstr_idx lstr_add(char *str, size_t size, int freeable) {
-  assert(initialized);
+  xassert(initialized);
   // lookup the string in the hashset (see if it's already stored)
   if (size == 0) {
     if (freeable) free(str);
