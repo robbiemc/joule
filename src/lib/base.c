@@ -34,6 +34,7 @@ static u32  lua_rawget(LSTATE);
 static u32  lua_setmetatable(LSTATE);
 static u32  lua_getmetatable(LSTATE);
 static u32  lua_loadstring(LSTATE);
+static u32  lua_pcall(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -45,6 +46,7 @@ static LUAF(lua_rawget);
 static LUAF(lua_setmetatable);
 static LUAF(lua_getmetatable);
 static LUAF(lua_loadstring);
+static LUAF(lua_pcall);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -68,6 +70,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "setmetatable",  &lua_setmetatable_f);
   REGISTER(&lua_globals, "getmetatable",  &lua_getmetatable_f);
   REGISTER(&lua_globals, "loadstring",    &lua_loadstring_f);
+  REGISTER(&lua_globals, "pcall",         &lua_pcall_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -270,4 +273,22 @@ static u32 lua_loadstring(LSTATE) {
   closure->function.lua = &file->func;
 
   lstate_return1(lv_function(closure));
+}
+
+static u32 lua_pcall(LSTATE) {
+  lclosure_t *closure = lstate_getfunction(0);
+  jmp_buf onerr;
+  jmp_buf *prev = err_catcher;
+  err_catcher = &onerr;
+  if (setjmp(onerr) != 0) {
+    lstate_return(LUAV_FALSE, 0);
+    lstate_return(lv_string(lstr_add(err_desc, strlen(err_desc), FALSE)), 1);
+    err_catcher = prev;
+    return 2;
+  }
+
+  u32 ret = vm_fun(closure, vm_running, argc - 1, argv + 1, retc - 1, retv + 1);
+  err_catcher = prev;
+  lstate_return(LUAV_TRUE, 0);
+  return ret + 1;
 }

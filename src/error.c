@@ -12,6 +12,8 @@
 #define ERR_RAWSTR  4
 
 char *lua_program = NULL;
+jmp_buf *err_catcher = NULL;
+char err_desc[ERRBUF_SIZE];
 
 static u32 err_info[10];
 static char *err_custom;
@@ -50,37 +52,49 @@ void err_explain(int err, lframe_t *frame) {
     func = caller->function.lua;
   }
 
+  int len;
+
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
   xassert(frame->pc < func->dbg_linecount);
-  xassert(lua_program != NULL);
-  printf("%s: %s:%u: ", lua_program, func->file, func->dbg_lines[frame->pc]);
+  len = sprintf(err_desc, "%.25s:%u: ", func->file,
+                func->dbg_lines[frame->pc]);
 
   switch (err) {
     case ERR_MISSING:
-      printf("bad argument #%d to '%s' (%s expected, got no value)\n",
-             err_info[0] + 1, funstr(vm_running->closure),
-             err_typestr(err_info[1]));
+      len += sprintf(err_desc + len,
+                     "bad argument #%d to '%s' (%s expected, got no value)",
+                     err_info[0] + 1, funstr(vm_running->closure),
+                     err_typestr(err_info[1]));
       break;
 
     case ERR_BADTYPE:
-      printf("bad argument #%d to '%s' (%s expected, got %s)\n",
-             err_info[0] + 1, funstr(vm_running->closure),
-             err_typestr(err_info[1]), err_typestr(err_info[2]));
+      len += sprintf(err_desc + len,
+                     "bad argument #%d to '%s' (%s expected, got %s)",
+                     err_info[0] + 1, funstr(vm_running->closure),
+                     err_typestr(err_info[1]), err_typestr(err_info[2]));
       break;
 
     case ERR_STR:
-      printf("bad argument #%d to '%s' (%s)\n",
-             err_info[0] + 1, funstr(vm_running->closure), err_custom);
+      len += sprintf(err_desc + len,
+                     "bad argument #%d to '%s' (%s)",
+                     err_info[0] + 1, funstr(vm_running->closure),
+                     err_custom);
       break;
 
     case ERR_RAWSTR:
-      printf("%s\n", err_custom);
+      len += sprintf(err_desc + len, "%s", err_custom);
       break;
 
     default:
       panic("Unknown error type: %d", err);
   }
+
+  if (err_catcher != NULL) {
+    longjmp(*err_catcher, 1);
+  }
+  xassert(lua_program != NULL);
+  printf("%s: %s\n", lua_program, err_desc);
 
   printf("stack traceback:\n");
 
