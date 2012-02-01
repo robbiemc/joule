@@ -70,12 +70,15 @@ void luac_parse_stream(luac_file_t *file, FILE *f, char *origin) {
  * @param origin the origin of the code (filename, for example)
  */
 void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) {
+  int err;
+  ssize_t written;
   // TODO - error checks
   // create the pipes
   int in_fds[2];
   int out_fds[2];
-  pipe(in_fds);
-  pipe(out_fds);
+  err = pipe(in_fds);
+  err = pipe(out_fds);
+  assert(err != -1);
 
   // fork!
   if (fork() == 0) {
@@ -93,8 +96,9 @@ void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) 
   close(out_fds[1]);
 
   // TODO - make sure it's all sent
-  write(in_fds[1], code, csz);
+  written = write(in_fds[1], code, csz);
   close(in_fds[1]);
+  assert(written != -1);
 
   FILE *f = fdopen(out_fds[0], "r");
   luac_parse_stream(file, f, origin);
