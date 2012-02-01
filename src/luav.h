@@ -74,6 +74,7 @@ struct lthread;
 /* Macros for dealing with u64 bits for luav */
 #define LUAV_DATA_SIZE 48
 #define LUAV_NAN_MASK  0xfff0000000000000ULL
+#define LUAV_TYPE_MASK 0xffff000000000000ULL
 #define LUAV_NIL       0xffffffffffffffffULL
 #define LUAV_TRUE      (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 1)
 #define LUAV_FALSE     (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 0)
@@ -92,8 +93,7 @@ typedef struct upvalue {
   luav value;
 } upvalue_t;
 
-#define lv_hastyp(lv, typ) \
-  (((lv) & (0xfULL << LUAV_DATA_SIZE)) == (typ) && ((lv) & LUAV_NAN_MASK) == LUAV_NAN_MASK)
+#define lv_hastyp(lv, typ) (((typ) | LUAV_NAN_MASK) == ((lv) & LUAV_TYPE_MASK))
 
 /* A number is either 0x8 or 0x0, so so long as the lower 3 bits of the type
    are 0, then this can be considered a number */
