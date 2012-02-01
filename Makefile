@@ -29,12 +29,12 @@ OBJS := $(OBJS:%=$(OBJDIR)/%)
 LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
 	    			loop sort func fib select math2 bisect cf printf select smallfun \
             os strings coroutine2 sieve load pcall metabasic calls
-LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
+LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 
 BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2 \
 	      			nbody.lua-4 hash hello fibo matrix nestedloop nsieve.lua-3 \
               nsievebits prodcons random sieve sieve.lua-2 spectralnorm
-BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%)
+BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
 CTESTS := hash types parse
 CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
@@ -56,26 +56,17 @@ ctest: ctests
 	@echo -- All C tests passed --
 
 # Run all lua tests
-ltest: joule
-	@mkdir -p $(OBJDIR)/$(TESTDIR)
-	@for test in $(LUATESTS); do \
-		echo $$test.lua; \
-		lua $$test.lua > $(OBJDIR)/$$test.out; \
-		./joule $$test.lua > $(OBJDIR)/$$test.log || exit 1; \
-		diff -u $(OBJDIR)/$$test.out $(OBJDIR)/$$test.log || exit 1; \
-	done
+ltest: $(LUATESTS)
 	@echo -- All lua tests passed --
 
 # Run all benchmark tests
-btest: joule
-	@mkdir -p $(OBJDIR)/$(BENCHDIR)
-	@for test in $(BENCHTESTS); do \
-		echo $$test.lua; \
-		lua $$test.lua > $(OBJDIR)/$$test.out; \
-		./joule $$test.lua > $(OBJDIR)/$$test.log || exit 1; \
-		diff -u $(OBJDIR)/$$test.out $(OBJDIR)/$$test.log || exit 1; \
-	done
-	@echo -- All bench tests passed --
+btest: $(BENCHTESTS)
+	@echo -- All benchmark tests passed --
+
+lmissing:
+	@ruby -e 'puts `ls $(TESTDIR)/*.lua`.split("\n") - ARGV' $(LUATESTS)
+bmissing:
+	@ruby -e 'puts `ls $(BENCHDIR)/*.lua`.split("\n") - ARGV' $(BENCHTESTS)
 
 coverage: CFLAGS += --coverage
 coverage: clean test
@@ -104,6 +95,14 @@ $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 $(OBJDIR)/%: $(OBJS) %.c
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -o $@ $^ -lm
+
+# Running a lua test
+%.lua: joule
+	@mkdir -p $(OBJDIR)/$(@D)
+	@echo $@
+	@lua $@ > $(OBJDIR)/$(@:.lua=.out)
+	@./joule $@ > $(OBJDIR)/$(@:.lua=.log)
+	@diff -u $(OBJDIR)/$(@:.lua=.out) $(OBJDIR)/$(@:.lua=.log)
 
 # If we're cleaning, no need to regenerate all .dep files
 ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
