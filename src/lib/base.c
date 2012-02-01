@@ -245,7 +245,7 @@ static u32 lua_setmetatable(LSTATE) {
 
 static u32 lua_getmetatable(LSTATE) {
   luav value = lstate_getval(0);
-  if (lv_gettype(value) != LTABLE) {
+  if (!lv_istable(value)) {
     lstate_return1(LUAV_NIL);
   }
   lhash_t *meta = lv_gettable(value, 0)->metatable;

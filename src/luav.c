@@ -27,7 +27,7 @@
  * @return the pointer to the table struct
  */
 lhash_t* lv_gettable(luav value, u32 argnum) {
-  assert(lv_gettype(value) == LTABLE);
+  assert(lv_istable(value));
   return (lhash_t*) LUAV_DATA(value);
 }
 
@@ -54,7 +54,7 @@ u8 lv_getbool(luav value, u32 argnum) {
  * @return the pointer to the data
  */
 void* lv_getuserdata(luav value, u32 argnum) {
-  assert(lv_gettype(value) == LUSERDATA);
+  assert(lv_isuserdata(value));
   return (void*) LUAV_DATA(value);
 }
 
@@ -68,7 +68,7 @@ void* lv_getuserdata(luav value, u32 argnum) {
  * @return the pointer to the function
  */
 lclosure_t* lv_getfunction(luav value, u32 argnum) {
-  assert(lv_gettype(value) == LFUNCTION);
+  assert(lv_isfunction(value));
   return (lclosure_t*) LUAV_DATA(value);
 }
 
@@ -82,7 +82,7 @@ lclosure_t* lv_getfunction(luav value, u32 argnum) {
  * @return the thread pointer
  */
 struct lthread* lv_getthread(luav value, u32 argnum) {
-  assert(lv_gettype(value) == LTHREAD);
+  assert(lv_isthread(value));
   return (struct lthread*) LUAV_DATA(value);
 }
 
@@ -96,7 +96,7 @@ struct lthread* lv_getthread(luav value, u32 argnum) {
  * @return the pointer to the luav the upvalue stands for
  */
 upvalue_t* lv_getupvalue(luav value) {
-  assert(lv_gettype(value) == LUPVALUE);
+  assert(lv_isupvalue(value));
   return (upvalue_t*) LUAV_DATA(value);
 }
 
@@ -183,14 +183,13 @@ int lv_compare(luav v1, luav v2) {
  * @return the value casted as a number
  */
 double lv_castnumberb(luav number, u32 base, u32 argnum) {
-  u8 type = lv_gettype(number);
-  if (type == LNUMBER) {
+  if (lv_isnumber(number)) {
     return lv_cvt(number);
-  } else if (type != LSTRING) {
-    err_badtype(argnum, LNUMBER, type);
+  } else if (!lv_isstring(number)) {
+    err_badtype(argnum, LNUMBER, lv_gettype(number));
   }
 
-  lstring_t *str = lv_caststring(number, argnum);
+  lstring_t *str = lstr_get(LUAV_DATA(number));
   double num;
   if (lv_parsenum(str, base, &num) < 0) {
     err_badtype(argnum, LNUMBER, LSTRING);
@@ -213,14 +212,13 @@ int lv_parsenum(lstring_t *str, u32 base, double *value) {
 }
 
 lstring_t* lv_caststring(luav number, u32 argnum) {
-  u8 type = lv_gettype(number);
-  if (type == LSTRING) {
+  if (lv_isstring(number)) {
     return lstr_get(LUAV_DATA(number));
-  } else if (type != LNUMBER) {
-    err_badtype(argnum, LSTRING, type);
+  } else if (!lv_isnumber(number)) {
+    err_badtype(argnum, LSTRING, lv_gettype(number));
   }
 
   char *buf = xmalloc(20);
-  int len = snprintf(buf, 20, LUA_NUMBER_FMT, lv_castnumber(number, argnum));
+  int len = snprintf(buf, 20, LUA_NUMBER_FMT, lv_cvt(number));
   return lstr_get(lstr_add(buf, (size_t) len, TRUE));
 }

@@ -19,12 +19,12 @@
   ({                                                                          \
     assert((n) < STACK_SIZE(f));                                              \
     luav _tmp = stack[n];                                                     \
-    lv_gettype(_tmp) == LUPVALUE ? lv_getupvalue(_tmp)->value : _tmp;         \
+    lv_isupvalue(_tmp) ? lv_getupvalue(_tmp)->value : _tmp;                   \
   })
 #define SETREG(f, n, v)                       \
   ({                                          \
     assert((n) < STACK_SIZE(f));              \
-    if (lv_gettype(stack[n]) == LUPVALUE) {   \
+    if (lv_isupvalue(stack[n])) {             \
       lv_getupvalue(stack[n])->value = v;     \
     } else {                                  \
       stack[n] = v;                           \
@@ -93,13 +93,13 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
     switch (OP(code)) {
       case OP_GETGLOBAL:
         temp = CONST(func, PAYLOAD(code));
-        assert(lv_gettype(temp) == LSTRING);
+        assert(lv_isstring(temp));
         SETREG(func, A(code), lhash_get(&lua_globals, temp));
         break;
 
       case OP_SETGLOBAL:
         temp = CONST(func, PAYLOAD(code));
-        assert(lv_gettype(temp) == LSTRING);
+        assert(lv_isstring(temp));
         lhash_set(&lua_globals, temp, REG(func, A(code)));
         break;
 
@@ -197,7 +197,7 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
                use the same upvalue... */
             assert(B(pseudo) < STACK_SIZE(func));
             temp = stack[B(pseudo)];
-            if (lv_gettype(temp) == LUPVALUE) {
+            if (lv_isupvalue(temp)) {
               upvalue = temp;
             } else {
               /* If the stack register is not an upvalue, we need to promote it
@@ -471,7 +471,7 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
 static void op_close(u32 upc, luav *upv) {
   u32 i;
   for (i = 0; i < upc; i++) {
-    if (lv_gettype(upv[i]) == LUPVALUE) {
+    if (lv_isupvalue(upv[i])) {
       upvalue_t *upvalue = lv_getupvalue(upv[i]);
       if (--upvalue->refcnt == 0) {
         upv[i] = upvalue->value;

@@ -22,7 +22,6 @@ static void lhash_resize(lhash_t *hash);
 
 static luav meta_strings[NUM_META_METHODS];
 
-
 INIT static void lua_lhash_init() {
   meta_strings[META_ADD]       = LSTR("__add");
   meta_strings[META_SUB]       = LSTR("__sub");
@@ -89,7 +88,7 @@ void lhash_free(lhash_t *hash) {
  *         valid event
  */
 size_t lhash_check_meta(luav key) {
-  if (lv_gettype(key) != LSTRING) {
+  if (!lv_isstring(key)) {
     return META_INVALID;
   }
 
@@ -112,7 +111,7 @@ size_t lhash_check_meta(luav key) {
  */
 luav lhash_get(lhash_t *map, luav key) {
   u32 i;
-  assert(lv_gettype(key) != LUPVALUE);
+  assert(!lv_isupvalue(key));
   if (key == LUAV_NIL) {
     return LUAV_NIL;
   }
@@ -151,8 +150,8 @@ luav lhash_get(lhash_t *map, luav key) {
  */
 void lhash_set(lhash_t *map, luav key, luav value) {
   assert(key != LUAV_NIL);
-  assert(lv_gettype(key) != LUPVALUE);
-  assert(lv_gettype(value) != LUPVALUE);
+  assert(!lv_isupvalue(key));
+  assert(!lv_isupvalue(value));
 
   // check if it's a metatable key
   size_t meta_index = lhash_check_meta(key);
@@ -182,7 +181,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
       }
       // FIXME - this doesn't always work (but will in this hashtable
       //         implementation)
-      if (lv_gettype(key) == LNUMBER) {
+      if (lv_isnumber(key)) {
         double len = lv_castnumber(key, 0);
         if ((u64)len == len && len > map->length) {
           map->length = (u32) len;

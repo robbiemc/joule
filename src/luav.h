@@ -60,21 +60,21 @@ struct lthread;
  * nil is defined as 15 (1111b), so its value in a luav is 0xFFFF0000...,
  * which can be checked quickly
  */
-#define LBOOLEAN  1
-#define LSTRING   2
-#define LTABLE    3
-#define LFUNCTION 4
-#define LTHREAD   5
-#define LUSERDATA 6
-#define LUPVALUE  7
-#define LNUMBER   8
-#define LNIL      15
-#define LANY      16
+#define LBOOLEAN  1ULL
+#define LSTRING   2ULL
+#define LTABLE    3ULL
+#define LFUNCTION 4ULL
+#define LTHREAD   5ULL
+#define LUSERDATA 6ULL
+#define LUPVALUE  7ULL
+#define LNUMBER   8ULL
+#define LNIL      15ULL
+#define LANY      16ULL
 
 /* Macros for dealing with u64 bits for luav */
 #define LUAV_DATA_SIZE 48
-#define LUAV_NAN_MASK  0xfff0000000000000LL
-#define LUAV_NIL       0xffffffffffffffffLL
+#define LUAV_NAN_MASK  0xfff0000000000000ULL
+#define LUAV_NIL       0xffffffffffffffffULL
 #define LUAV_TRUE      (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 1)
 #define LUAV_FALSE     (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 0)
 #define LUAV_DATA_MASK (((u64)1 << LUAV_DATA_SIZE) - 1)
@@ -91,6 +91,21 @@ typedef struct upvalue {
   u32 refcnt;
   luav value;
 } upvalue_t;
+
+#define lv_hastyp(lv, typ) \
+  (((lv) & (0xfULL << LUAV_DATA_SIZE)) == (typ) && ((lv) & LUAV_NAN_MASK) == LUAV_NAN_MASK)
+
+/* A number is either 0x8 or 0x0, so so long as the lower 3 bits of the type
+   are 0, then this can be considered a number */
+#define lv_isnumber(lv)   (((lv) & LUAV_NAN_MASK) != LUAV_NAN_MASK || \
+                           !((lv) & (0x7ULL << LUAV_DATA_SIZE)))
+#define lv_isstring(lv)   lv_hastyp(lv, LSTRING << LUAV_DATA_SIZE)
+#define lv_istable(lv)    lv_hastyp(lv, LTABLE << LUAV_DATA_SIZE)
+#define lv_isbool(lv)     lv_hastyp(lv, LBOOLEAN << LUAV_DATA_SIZE)
+#define lv_isuserdata(lv) lv_hastyp(lv, LUSERDATA << LUAV_DATA_SIZE)
+#define lv_isfunction(lv) lv_hastyp(lv, LFUNCTION << LUAV_DATA_SIZE)
+#define lv_isupvalue(lv)  lv_hastyp(lv, LUPVALUE << LUAV_DATA_SIZE)
+#define lv_isthread(lv)   lv_hastyp(lv, LTHREAD << LUAV_DATA_SIZE)
 
 /* Boxing a luav */
 #define lv_number(n)      lv_bits(n)
