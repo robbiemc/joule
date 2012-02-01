@@ -35,6 +35,7 @@ static u32  lua_setmetatable(LSTATE);
 static u32  lua_getmetatable(LSTATE);
 static u32  lua_loadstring(LSTATE);
 static u32  lua_pcall(LSTATE);
+static u32  lua_xpcall(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -47,6 +48,7 @@ static LUAF(lua_setmetatable);
 static LUAF(lua_getmetatable);
 static LUAF(lua_loadstring);
 static LUAF(lua_pcall);
+static LUAF(lua_xpcall);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -71,6 +73,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "getmetatable",  &lua_getmetatable_f);
   REGISTER(&lua_globals, "loadstring",    &lua_loadstring_f);
   REGISTER(&lua_globals, "pcall",         &lua_pcall_f);
+  REGISTER(&lua_globals, "xpcall",        &lua_xpcall_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -288,6 +291,36 @@ static u32 lua_pcall(LSTATE) {
   }
 
   u32 ret = vm_fun(closure, vm_running, argc - 1, argv + 1, retc - 1, retv + 1);
+  err_catcher = prev;
+  lstate_return(LUAV_TRUE, 0);
+  return ret + 1;
+}
+
+static u32 lua_xpcall(LSTATE) {
+  lclosure_t *f = lstate_getfunction(0);
+  lclosure_t *err = lstate_getfunction(1);
+  jmp_buf onerr;
+  jmp_buf *prev = err_catcher;
+  err_catcher = &onerr;
+  int tried = 0;
+
+  if (setjmp(onerr) != 0) {
+    luav retval;
+    if (!tried) {
+      tried = 1;
+      luav error = lv_string(lstr_add(err_desc, strlen(err_desc), FALSE));
+      retval = LUAV_NIL;
+      vm_fun(err, vm_running, 1, &error, 1, &retval);
+    } else {
+      retval = LSTR("error in error handling");
+    }
+    lstate_return(LUAV_FALSE, 0);
+    lstate_return(retval, 1);
+    err_catcher = prev;
+    return 2;
+  }
+
+  u32 ret = vm_fun(f, vm_running, 0, NULL, retc - 1, retv + 1);
   err_catcher = prev;
   lstate_return(LUAV_TRUE, 0);
   return ret + 1;

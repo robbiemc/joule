@@ -42,14 +42,17 @@ static char* funstr(lclosure_t *closure) {
 void err_explain(int err, lframe_t *frame) {
   lclosure_t *caller;
   lfunc_t *func;
-  if (frame->caller == NULL) {
+  lframe_t *caller_frame;
+  if (frame->caller == NULL || frame->closure->type == LUAF_LUA) {
     caller = frame->closure;
     xassert(caller->type == LUAF_LUA);
     func = caller->function.lua;
+    caller_frame = frame;
   } else {
     caller = frame->caller->closure;
     xassert(caller != NULL && caller->type == LUAF_LUA);
     func = caller->function.lua;
+    caller_frame = frame->caller;
   }
 
   int len;
@@ -58,7 +61,7 @@ void err_explain(int err, lframe_t *frame) {
      from (source line) */
   xassert(frame->pc < func->dbg_linecount);
   len = sprintf(err_desc, "%.25s:%u: ", func->file,
-                func->dbg_lines[frame->pc]);
+                func->dbg_lines[caller_frame->pc - 1]);
 
   switch (err) {
     case ERR_MISSING:
@@ -93,6 +96,7 @@ void err_explain(int err, lframe_t *frame) {
   if (err_catcher != NULL) {
     longjmp(*err_catcher, 1);
   }
+
   xassert(lua_program != NULL);
   printf("%s: %s\n", lua_program, err_desc);
 
