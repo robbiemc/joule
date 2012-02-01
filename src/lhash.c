@@ -21,10 +21,16 @@
 
 static void lhash_resize(lhash_t *hash);
 
+static luav meta_empty[NUM_META_METHODS];
 static luav meta_strings[NUM_META_METHODS];
 static luav max_meta_string;
 
 INIT static void lua_lhash_init() {
+  // a nil meta table array - this is default
+  size_t i;
+  for (i = 0; i < NUM_META_METHODS; i++)
+    meta_empty[i] = LUAV_NIL;
+
   meta_strings[META_ADD]       = LSTR("__add");
   meta_strings[META_SUB]       = LSTR("__sub");
   meta_strings[META_MUL]       = LSTR("__mul");
@@ -43,7 +49,6 @@ INIT static void lua_lhash_init() {
   meta_strings[META_METATABLE] = LSTR("__metatable");
 
   // an ugly hack that speeds up lhash_check_meta *A LOT*
-  size_t i;
   max_meta_string = 0;
   for (i = 0; i < NUM_META_METHODS; i++) {
     if (meta_strings[i] > max_meta_string)
@@ -66,7 +71,7 @@ void lhash_init(lhash_t *map) {
   map->size = 0;
   map->length = 0;
   map->metatable = NULL;
-  map->metamethods = NULL;
+  map->metamethods = meta_empty;
   map->hash = xmalloc(LHASH_INIT_SIZE * sizeof(map->hash[0]));
   for (i = 0; i < LHASH_INIT_SIZE; i++) {
     map->hash[i].key = LUAV_NIL;
@@ -83,7 +88,7 @@ void lhash_init(lhash_t *map) {
  * @param hash the hash to deallocate
  */
 void lhash_free(lhash_t *hash) {
-  if (hash->metamethods != NULL) {
+  if (hash->metamethods != meta_empty) {
     free(hash->metamethods);
   }
   free(hash->hash);
@@ -168,7 +173,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
   // check if it's a metatable key
   size_t meta_index = lhash_check_meta(key);
   if (meta_index != META_INVALID) {
-    if (map->metamethods == NULL) {
+    if (map->metamethods == meta_empty) {
       map->metamethods = xmalloc(NUM_META_METHODS * sizeof(luav));
       size_t i;
       for (i = 0; i < NUM_META_METHODS; i++)
