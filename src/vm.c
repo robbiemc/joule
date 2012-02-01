@@ -50,8 +50,8 @@
 #define BINOP_DIV(a,b) ((a)/(b))
 #define BINOP_MOD(a,b) ((a) - floor((a)/(b))*(b))
 #define BINOP_POW(a,b) (pow((a), (b)))
-#define BINOP_LT(a,b)  (a < b)
-#define BINOP_LE(a,b)  (a <= b)
+#define BINOP_LT(a,b)  ((a) < (b))
+#define BINOP_LE(a,b)  ((a) <= (b))
 #define META_ARITH_BINARY(op, idx)                                \
   {                                                               \
     a = A(code);                                                  \
