@@ -8,6 +8,7 @@
 #include "error.h"
 #include "lhash.h"
 #include "luav.h"
+#include "meta.h"
 #include "opcode.h"
 #include "panic.h"
 #include "vm.h"
@@ -282,9 +283,39 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
         break;
 
       case OP_ADD: {
-        double bv = lv_castnumber(KREG(func, B(code)), 0);
-        double cv = lv_castnumber(KREG(func, C(code)), 0);
-        SETREG(func, A(code), lv_number(bv + cv));
+        // check for regular addition
+        luav bv = KREG(func, B(code));
+        luav cv = KREG(func, C(code));
+        if (lv_isnumber(bv) && lv_isnumber(cv)) {
+          SETREG(func, A(code), lv_number(lv_cvt(bv) + lv_cvt(cv)));
+          break;
+        }
+        // check for metamethods
+        a = A(code);
+        luav meth;
+        lhash_t *meta;
+        if (lv_istable(bv) && (meta = lv_gettable(bv,0)->metatable) != NULL) {
+          if ((meth = meta->metamethods[META_ADD]) != LUAV_NIL) {
+            luav v[2] = {bv, cv};
+            u32 got = vm_fun(lv_getfunction(meth,0), &frame, 2, v, 1, &stack[a]);
+            if (got == 0)
+              SETREG(func, a, LUAV_NIL);
+            break;
+          }
+        }
+        if (lv_istable(cv) && (meta = lv_gettable(cv,1)->metatable) != NULL) {
+          if ((meth = meta->metamethods[META_ADD]) != LUAV_NIL) {
+            luav v[2] = {bv, cv};
+            u32 got = vm_fun(lv_getfunction(meth,1), &frame, 2, v, 1, &stack[a]);
+            if (got == 0)
+              SETREG(func, a, LUAV_NIL);
+            break;
+          }
+        }
+        // check for string coersion
+        double bd = lv_castnumber(bv, 0);
+        double cd = lv_castnumber(cv, 1);
+        SETREG(func, a, lv_number(bd + cd));
         break;
       }
 
