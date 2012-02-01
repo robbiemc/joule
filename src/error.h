@@ -7,6 +7,7 @@ struct lframe;
 
 extern char *lua_program;
 
+char *err_typestr(u32 typ);
 void err_explain(int err, struct lframe *frame) NORETURN;
 void err_missing(u32 n, u32 expected_type) NORETURN;
 void err_badtype(u32 n, u32 expected_type, u32 got_type) NORETURN;

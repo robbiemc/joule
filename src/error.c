@@ -17,7 +17,7 @@ char *lua_program = NULL;
 static u32 err_info[10];
 static char *err_custom;
 
-static char* typestr(u32 type) {
+char* err_typestr(u32 type) {
   switch (type) {
     case LNIL:      return "nil";
     case LTHREAD:   return "thread";
@@ -39,10 +39,17 @@ static char* funstr(lclosure_t *closure) {
 }
 
 void err_explain(int err, lframe_t *frame) {
-  assert(frame->caller != NULL);
-  lclosure_t *caller = frame->caller->closure;
-  assert(caller != NULL && caller->type == LUAF_LUA);
-  lfunc_t *func = caller->function.lua;
+  lclosure_t *caller;
+  lfunc_t *func;
+  if (frame->caller == NULL) {
+    caller = frame->closure;
+    assert(caller->type == LUAF_LUA);
+    func = caller->function.lua;
+  } else {
+    caller = frame->caller->closure;
+    assert(caller != NULL && caller->type == LUAF_LUA);
+    func = caller->function.lua;
+  }
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
@@ -54,13 +61,13 @@ void err_explain(int err, lframe_t *frame) {
     case ERR_MISSING:
       printf("bad argument #%d to '%s' (%s expected, got no value)\n",
              err_info[0] + 1, funstr(vm_running->closure),
-             typestr(err_info[1]));
+             err_typestr(err_info[1]));
       break;
 
     case ERR_BADTYPE:
       printf("bad argument #%d to '%s' (%s expected, got %s)\n",
-             err_info[0] + 1, funstr(vm_running->closure), typestr(err_info[1]),
-             typestr(err_info[2]));
+             err_info[0] + 1, funstr(vm_running->closure),
+             err_typestr(err_info[1]), err_typestr(err_info[2]));
       break;
 
     case ERR_STR:
