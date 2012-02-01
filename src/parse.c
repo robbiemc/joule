@@ -48,16 +48,21 @@ void luac_parse_compiled(luac_file_t *file, char *filename) {
  * @param f the file to read
  * @param origin the origin of the code (filename, for example)
  */
-void luac_parse_stream(luac_file_t *file, FILE *f, char *origin) {
+#include <string.h>
+#include <errno.h>
+static void luac_parse_stream(luac_file_t *file, int fd, char *origin) {
   size_t buf_size = 1024;
   size_t len = 0;
-  char *buf = NULL;
-  while (!feof(f) && !ferror(f)) {
+  char *buf = xmalloc(buf_size);
+  while (1) {
+    ssize_t tmp = read(fd, buf + len, buf_size - len);
+    if (tmp == 0) break;
+    if (errno == EINTR) continue;
+    assert(tmp > 0);
+    len += (size_t) tmp;
     buf_size *= 2;
     buf = xrealloc(buf, buf_size);
-    len += fread(&buf[len], 1, buf_size - len, f);
   }
-  xassert(ferror(f) == 0);
 
   luac_parse(file, buf, SRC_MALLOC, origin);
 }
@@ -72,40 +77,46 @@ void luac_parse_stream(luac_file_t *file, FILE *f, char *origin) {
  */
 void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) {
   int err = 0;
-  ssize_t written = 0;
 
   // TODO - error checks
   // create the pipes
   int in_fds[2];
   int out_fds[2];
   err = pipe(in_fds);
-  xassert(err != -1);
+  xassert(err >= 0);
   err = pipe(out_fds);
-  xassert(err != -1);
+  xassert(err >= 0);
 
   // fork!
-  if (fork() == 0) {
+  int pid = fork();
+  assert(pid >= 0);
+  if (pid == 0) {
     // child
     close(in_fds[1]);
     close(out_fds[0]);
     dup2(in_fds[0], STDIN_FILENO);
     dup2(out_fds[1], STDOUT_FILENO);
-    execl("/bin/sh", "sh", "-c", "luac -o - -",NULL);
-    xassert(0);
+    execl("/bin/sh", "sh", "-c", "luac -o - -", NULL);
+    panic("exec is returning!");
   }
 
   // parent
   close(in_fds[0]);
   close(out_fds[1]);
 
-  // TODO - make sure it's all sent
-  written = write(in_fds[1], code, csz);
+  // Make sure we send all the data
+  size_t sent = 0;
+  while (sent < csz) {
+    ssize_t tmp = write(in_fds[1], code + sent, csz - sent);
+    if (tmp < 0 && errno == EINTR) continue;
+    assert(tmp >= 0);
+    sent += (size_t) tmp;
+  }
   close(in_fds[1]);
-  xassert(written != -1);
 
-  FILE *f = fdopen(out_fds[0], "r");
-  luac_parse_stream(file, f, origin);
-  fclose(f); // this closes out_fds[0]
+  luac_parse_stream(file, out_fds[0], origin);
+  close(out_fds[0]);
+  xassert(wait(NULL) == pid);
 }
 
 /**
@@ -121,7 +132,8 @@ void luac_parse_source(luac_file_t *file, char *filename) {
   strcpy(cmd + sizeof(cmd_prefix) - 1, filename);
 
   FILE *f = popen(cmd, "r");
-  luac_parse_stream(file, f, filename);
+  assert(f != NULL);
+  luac_parse_stream(file, fileno(f), filename);
   pclose(f);
   free(cmd);
 }
