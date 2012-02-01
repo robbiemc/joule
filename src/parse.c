@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,8 +49,6 @@ void luac_parse_compiled(luac_file_t *file, char *filename) {
  * @param f the file to read
  * @param origin the origin of the code (filename, for example)
  */
-#include <string.h>
-#include <errno.h>
 static void luac_parse_stream(luac_file_t *file, int fd, char *origin) {
   size_t buf_size = 1024;
   size_t len = 0;
@@ -78,7 +77,6 @@ static void luac_parse_stream(luac_file_t *file, int fd, char *origin) {
 void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) {
   int err = 0;
 
-  // TODO - error checks
   // create the pipes
   int in_fds[2];
   int out_fds[2];
