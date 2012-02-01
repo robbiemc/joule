@@ -36,6 +36,7 @@ static u32  lua_getmetatable(LSTATE);
 static u32  lua_loadstring(LSTATE);
 static u32  lua_pcall(LSTATE);
 static u32  lua_xpcall(LSTATE);
+static u32  lua_error(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -49,6 +50,7 @@ static LUAF(lua_getmetatable);
 static LUAF(lua_loadstring);
 static LUAF(lua_pcall);
 static LUAF(lua_xpcall);
+static LUAF(lua_error);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -74,6 +76,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "loadstring",    &lua_loadstring_f);
   REGISTER(&lua_globals, "pcall",         &lua_pcall_f);
   REGISTER(&lua_globals, "xpcall",        &lua_xpcall_f);
+  REGISTER(&lua_globals, "error",         &lua_error_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -268,6 +271,7 @@ static u32 lua_loadstring(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   lstring_t *name = (argc > 1) ? lstate_getstring(1) : str;
 
+  /* TODO: file is leaked here */
   luac_file_t *file = xmalloc(sizeof(luac_file_t));
   luac_parse_string(file, str->ptr, str->length, name->ptr);
 
@@ -324,4 +328,25 @@ static u32 lua_xpcall(LSTATE) {
   err_catcher = prev;
   lstate_return(LUAV_TRUE, 0);
   return ret + 1;
+}
+
+static u32 lua_error(LSTATE) {
+  lstring_t *message = lstate_getstring(0);
+  u32 level = 1;
+  if (argc > 1) {
+    level = (u32) lstate_getnumber(1);
+  }
+
+  if (level == 0) {
+    err_noposstr(message->ptr);
+  }
+
+  lframe_t *frame = vm_running;
+
+  while (--level > 0) {
+    assert(frame->caller != NULL);
+    frame = frame->caller;
+  }
+
+  err_fromframe(frame, message->ptr);
 }

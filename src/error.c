@@ -6,10 +6,11 @@
 #include "util.h"
 #include "vm.h"
 
-#define ERR_MISSING 1
-#define ERR_BADTYPE 2
-#define ERR_STR     3
-#define ERR_RAWSTR  4
+#define ERR_MISSING  1
+#define ERR_BADTYPE  2
+#define ERR_STR      3
+#define ERR_RAWSTR   4
+#define ERR_NOPOSSTR 5
 
 char *lua_program = NULL;
 jmp_buf *err_catcher = NULL;
@@ -89,6 +90,10 @@ void err_explain(int err, lframe_t *frame) {
       len += sprintf(err_desc + len, "%s", err_custom);
       break;
 
+    case ERR_NOPOSSTR:
+      len = sprintf(err_desc, "%s", err_custom);
+      break;
+
     default:
       panic("Unknown error type: %d", err);
   }
@@ -150,4 +155,14 @@ void err_str(u32 n, char *explain) {
 void err_rawstr(char *explain) {
   err_custom = explain;
   err_explain(ERR_RAWSTR, vm_running);
+}
+
+void err_noposstr(char *explain) {
+  err_custom = explain;
+  err_explain(ERR_NOPOSSTR, vm_running);
+}
+
+void err_fromframe(lframe_t *frame, char *explain) {
+  err_custom = explain;
+  err_explain(ERR_NOPOSSTR, frame);
 }
