@@ -43,6 +43,7 @@
 #define DECODEFP8(v) (((u32)8 | ((v)&7)) << (((u32)(v)>>3) - 1))
 
 /* Metatable macros */
+#define TBL(x) lv_gettable(x,0)
 #define BINOP_ADD(a,b) ((a)+(b))
 #define BINOP_SUB(a,b) ((a)-(b))
 #define BINOP_MUL(a,b) ((a)*(b))
@@ -75,6 +76,8 @@ static void op_close(u32 upc, luav *upv);
 static int meta1(lhash_t *table, u32 op, luav v, luav *ret, lframe_t *frame);
 static int meta2(lhash_t *table, u32 op, luav lv, luav rv,
                  luav *ret, lframe_t *frame);
+static int meta_eq(lhash_t *table1, lhash_t *table2, u32 op,
+                   luav lv, luav rv, luav *ret, lframe_t *frame);
 
 INIT static void vm_setup() {
   lhash_init(&lua_globals);
@@ -262,29 +265,46 @@ top:
         break;
 
       case OP_EQ: {
+        luav res;
         luav bv = KREG(func, B(code));
         luav cv = KREG(func, C(code));
-        if (bv == LUAV_NIL) {
-          if ((cv == LUAV_NIL) != A(code)) frame.pc++;
-        } else if (cv == LUAV_NIL) {
-          if ((bv == LUAV_NIL) != A(code)) frame.pc++;
-        } else if ((lv_compare(bv, cv) == 0) != A(code)) {
-          frame.pc++;
+        u32 eq = (bv == cv);
+        if (!eq && lv_istable(bv) && lv_istable(cv) &&
+            meta_eq(TBL(bv), TBL(cv), META_EQ, bv, cv, &res, &frame)) {
+          eq = lv_getbool(res, 0);
         }
+        if (eq != A(code))
+          frame.pc++;
         break;
       }
       case OP_LT: {
-        int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
-        if ((cmp < 0) != A(code)) {
-          frame.pc++;
+        u32 lt;
+        luav res;
+        luav bv = KREG(func, B(code));
+        luav cv = KREG(func, C(code));
+        if (lv_istable(bv) && lv_istable(cv) &&
+            meta_eq(TBL(bv), TBL(cv), META_LT, bv, cv, &res, &frame)) {
+          lt = lv_getbool(res, 0);
+        } else {
+          lt = (lv_compare(bv, cv) < 0);
         }
+        if (lt != A(code))
+          frame.pc++;
         break;
       }
       case OP_LE: {
-        int cmp = lv_compare(KREG(func, B(code)), KREG(func, C(code)));
-        if ((cmp <= 0) != A(code)) {
-          frame.pc++;
+        u32 le;
+        luav res;
+        luav bv = KREG(func, B(code));
+        luav cv = KREG(func, C(code));
+        if (lv_istable(bv) && lv_istable(cv) &&
+            meta_eq(TBL(bv), TBL(cv), META_LE, bv, cv, &res, &frame)) {
+          le = lv_getbool(res, 0);
+        } else {
+          le = (lv_compare(bv, cv) <= 0);
         }
+        if (le != A(code))
+          frame.pc++;
         break;
       }
 
@@ -507,6 +527,24 @@ static int meta2(lhash_t *table, u32 op, luav lv, luav rv,
     if (method != LUAV_NIL) {
       luav v[2] = {lv, rv};
       u32 got = vm_fun(lv_getfunction(method, 0), frame, 2, v, 1, ret);
+      if (got == 0)
+        *ret = LUAV_NIL;
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+static int meta_eq(lhash_t *table1, lhash_t *table2, u32 op,
+                   luav lv, luav rv, luav *ret, lframe_t *frame) {
+  lhash_t *meta1 = table1->metatable;
+  lhash_t *meta2 = table2->metatable;
+  if (meta1 != NULL && meta2 != NULL) {
+    luav meth1 = meta1->metamethods[op];
+    luav meth2 = meta2->metamethods[op];
+    if (meth1 != LUAV_NIL && meth1 == meth2) {
+      luav v[2] = {lv, rv};
+      u32 got = vm_fun(lv_getfunction(meth1, 0), frame, 2, v, 1, ret);
       if (got == 0)
         *ret = LUAV_NIL;
       return TRUE;
