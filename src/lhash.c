@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "error.h"
 #include "lhash.h"
 #include "luav.h"
 #include "meta.h"
@@ -157,9 +158,12 @@ luav lhash_get(lhash_t *map, luav key) {
  * @param value the corresponding value for the given key
  */
 void lhash_set(lhash_t *map, luav key, luav value) {
-  assert(key != LUAV_NIL);
   assert(!lv_isupvalue(key));
   assert(!lv_isupvalue(value));
+
+  if (key == LUAV_NIL || (lv_isnumber(key) && isnan(lv_cvt(key)))) {
+    err_rawstr("table index is nil");
+  }
 
   // check if it's a metatable key
   size_t meta_index = lhash_check_meta(key);

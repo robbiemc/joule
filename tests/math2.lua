@@ -150,12 +150,12 @@ do   -- testing NaN
   assert(not (NaN >= NaN))
   assert(not (0 < NaN))
   assert(not (NaN < 0))
-  -- local a = {}
-  -- assert(not pcall(function () a[NaN] = 1 end))
-  -- assert(a[NaN] == nil)
-  -- a[1] = 1
-  -- assert(not pcall(function () a[NaN] = 1 end))
-  -- assert(a[NaN] == nil)
+  local a = {}
+  assert(not pcall(function () a[NaN] = 1 end))
+  assert(a[NaN] == nil)
+  a[1] = 1
+  assert(not pcall(function () a[NaN] = 1 end))
+  assert(a[NaN] == nil)
 end
 
 -- require "checktable"
