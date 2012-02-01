@@ -66,9 +66,10 @@ void luac_parse_stream(luac_file_t *file, FILE *f, char *origin) {
  *
  * @param file the struct to fill in information for
  * @param code the lua source code
+ * @param csz the length of the source string
  * @param origin the origin of the code (filename, for example)
  */
-void luac_parse_string(luac_file_t *file, char *code, char *origin) {
+void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) {
   // TODO - error checks
   // create the pipes
   int in_fds[2];
@@ -92,7 +93,7 @@ void luac_parse_string(luac_file_t *file, char *code, char *origin) {
   close(out_fds[1]);
 
   // TODO - make sure it's all sent
-  write(in_fds[1], code, strlen(code));
+  write(in_fds[1], code, csz);
   close(in_fds[1]);
 
   FILE *f = fdopen(out_fds[0], "r");
@@ -171,7 +172,9 @@ static void luac_free_func(lfunc_t *func) {
   for (i = 0; i < func->num_funcs; i++) {
     luac_free_func(&func->funcs[i]);
   }
-  free(func->funcs);
+  if (func->num_funcs > 0) {
+    free(func->funcs);
+  }
 }
 
 static u8* luac_parse_func(u8 *addr, lfunc_t *func, char *filename) {
@@ -215,9 +218,13 @@ static u8* luac_parse_func(u8 *addr, lfunc_t *func, char *filename) {
   }
 
   func->num_funcs = pread4(&addr);
-  func->funcs = xcalloc(func->num_funcs, sizeof(lfunc_t));
-  for (i = 0; i < func->num_funcs; i++)
-    addr = luac_parse_func(addr, &(func->funcs[i]), filename);
+  if (func->num_funcs == 0) {
+    func->funcs = NULL;
+  } else {
+    func->funcs = xcalloc(func->num_funcs, sizeof(lfunc_t));
+    for (i = 0; i < func->num_funcs; i++)
+      addr = luac_parse_func(addr, &(func->funcs[i]), filename);
+  }
 
   func->dbg_linecount = pread4(&addr);
   func->dbg_lines = (u32*) addr;

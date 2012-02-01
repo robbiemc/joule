@@ -39,7 +39,7 @@ typedef struct luac_header {
 
 void luac_parse_compiled(luac_file_t *file, char *filename);
 void luac_parse_source(luac_file_t *file, char *filename);
-void luac_parse_string(luac_file_t *file, char *code, char *origin);
+void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin);
 void luac_parse(luac_file_t *file, void *addr, int source, char *filename);
 void luac_close(luac_file_t *file);
 
