@@ -139,38 +139,28 @@ u8 lv_gettype(luav value) {
  * @return <0 if v1 < v2, 0 if v1 == v2, >0 if v1 > v2
  */
 int lv_compare(luav v1, luav v2) {
-  if (lv_isnumber(v1)) {
-    if (!lv_isnumber(v2)) goto err;
+  if (v1 == v2) return 0;
+
+  if (lv_isnumber(v1) && lv_isnumber(v2)) {
     double d1 = lv_cvt(v1);
     double d2 = lv_cvt(v2);
-    if (d1 < d2) {
-      return -1;
-    } else if (d1 > d2) {
-      return 1;
-    }
+    if (d1 < d2) return -1;
+    if (d1 > d2) return  1;
     /* Stupid hack to get around NaN comparisons always false */
     return isnan(d1);
-  } else if (v1 == v2) {
-    return 0;
   }
 
-  if (!lv_isstring(v1) || !lv_isstring(v2)) goto err;
-  lstring_t *s1 = lstr_get(LUAV_DATA(v1));
-  lstring_t *s2 = lstr_get(LUAV_DATA(v2));
-  size_t minlen = s1->length < s2->length ? s1->length : s2->length;
-  int cmp = memcmp(s1->ptr, s2->ptr, minlen);
-  if (cmp != 0) {
-    return cmp;
-  } else if (s1->length < s2->length) {
-    return -1;
-  } else if (s1->length > s2->length){
-    return 1;
-  } else {
-    return 0;
+  if (lv_isstring(v1) && lv_isstring(v2)) {
+    lstring_t *s1 = lstr_get(LUAV_DATA(v1));
+    lstring_t *s2 = lstr_get(LUAV_DATA(v2));
+    size_t minlen = min(s1->length, s2->length);
+    int cmp = memcmp(s1->ptr, s2->ptr, minlen);
+    if (cmp != 0) return cmp;
+    if (s1->length < s2->length) return -1;
+    return s1->length > s2->length;
   }
 
   static char errbuf[100];
-err:
   sprintf(errbuf, "attempt to compare %s with %s",
           err_typestr(lv_gettype(v1)), err_typestr(lv_gettype(v2)));
   err_rawstr(errbuf);

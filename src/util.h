@@ -3,6 +3,9 @@
 
 #include "config.h"
 
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#define min(a,b) ((a) < (b) ? (a) : (b))
+
 u8   pread1(u8 **p);
 u32  pread4(u8 **p);
 u64  pread8(u8 **p);
