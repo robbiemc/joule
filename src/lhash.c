@@ -20,6 +20,28 @@
 
 static void lhash_resize(lhash_t *hash);
 
+static luav meta_strings[NUM_META_METHODS];
+
+
+INIT static void lua_lhash_init() {
+  meta_strings[META_ADD]       = LSTR("__add");
+  meta_strings[META_SUB]       = LSTR("__sub");
+  meta_strings[META_MUL]       = LSTR("__mul");
+  meta_strings[META_DIV]       = LSTR("__div");
+  meta_strings[META_MOD]       = LSTR("__mod");
+  meta_strings[META_POW]       = LSTR("__pow");
+  meta_strings[META_UNM]       = LSTR("__unm");
+  meta_strings[META_CONCAT]    = LSTR("__concat");
+  meta_strings[META_LEN]       = LSTR("__len");
+  meta_strings[META_EQ]        = LSTR("__eq");
+  meta_strings[META_LT]        = LSTR("__lt");
+  meta_strings[META_LE]        = LSTR("__le");
+  meta_strings[META_INDEX]     = LSTR("__index");
+  meta_strings[META_NEWINDEX]  = LSTR("__newindex");
+  meta_strings[META_CALL]      = LSTR("__call");
+  meta_strings[META_METATABLE] = LSTR("__metatable");
+}
+
 /**
  * @brief Initialize a new hash table so that it is ready for use.
  *
@@ -67,17 +89,13 @@ void lhash_free(lhash_t *hash) {
  *         valid event
  */
 size_t lhash_check_meta(luav key) {
-  // first check that it's a string and it starts with '__'
   if (lv_gettype(key) != LSTRING) {
     return META_INVALID;
   }
-  lstring_t *str = lv_caststring(key, 0);
-  if (strcmp(str->ptr, "__") != 0) {
-    return META_INVALID;
-  }
+
   size_t i;
   for (i = 0; i < NUM_META_METHODS; i++) {
-    if (strcmp(str->ptr + 2, meta_names[i]) == 0) {
+    if (meta_strings[i] == key) {
       return i;
     }
   }

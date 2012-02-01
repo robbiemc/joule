@@ -17,8 +17,8 @@ endif
 # Order matters in this list because object files listed first have their
 # initializers run first, and destructors run last.
 OBJS := lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
-				lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o meta.o \
-				lib/coroutine.o lib/co_asm.o error.o
+				lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o error.o \
+				lib/coroutine.o lib/co_asm.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...

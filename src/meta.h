@@ -3,8 +3,6 @@
 
 #include "vm.h"
 
-extern char* meta_names[];
-
 #define META_INVALID      100 // just some random number
 #define META_ADD          0
 #define META_SUB          1
