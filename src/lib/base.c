@@ -11,6 +11,7 @@
 #include "luav.h"
 #include "meta.h"
 #include "panic.h"
+#include "parse.h"
 #include "vm.h"
 
 static luav str_number;
@@ -32,6 +33,7 @@ static u32  lua_select(LSTATE);
 static u32  lua_rawget(LSTATE);
 static u32  lua_setmetatable(LSTATE);
 static u32  lua_getmetatable(LSTATE);
+static u32  lua_loadstring(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -42,6 +44,7 @@ static LUAF(lua_tonumber);
 static LUAF(lua_rawget);
 static LUAF(lua_setmetatable);
 static LUAF(lua_getmetatable);
+static LUAF(lua_loadstring);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -64,6 +67,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "rawget",        &lua_rawget_f);
   REGISTER(&lua_globals, "setmetatable",  &lua_setmetatable_f);
   REGISTER(&lua_globals, "getmetatable",  &lua_getmetatable_f);
+  REGISTER(&lua_globals, "loadstring",    &lua_loadstring_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -250,4 +254,18 @@ static u32 lua_getmetatable(LSTATE) {
     lstate_return1(meta_field);
   }
   lstate_return1(lv_table(meta));
+}
+
+static u32 lua_loadstring(LSTATE) {
+  lstring_t *str = lstate_getstring(0);
+  lstring_t *name = (argc > 1) ? lstate_getstring(1) : str;
+
+  luac_file_t *file = xmalloc(sizeof(luac_file_t));
+  luac_parse_string(file, str->ptr, str->length, name->ptr);
+
+  lclosure_t *closure = xmalloc(sizeof(lclosure_t));
+  closure->type = LUAF_LUA;
+  closure->function.lua = &file->func;
+
+  lstate_return1(lv_function(closure));
 }
