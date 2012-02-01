@@ -139,12 +139,11 @@ u8 lv_gettype(luav value) {
  * @return <0 if v1 < v2, 0 if v1 == v2, >0 if v1 > v2
  */
 int lv_compare(luav v1, luav v2) {
-  u8 type = lv_gettype(v1);
-  assert(type == lv_gettype(v2));
-
-  if (type == LNUMBER) {
-    double d1 = lv_castnumber(v1, 0);
-    double d2 = lv_castnumber(v2, 1);
+  if (lv_isnumber(v1)) {
+    if (!lv_isnumber(v2)) goto err;
+    assert(lv_isnumber(v2));
+    double d1 = lv_cvt(v1);
+    double d2 = lv_cvt(v2);
     if (d1 < d2) {
       return -1;
     } else if (d1 > d2) {
@@ -156,9 +155,9 @@ int lv_compare(luav v1, luav v2) {
     return 0;
   }
 
-  /* getstring will panic if these aren't strings */
-  lstring_t *s1 = lv_caststring(v1, 0);
-  lstring_t *s2 = lv_caststring(v2, 1);
+  if (!lv_isstring(v1) || !lv_isstring(v2)) goto err;
+  lstring_t *s1 = lstr_get(LUAV_DATA(v1));
+  lstring_t *s2 = lstr_get(LUAV_DATA(v2));
   size_t minlen = s1->length < s2->length ? s1->length : s2->length;
   int cmp = memcmp(s1->ptr, s2->ptr, minlen);
   if (cmp != 0) {
@@ -170,6 +169,12 @@ int lv_compare(luav v1, luav v2) {
   } else {
     return 0;
   }
+
+  static char errbuf[100];
+err:
+  sprintf(errbuf, "attempt to compare %s with %s",
+          err_typestr(lv_gettype(v1)), err_typestr(lv_gettype(v2)));
+  err_rawstr(errbuf);
 }
 
 /**
