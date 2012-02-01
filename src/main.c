@@ -15,6 +15,7 @@ static lhash_t lua_arg;
 typedef struct lflags {
   char  dump;
   char  compiled;
+  char  string;
 } lflags_t;
 
 static int parse_args(lflags_t *flags, int argc, char **argv) {
@@ -24,6 +25,8 @@ static int parse_args(lflags_t *flags, int argc, char **argv) {
       flags->dump = TRUE;
     else if (SET(i, "-c"))
       flags->compiled = TRUE;
+    else if (SET(i, "-e"))
+      flags->string = TRUE;
     else
       break;
   }
@@ -52,6 +55,8 @@ int main(int argc, char **argv) {
   lua_program = argv[0];
   if (flags.compiled) {
     luac_parse_compiled(&file, argv[i]);
+  } else if (flags.string) {
+    luac_parse_string(&file, argv[i], "shell");
   } else {
     luac_parse_source(&file, argv[i]);
   }

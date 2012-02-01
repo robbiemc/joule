@@ -40,6 +40,67 @@ void luac_parse_compiled(luac_file_t *file, char *filename) {
 }
 
 /**
+ * @brief Reads the given FILE* into memory and parses it. The FILE should
+ *        contain bytecode.
+ *
+ * @param file the struct to fill in information for
+ * @param f the file to read
+ * @param origin the origin of the code (filename, for example)
+ */
+void luac_parse_stream(luac_file_t *file, FILE *f, char *origin) {
+  size_t buf_size = 1024;
+  size_t len = 0;
+  char *buf = NULL;
+  while (!feof(f) && !ferror(f)) {
+    buf_size *= 2;
+    buf = xrealloc(buf, buf_size);
+    len += fread(&buf[len], 1, buf_size - len, f);
+  }
+  assert(ferror(f) == 0);
+
+  luac_parse(file, buf, SRC_MALLOC, origin);
+}
+
+/**
+ * @brief Parses the given lua source
+ *
+ * @param file the struct to fill in information for
+ * @param code the lua source code
+ * @param origin the origin of the code (filename, for example)
+ */
+void luac_parse_string(luac_file_t *file, char *code, char *origin) {
+  // TODO - error checks
+  // create the pipes
+  int in_fds[2];
+  int out_fds[2];
+  pipe(in_fds);
+  pipe(out_fds);
+
+  // fork!
+  if (fork() == 0) {
+    // child
+    close(in_fds[1]);
+    close(out_fds[0]);
+    dup2(in_fds[0], STDIN_FILENO);
+    dup2(out_fds[1], STDOUT_FILENO);
+    execl("/usr/bin/luac", "luac", "-o", "-", "-", (char*)0);
+    assert(0);
+  }
+
+  // parent
+  close(in_fds[0]);
+  close(out_fds[1]);
+
+  // TODO - make sure it's all sent
+  write(in_fds[1], code, strlen(code));
+  close(in_fds[1]);
+
+  FILE *f = fdopen(out_fds[0], "r");
+  luac_parse_stream(file, f, origin);
+  fclose(f); // this closes out_fds[0]
+}
+
+/**
  * @brief Parse the lua file (source code) given
  *
  * @param file the struct to fill in information for
@@ -50,21 +111,11 @@ void luac_parse_source(luac_file_t *file, char *filename) {
   char *cmd = xmalloc(sizeof(cmd_prefix) + strlen(filename) + 1);
   strcpy(cmd, cmd_prefix);
   strcpy(cmd + sizeof(cmd_prefix) - 1, filename);
-  FILE *f = popen(cmd, "r");
 
-  size_t buf_size = 1024;
-  size_t len = 0;
-  char *buf = NULL;
-  while (!feof(f) && !ferror(f)) {
-    buf_size *= 2;
-    buf = xrealloc(buf, buf_size);
-    len += fread(&buf[len], 1, buf_size - len, f);
-  }
-  assert(ferror(f) == 0);
+  FILE *f = popen(cmd, "r");
+  luac_parse_stream(file, f, filename);
   pclose(f);
   free(cmd);
-
-  luac_parse(file, buf, SRC_MALLOC, filename);
 }
 
 /**
