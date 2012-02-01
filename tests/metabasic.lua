@@ -9,6 +9,7 @@ m.__add = function(a,b)
 end
 
 print(t + 44)
+print(44 + t)
 print(t + '4')
 print(t + t)
 print(40 + t)
