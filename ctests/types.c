@@ -13,26 +13,26 @@ int main() {
   /** NUMBERS **/
   luav one = lv_number(1);
   assert(same(lv_cvt(one), 1.0));
-  assert(lv_gettype(one) == LNUMBER);
+  assert(lv_istype(one, LNUMBER));
 
   luav two = lv_number(2);
   assert(same(lv_castnumber(two, 0), 2.0));
-  assert(lv_gettype(two) == LNUMBER);
+  assert(lv_istype(two, LNUMBER));
 
   luav nan = lv_number(NAN);
   assert(lv_bits(lv_castnumber(nan, 0)) == lv_bits(NAN));
   assert(isnan(lv_castnumber(nan, 0)));
-  assert(lv_gettype(nan) == LNUMBER);
+  assert(lv_istype(nan, LNUMBER));
 
   luav inf = lv_number(1.0/0.0);
   assert(lv_bits(lv_castnumber(inf, 0)) == lv_bits(1.0/0.0));
   assert(isinf(lv_castnumber(inf, 0)));
-  assert(lv_gettype(inf) == LNUMBER);
+  assert(lv_istype(inf, LNUMBER));
 
   luav neginf = lv_number(-1.0/0.0);
   assert(lv_bits(lv_castnumber(neginf, 0)) == lv_bits(-1.0/0.0));
   assert(isinf(lv_castnumber(neginf, 0)));
-  assert(lv_gettype(neginf) == LNUMBER);
+  assert(lv_istype(neginf, LNUMBER));
 
   assert(lv_hash(one) != lv_hash(two));
 
@@ -43,14 +43,14 @@ int main() {
   assert(isnan(lv_cvt(b_true1)));
   assert(isnan(lv_cvt(b_true2)));
   assert(lv_getbool(b_true1, 0) == 1);
-  assert(lv_gettype(b_true1) == LBOOLEAN);
-  assert(lv_gettype(b_true2) == LBOOLEAN);
+  assert(lv_istype(b_true1, LBOOLEAN));
+  assert(lv_istype(b_true2, LBOOLEAN));
 
   luav b_false = lv_bool(0);
   assert(b_true1 != b_false);
   assert(isnan(lv_cvt(b_false)));
   assert(lv_getbool(b_false, 0) == 0);
-  assert(lv_gettype(b_false) == LBOOLEAN);
+  assert(lv_istype(b_false, LBOOLEAN));
 
   assert(lv_hash(b_true1) != lv_hash(b_false));
   assert(lv_hash(b_true1) == lv_hash(b_true2));
@@ -58,7 +58,7 @@ int main() {
   /** Nil **/
   luav b_nil = LUAV_NIL;
   assert(isnan(lv_cvt(b_nil)));
-  assert(lv_gettype(b_nil) == LNIL);
+  assert(lv_istype(b_nil, LNIL));
 
   /** User data **/
   luav udata = lv_userdata((void*) 0x1234);
@@ -68,8 +68,8 @@ int main() {
   assert(isnan(lv_cvt(udata2)));
   assert(lv_getuserdata(udata2, 0) == (void*) 0x1235);
   assert(udata != udata2);
-  assert(lv_gettype(udata) == LUSERDATA);
-  assert(lv_gettype(udata2) == LUSERDATA);
+  assert(lv_istype(udata, LUSERDATA));
+  assert(lv_istype(udata2, LUSERDATA));
 
   /** Tables **/
   lhash_t table1, table2;
@@ -79,8 +79,8 @@ int main() {
   assert(ltable1 != ltable2);
   assert(lv_gettable(ltable1, 0) == &table1);
   assert(lv_gettable(ltable2, 0) == &table2);
-  assert(lv_gettype(ltable1) == LTABLE);
-  assert(lv_gettype(ltable2) == LTABLE);
+  assert(lv_istype(ltable1, LTABLE));
+  assert(lv_istype(ltable2, LTABLE));
 
   /** Upvalues **/
   upvalue_t up = {0, lv_number(1)};
@@ -94,7 +94,7 @@ int main() {
   assert(isnan(lv_cvt(s1)));
   assert(s1 != s2);
   assert(s1 == LSTR("asdf"));
-  assert(lv_gettype(s1) == LSTRING);
+  assert(lv_istype(s1, LSTRING));
   assert(lv_caststring(s1, 0) == lstr_get(lstr_add("asdf", 4, 0)));
 
   /** Functions **/

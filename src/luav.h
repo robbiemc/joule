@@ -74,6 +74,8 @@ struct lthread;
 /* Macros for dealing with u64 bits for luav */
 #define LUAV_DATA_SIZE 48
 #define LUAV_NAN_MASK  0xfff0000000000000LL
+#define LUAV_TYPE_MASK 0xffff000000000000LL
+#define LUAV_NUM_MASK  0xfff7ffffffffffffLL
 #define LUAV_NIL       0xffffffffffffffffLL
 #define LUAV_TRUE      (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 1)
 #define LUAV_FALSE     (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 0)
@@ -119,6 +121,17 @@ int lv_parsenum(struct lstring *str, u32 base, double *value);
 u8  lv_gettype(luav value);
 u32 lv_hash(luav value);
 int lv_compare(luav v1, luav v2);
+
+static inline int lv_istype(luav value, u8 type) {
+  // if this is actually inlined and optimizations are on, this line should be
+  // computable at compile time if 'type' is a constant
+  u64 shifted = ((u64) type << LUAV_DATA_SIZE) | LUAV_NAN_MASK;
+  if (type != LNUMBER) {
+    return shifted == (value & LUAV_TYPE_MASK);
+  }
+  return  (value & LUAV_NAN_MASK) != LUAV_NAN_MASK ||  // normal double
+          (value & LUAV_NUM_MASK) == LUAV_NAN_MASK;    // real NaN or -infinity
+}
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;
