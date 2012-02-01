@@ -42,10 +42,39 @@
 #define ARG(i) (argc > (i) ? argv[(i)] : LUAV_NIL)
 #define DECODEFP8(v) (((u32)8 | ((v)&7)) << (((u32)(v)>>3) - 1))
 
+/* Metatable macros */
+#define BINOP_ADD(a,b) ((a)+(b))
+#define BINOP_SUB(a,b) ((a)-(b))
+#define BINOP_MUL(a,b) ((a)*(b))
+#define BINOP_DIV(a,b) ((a)/(b))
+#define BINOP_MOD(a,b) ((a) - floor((a)/(b))*(b))
+#define BINOP_POW(a,b) (pow((a), (b)))
+#define META_ARITH_BINARY(op, idx)                                \
+  {                                                               \
+    a = A(code);                                                  \
+    luav bv = KREG(func, B(code));                                \
+    luav cv = KREG(func, C(code));                                \
+    if (lv_isnumber(bv) && lv_isnumber(cv)) {                     \
+      SETREG(func, a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));     \
+      break;                                                      \
+    }                                                             \
+    if ((lv_istable(bv) && meta2(lv_gettable(bv, 0), idx, bv, cv, \
+                                &stack[a], &frame)) ||            \
+        (lv_istable(cv) && meta2(lv_gettable(cv, 0), idx, bv, cv, \
+                                &stack[a], &frame)))              \
+      break;                                                      \
+    double bd = lv_castnumber(bv, 0);                             \
+    double cd = lv_castnumber(cv, 1);                             \
+    SETREG(func, a, lv_number(op(bd, cd)));                       \
+  }
+
 lhash_t lua_globals;
 lframe_t *vm_running = NULL;
 
 static void op_close(u32 upc, luav *upv);
+static int meta1(lhash_t *table, u32 op, luav v, luav *ret, lframe_t *frame);
+static int meta2(lhash_t *table, u32 op, luav lv, luav rv,
+                 luav *ret, lframe_t *frame);
 
 INIT static void vm_setup() {
   lhash_init(&lua_globals);
@@ -282,85 +311,28 @@ top:
         }
         break;
 
-      case OP_ADD: {
-        // check for regular addition
-        luav bv = KREG(func, B(code));
-        luav cv = KREG(func, C(code));
-        if (lv_isnumber(bv) && lv_isnumber(cv)) {
-          SETREG(func, A(code), lv_number(lv_cvt(bv) + lv_cvt(cv)));
-          break;
-        }
-        // check for metamethods
-        a = A(code);
-        luav meth;
-        lhash_t *meta;
-        if (lv_istable(bv) && (meta = lv_gettable(bv,0)->metatable) != NULL) {
-          if ((meth = meta->metamethods[META_ADD]) != LUAV_NIL) {
-            luav v[2] = {bv, cv};
-            u32 got = vm_fun(lv_getfunction(meth,0), &frame, 2, v, 1, &stack[a]);
-            if (got == 0)
-              SETREG(func, a, LUAV_NIL);
-            break;
-          }
-        }
-        if (lv_istable(cv) && (meta = lv_gettable(cv,1)->metatable) != NULL) {
-          if ((meth = meta->metamethods[META_ADD]) != LUAV_NIL) {
-            luav v[2] = {bv, cv};
-            u32 got = vm_fun(lv_getfunction(meth,1), &frame, 2, v, 1, &stack[a]);
-            if (got == 0)
-              SETREG(func, a, LUAV_NIL);
-            break;
-          }
-        }
-        // check for string coersion
-        double bd = lv_castnumber(bv, 0);
-        double cd = lv_castnumber(cv, 1);
-        SETREG(func, a, lv_number(bd + cd));
-        break;
-      }
-
-      case OP_SUB: {
-        double bv = lv_castnumber(KREG(func, B(code)), 0);
-        double cv = lv_castnumber(KREG(func, C(code)), 0);
-        SETREG(func, A(code), lv_number(bv - cv));
-        break;
-      }
-
-      case OP_MUL: {
-        double bv = lv_castnumber(KREG(func, B(code)), 0);
-        double cv = lv_castnumber(KREG(func, C(code)), 0);
-        SETREG(func, A(code), lv_number(bv * cv));
-        break;
-      }
-
-      case OP_DIV: {
-        double bv = lv_castnumber(KREG(func, B(code)), 0);
-        double cv = lv_castnumber(KREG(func, C(code)), 0);
-        SETREG(func, A(code), lv_number(bv / cv));
-        break;
-      }
-
-      case OP_MOD: {
-        double bv = lv_castnumber(KREG(func, B(code)), 0);
-        double cv = lv_castnumber(KREG(func, C(code)), 0);
-        SETREG(func, A(code), lv_number(fmod(bv, cv)));
-        break;
-      }
-
-      case OP_POW: {
-        double bv = lv_castnumber(KREG(func, B(code)), 0);
-        double cv = lv_castnumber(KREG(func, C(code)), 0);
-        SETREG(func, A(code), lv_number(pow(bv, cv)));
-        break;
-      }
+      case OP_ADD: META_ARITH_BINARY(BINOP_ADD, META_ADD); break;
+      case OP_SUB: META_ARITH_BINARY(BINOP_SUB, META_SUB); break;
+      case OP_MUL: META_ARITH_BINARY(BINOP_MUL, META_MUL); break;
+      case OP_DIV: META_ARITH_BINARY(BINOP_DIV, META_DIV); break;
+      case OP_MOD: META_ARITH_BINARY(BINOP_MOD, META_MOD); break;
+      case OP_POW: META_ARITH_BINARY(BINOP_POW, META_POW); break;
 
       case OP_UNM: {
-        double bv = lv_castnumber(REG(func, B(code)), 0);
-        SETREG(func, A(code), lv_number(-bv));
+        a = A(code);
+        luav bv = REG(func, B(code));
+        if (lv_isnumber(bv)) {
+          SETREG(func, a, lv_number(-lv_cvt(bv)));
+          break;
+        }
+        if (lv_istable(bv) &&
+            meta1(lv_gettable(bv, 0), META_UNM, bv, &stack[a], &frame))
+          break;
+        SETREG(func, a, lv_number(-lv_castnumber(bv, 0)));
         break;
       }
 
-      case OP_NOT: {
+      case OP_NOT: { // no metamethod for not
         u8 bv = lv_getbool(REG(func, B(code)), 0);
         SETREG(func, A(code), lv_bool(bv ^ 1));
         break;
@@ -511,4 +483,34 @@ static void op_close(u32 upc, luav *upv) {
       }
     }
   }
+}
+
+static int meta1(lhash_t *table, u32 op, luav v, luav *ret, lframe_t *frame) {
+  lhash_t *meta = table->metatable;
+  if (meta != NULL) {
+    luav method = meta->metamethods[op];
+    if (method != LUAV_NIL) {
+      u32 got = vm_fun(lv_getfunction(method, 0), frame, 1, &v, 1, ret);
+      if (got == 0)
+        *ret = LUAV_NIL;
+      return TRUE;
+    }
+  }
+  return FALSE;
+}
+
+static int meta2(lhash_t *table, u32 op, luav lv, luav rv,
+                luav *ret, lframe_t *frame) {
+  lhash_t *meta = table->metatable;
+  if (meta != NULL) {
+    luav method = meta->metamethods[op];
+    if (method != LUAV_NIL) {
+      luav v[2] = {lv, rv};
+      u32 got = vm_fun(lv_getfunction(method, 0), frame, 2, v, 1, ret);
+      if (got == 0)
+        *ret = LUAV_NIL;
+      return TRUE;
+    }
+  }
+  return FALSE;
 }
