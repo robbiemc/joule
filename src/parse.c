@@ -83,7 +83,7 @@ void luac_parse_string(luac_file_t *file, char *code, char *origin) {
     close(out_fds[0]);
     dup2(in_fds[0], STDIN_FILENO);
     dup2(out_fds[1], STDOUT_FILENO);
-    execl("/usr/bin/luac", "luac", "-o", "-", "-", (char*)0);
+    execl("/bin/sh", "sh", "-c", "luac -o - -",NULL);
     assert(0);
   }
 
