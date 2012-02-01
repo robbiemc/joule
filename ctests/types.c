@@ -66,7 +66,6 @@ int main() {
   /** Nil **/
   luav b_nil = LUAV_NIL;
   assert(isnan(lv_cvt(b_nil)));
-  assert(lv_gettype(b_nil) == LNIL);
 
   /** User data **/
   luav udata = lv_userdata((void*) 0x1234);
@@ -105,7 +104,6 @@ int main() {
   assert(isnan(lv_cvt(s1)));
   assert(s1 != s2);
   assert(s1 == LSTR("asdf"));
-  assert(lv_gettype(s1) == LSTRING);
   assert(lv_caststring(s1, 0) == lstr_get(lstr_add("asdf", 4, 0)));
   assert(lv_isstring(s1));
 
