@@ -67,6 +67,7 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
            u32 argc, luav *argv, u32 retc, luav *retv) {
   lframe_t frame;
 
+top:
   frame.caller  = parent;
   frame.closure = closure;
   frame.pc      = 0;
@@ -179,8 +180,7 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
         assert(C(code) == 0);
         argc = (b == 0 ? last_ret : a + b) - a - 1;
         argv = &stack[a + 1];
-        /* TODO: this isn't actually a tail call... */
-        return vm_fun(closure, &frame, argc, argv, retc, retv);
+        goto top;
 
       case OP_CLOSURE: {
         bx = PAYLOAD(code);
