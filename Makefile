@@ -27,11 +27,13 @@ OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
 LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
- 						loop sort func fib select math2 bisect cf printf select smallfun \
-						os strings coroutine2 sieve load
+	    			loop sort func fib select math2 bisect cf printf select smallfun \
+            os strings coroutine2 sieve load
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%)
 
-BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2
+BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2 \
+	      			nbody.lua-4 hash hello fibo matrix nestedloop nsieve.lua-3 \
+              nsievebits prodcons random sieve sieve.lua-2 spectralnorm
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%)
 
 CTESTS := hash types parse
