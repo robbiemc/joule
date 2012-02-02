@@ -20,16 +20,16 @@
   ({                                                                          \
     assert((n) < STACK_SIZE(f));                                              \
     luav _tmp = stack[n];                                                     \
-    lv_isupvalue(_tmp) ? lv_getupvalue(_tmp)->value : _tmp;                   \
+    need_close && lv_isupvalue(_tmp) ? lv_getupvalue(_tmp)->value : _tmp;     \
   })
-#define SETREG(f, n, v)                       \
-  ({                                          \
-    assert((n) < STACK_SIZE(f));              \
-    if (lv_isupvalue(stack[n])) {             \
-      lv_getupvalue(stack[n])->value = v;     \
-    } else {                                  \
-      stack[n] = v;                           \
-    }                                         \
+#define SETREG(f, n, v)                         \
+  ({                                            \
+    assert((n) < STACK_SIZE(f));                \
+    if (need_close && lv_isupvalue(stack[n])) { \
+      lv_getupvalue(stack[n])->value = v;       \
+    } else {                                    \
+      stack[n] = v;                             \
+    }                                           \
   })
 
 /* TODO: extract out 256 */
@@ -256,6 +256,7 @@ top:
         closure2->type = LUAF_LUA;
         closure2->function.lua = function;
         closure2->env = closure->env;
+        need_close |= function->num_upvalues > 0;
 
         for (i = 0; i < function->num_upvalues; i++) {
           u32 pseudo = func->instrs[frame.pc++];
@@ -288,11 +289,11 @@ top:
         }
 
         SETREG(func, A(code), lv_function(closure2));
-        need_close = function->num_upvalues > 0;
         break;
       }
 
       case OP_CLOSE:
+        need_close = 0;
         op_close(STACK_SIZE(func) - A(code), &stack[A(code)]);
         break;
 
