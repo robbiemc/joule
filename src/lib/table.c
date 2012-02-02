@@ -23,9 +23,7 @@ DESTROY void lua_table_destroy() {
 
 static u32 lua_table_getn(LSTATE) {
   lhash_t *table = lstate_gettable(0);
-  printf("%p %d\n", table, table->length);
   luav key, value;
   lhash_next(table, LUAV_NIL, &key, &value);
-  printf("0x%016llx\n", key);
   lstate_return1(lv_number(table->length));
 }
