@@ -211,10 +211,8 @@ top:
         u32 got = vm_fun(closure2, &frame, num_args, &stack[a + 1],
                                            want_ret, &stack[a]);
         // fill in the nils
-        if (c != 0) {
-          for (i = got; i < c - 1; i++) {
-            SETREG(func, a + i, LUAV_NIL);
-          }
+        for (i = got; i < c - 1 && a + i < STACK_SIZE(func); i++) {
+          SETREG(func, a + i, LUAV_NIL);
         }
         last_ret = a + got;
         break;
@@ -224,7 +222,7 @@ top:
         a = A(code);
         b = B(code);
         if (b == 0) {
-          limit = STACK_SIZE(func) - a;
+          limit = last_ret - a;
         } else {
           limit = b - 1;
         }
@@ -434,7 +432,7 @@ top:
         if (c == 0) {
           c = func->instrs[frame.pc++];
         }
-        if (b == 0) { b = last_ret; }
+        if (b == 0) { b = last_ret - a - 1; }
         lhash_t *hash = lv_gettable(REG(func, a), 0);
         for (i = 1; i <= b; i++) {
           lhash_set(hash, lv_number((c - 1) * LFIELDS_PER_FLUSH + i),
