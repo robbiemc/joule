@@ -118,9 +118,9 @@ assert(string.format('"-%20s.20s"', string.rep("%", 2000)) ==
        string.format("%q", "-"..string.rep("%", 2000)..".20s"))
 
 -- longest number that can be formated
--- assert(string.len(string.format('%99.99f', -1e308)) >= 100)
+assert(string.len(string.format('%99.99f', -1e308)) >= 100)
 
--- assert(loadstring("return 1\n--comentário sem EOL no final")() == 1)
+assert(loadstring("return 1\n--comentário sem EOL no final")() == 1)
 
 -- assert(table.concat{} == "")
 -- assert(table.concat({}, 'x') == "")
