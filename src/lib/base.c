@@ -45,6 +45,7 @@ static u32  lua_ipairs(LSTATE);
 static u32  lua_unpack(LSTATE);
 static u32  lua_dofile(LSTATE);
 static u32  lua_getfenv(LSTATE);
+static u32  lua_setfenv(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -66,6 +67,7 @@ static LUAF(lua_ipairs);
 static LUAF(lua_unpack);
 static LUAF(lua_dofile);
 static LUAF(lua_getfenv);
+static LUAF(lua_setfenv);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -98,6 +100,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "unpack",        &lua_unpack_f);
   REGISTER(&lua_globals, "dofile",        &lua_dofile_f);
   REGISTER(&lua_globals, "getfenv",       &lua_getfenv_f);
+  REGISTER(&lua_globals, "setfenv",       &lua_setfenv_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -300,7 +303,7 @@ static u32 lua_loadstring(LSTATE) {
   lclosure_t *closure = xmalloc(sizeof(lclosure_t));
   closure->type = LUAF_LUA;
   closure->function.lua = &file->func;
-  closure->env = &lua_globals;
+  closure->env = global_env;
 
   lstate_return1(lv_function(closure));
 }
@@ -452,7 +455,7 @@ static u32 lua_getfenv(LSTATE) {
   } else {
     u32 lvl = (u32) lv_castnumber(f, 0);
 
-    if (lvl == 0) { lstate_return1(lv_table(&lua_globals)); }
+    if (lvl == 0) { lstate_return1(lv_table(global_env)); }
     lframe_t *cur = vm_running;
     while (lvl-- > 0) {
       if (cur->caller == NULL) {
@@ -462,4 +465,34 @@ static u32 lua_getfenv(LSTATE) {
     }
     lstate_return1(lv_table(cur->closure->env));
   }
+}
+
+static u32 lua_setfenv(LSTATE) {
+  luav f = lv_number(1);
+  if (argc > 0) {
+    f = lstate_getval(0);
+  }
+  lhash_t *table = lstate_gettable(1);
+
+  if (lv_isfunction(f)) {
+    lclosure_t *closure = lv_getfunction(f, 0);
+    closure->env = table;
+  } else {
+    u32 lvl = (u32) lv_castnumber(f, 0);
+
+    if (lvl == 0) {
+      global_env = table;
+      return 0;
+    }
+    lframe_t *cur = vm_running;
+    while (lvl-- > 0) {
+      if (cur->caller == NULL) {
+        err_str(0, "invalid level");
+      }
+      cur = cur->caller;
+    }
+    cur->closure->env = table;
+  }
+
+  return 0;
 }

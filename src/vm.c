@@ -85,6 +85,7 @@
   }
 
 lhash_t lua_globals;
+lhash_t *global_env = NULL;
 lframe_t *vm_running = NULL;
 
 static void op_close(u32 upc, luav *upv);
@@ -109,8 +110,9 @@ DESTROY static void vm_destroy() {
 void vm_run(lfunc_t *func) {
   lclosure_t closure;
   closure.function.lua = func;
-  closure.type         = LUAF_LUA;
-  closure.env          = &lua_globals;
+  closure.type = LUAF_LUA;
+  closure.env = &lua_globals;
+  global_env = &lua_globals;
   assert(func->num_upvalues == 0);
   vm_fun(&closure, NULL, 0, NULL, 0, NULL);
 }

@@ -31,6 +31,8 @@ typedef struct lthread {
   struct lthread *caller;
   lclosure_t *closure;
   void *curstack;
+
+  lhash_t *env;
 } lthread_t;
 
 static lhash_t    lua_coroutine;
@@ -65,6 +67,7 @@ INIT static void lua_coroutine_init() {
   str_normal    = LSTR("normal");
   str_dead      = LSTR("dead");
   cur_thread = &main_thread;
+  main_thread.env = &lua_globals;
 
   lhash_init(&lua_coroutine);
   REGISTER(&lua_coroutine, "create",  &lua_co_create_f);
@@ -83,11 +86,13 @@ DESTROY static void lua_coroutine_destroy() {
 
 static void coroutine_swap(lthread_t *to) {
   lthread_t *old = cur_thread;
+  old->env = global_env;
   xassert(to != NULL);
   xassert(to->status != CO_RUNNING);
   xassert(to->status != CO_DEAD);
   cur_thread = to;
   to->status = CO_RUNNING;
+  global_env = to->env;
   coroutine_swap_asm(&old->curstack, to->curstack);
 }
 
@@ -98,7 +103,7 @@ static void coroutine_swap(lthread_t *to) {
 static void coroutine_wrapper() {
   luav retv[CO_RETC];
   xassert(cur_thread->status == CO_RUNNING);
-  u32 retc = vm_fun(cur_thread->closure, NULL,
+  u32 retc = vm_fun(cur_thread->closure, vm_running,
                     cur_thread->argc, cur_thread->argv,
                     CO_RETC, retv);
   cur_thread->status = CO_DEAD;
@@ -120,6 +125,7 @@ static u32 lua_co_create(LSTATE) {
 
   thread->caller  = NULL;
   thread->closure = function;
+  thread->env     = cur_thread->env;
 
   u64 *stack = (u64*) ((u64) thread->stack + CO_STACK_SIZE);
   /* Bogus return address, and then actual address to return to */

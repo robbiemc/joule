@@ -73,6 +73,7 @@ typedef struct lframe {
 
 extern struct lhash lua_globals;
 extern lframe_t *vm_running;
+extern struct lhash *global_env;
 
 void vm_run(lfunc_t *fun);
 u32 vm_fun(lclosure_t *c, lframe_t *frame,
