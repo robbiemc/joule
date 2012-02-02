@@ -19,7 +19,7 @@ char err_desc[ERRBUF_SIZE];
 static u32 err_info[10];
 static char *err_custom;
 
-#define GETPC(frame, func) ((u32) ((u64) frame->pc - (u64) func->instrs) / 4)
+#define GETPC(frame, func) ((u32) ((u64) *(frame)->pc - (u64) func->instrs) / 4)
 
 char* err_typestr(u32 type) {
   switch (type) {

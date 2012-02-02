@@ -138,6 +138,7 @@ top:
   u32 need_close = 0;
   lfunc_t *func = closure->function.lua;
   u32 *instrs = func->instrs;
+  frame.pc = &instrs;
   u32 *end = instrs + func->num_instrs;
   luav temp;
   assert(closure->env != NULL);
@@ -156,7 +157,6 @@ top:
   while (instrs < end) {
     u32 code = *instrs++;
     /* TODO: figure out how to execute these only as necessary */
-    frame.pc = instrs;
     vm_running = &frame;
 
     switch (OP(code)) {
