@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "config.h"
+#include "error.h"
 #include "lhash.h"
 #include "lstring.h"
 #include "luav.h"
@@ -27,7 +28,7 @@
  * @return the pointer to the table struct
  */
 lhash_t* lv_gettable(luav value, u32 argnum) {
-  xassert(lv_istable(value));
+  if (!lv_istable(value)) { err_badtype(argnum, LTABLE, lv_gettype(value)); }
   return (lhash_t*) LUAV_DATA(value);
 }
 
@@ -54,7 +55,9 @@ u8 lv_getbool(luav value, u32 argnum) {
  * @return the pointer to the data
  */
 void* lv_getuserdata(luav value, u32 argnum) {
-  xassert(lv_isuserdata(value));
+  if (!lv_isuserdata(value)) {
+    err_badtype(argnum, LUSERDATA, lv_gettype(value));
+  }
   return (void*) LUAV_DATA(value);
 }
 
@@ -68,7 +71,9 @@ void* lv_getuserdata(luav value, u32 argnum) {
  * @return the pointer to the function
  */
 lclosure_t* lv_getfunction(luav value, u32 argnum) {
-  xassert(lv_isfunction(value));
+  if (!lv_isfunction(value)) {
+    err_badtype(argnum, LFUNCTION, lv_gettype(value));
+  }
   return (lclosure_t*) LUAV_DATA(value);
 }
 
@@ -82,7 +87,9 @@ lclosure_t* lv_getfunction(luav value, u32 argnum) {
  * @return the thread pointer
  */
 struct lthread* lv_getthread(luav value, u32 argnum) {
-  xassert(lv_isthread(value));
+  if (!lv_isthread(value)) {
+    err_badtype(argnum, LTHREAD, lv_gettype(value));
+  }
   return (struct lthread*) LUAV_DATA(value);
 }
 
