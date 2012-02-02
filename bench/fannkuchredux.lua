@@ -43,6 +43,6 @@ local function fannkuch(n)
   until false
 end
 
-local n = tonumber(arg and arg[1]) or 1
+local n = tonumber(arg and arg[1]) or 3
 local sum, flips = fannkuch(n)
 io.write(sum, "\nPfannkuchen(", n, ") = ", flips, "\n")
