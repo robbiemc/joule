@@ -139,6 +139,7 @@ luav lhash_get(lhash_t *map, luav key) {
   }
 
   u32 h = lv_hash(key) % map->cap;
+  u32 step = 1;
   while (1) {
     luav cur = map->hash[h].key;
     if (cur == key) {
@@ -146,8 +147,7 @@ luav lhash_get(lhash_t *map, luav key) {
     } else if (cur == LUAV_NIL) {
       return LUAV_NIL;
     }
-    h++;
-    if (h >= map->cap) { h = 0; }
+    h = (h + step++) % map->cap;
   }
 }
 
@@ -183,6 +183,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
   }
 
   u32 h = lv_hash(key) % map->cap;
+  u32 step = 1;
   while (1) {
     luav cur = map->hash[h].key;
     if (cur == key) {
@@ -205,9 +206,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
       }
       break;
     }
-
-    h++;
-    if (h >= map->cap) { h = 0; }
+    h = (h + step++) % map->cap;
   }
 }
 

@@ -8,8 +8,8 @@
 
 #include "luav.h"
 
-#define LHASH_MAP_THRESH 80
-#define LHASH_INIT_SIZE 10
+#define LHASH_MAP_THRESH 60
+#define LHASH_INIT_SIZE 17
 
 /* Actual hash implementation, currently just a simple resizing table with
    linear probing to resolve collisions */

@@ -11,6 +11,6 @@ local function fib(n)
 end
 
 N = 0 -- global!
-local n = 36
+local n = tonumber(arg[1] or 36)
 local v = fib(n)
 print(n, v)
