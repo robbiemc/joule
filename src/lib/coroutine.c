@@ -216,6 +216,10 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
   coroutine_swap(thread);
   thread->caller = NULL;
 
+  if (thread->status == CO_DEAD) {
+    xassert(munmap(thread->stack, CO_STACK_SIZE) == 0);
+  }
+
   return thread->retc;
 }
 
