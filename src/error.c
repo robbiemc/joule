@@ -29,6 +29,7 @@ char* err_typestr(u32 type) {
     case LTABLE:    return "table";
     case LANY:      return "value";
     case LSTRING:   return "string";
+    case LBOOLEAN:  return "boolean";
   }
   panic("bad type: %d", type);
 }
