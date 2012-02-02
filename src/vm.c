@@ -406,12 +406,13 @@ top:
 
       case OP_FORLOOP: {
         a = A(code);
-        double step = lv_castnumber(REG(func, a+2), 0);
-        SETREG(func, a, lv_number(lv_castnumber(REG(func, a), 0) + step));
         double d1 = lv_castnumber(REG(func, a), 0);
         double d2 = lv_castnumber(REG(func, a + 1), 0);
+        double step = lv_castnumber(REG(func, a + 2), 0);
+        SETREG(func, a, lv_number(d1 + step));
+        d1 += step;
         if ((step > 0 && d1 <= d2) || (step < 0 && d1 >= d2)) {
-          SETREG(func, a + 3, REG(func, a));
+          SETREG(func, a + 3, lv_number(d1));
           frame.pc += UNBIAS(PAYLOAD(code));
         }
         break;
