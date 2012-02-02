@@ -41,6 +41,7 @@ static u32  lua_next(LSTATE);
 static u32  lua_pairs(LSTATE);
 static u32  lua_nexti(LSTATE);
 static u32  lua_ipairs(LSTATE);
+static u32  lua_unpack(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -59,6 +60,7 @@ static LUAF(lua_next);
 static LUAF(lua_pairs);
 static LUAF(lua_nexti);
 static LUAF(lua_ipairs);
+static LUAF(lua_unpack);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -88,6 +90,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "next",          &lua_next_f);
   REGISTER(&lua_globals, "pairs",         &lua_pairs_f);
   REGISTER(&lua_globals, "ipairs",        &lua_ipairs_f);
+  REGISTER(&lua_globals, "unpack",        &lua_unpack_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -399,4 +402,16 @@ static u32 lua_ipairs(LSTATE) {
   lstate_return(lv_table(lstate_gettable(0)), 1);
   lstate_return(lv_number(0), 2);
   return 3;
+}
+
+static u32 lua_unpack(LSTATE) {
+  lhash_t *table = lstate_gettable(0);
+  u32 i = argc > 1 ? (u32) lstate_getnumber(1) : 1;
+  u32 j = argc > 2 ? (u32) lstate_getnumber(2) : table->length;
+
+  u32 k;
+  for (k = 0; k < retc && k <= j - i; k++) {
+    lstate_return(lhash_get(table, lv_number(k + i)), k);
+  }
+  return k;
 }
