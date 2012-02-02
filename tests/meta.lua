@@ -18,7 +18,7 @@ end
 function Set.intersection (a,b)
   local res = Set.new{}
   for k in pairs(a) do
-  res[k] = b[k]
+    res[k] = b[k]
   end
   return res
 end
