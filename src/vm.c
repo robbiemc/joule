@@ -139,6 +139,10 @@ top:
   luav temp;
   assert(closure->env != NULL);
 
+  if (argc > func->num_parameters && !func->is_vararg) {
+    argc = func->num_parameters;
+  }
+
   luav stack[STACK_SIZE(func)];
   memcpy(stack, argv, sizeof(luav) * argc);
   for (i = argc; i < STACK_SIZE(func); i++) {
