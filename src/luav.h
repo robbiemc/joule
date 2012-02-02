@@ -62,10 +62,10 @@ struct lthread;
  */
 #define LBOOLEAN  1ULL
 #define LSTRING   2ULL
-#define LTABLE    3ULL
-#define LFUNCTION 4ULL
-#define LTHREAD   5ULL
-#define LUSERDATA 6ULL
+#define LFUNCTION 3ULL
+#define LTABLE    4ULL
+#define LUSERDATA 5ULL
+#define LTHREAD   6ULL
 #define LUPVALUE  7ULL
 #define LNUMBER   8ULL
 #define LNIL      15ULL
