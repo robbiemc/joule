@@ -19,30 +19,6 @@ static void luac_free_func(lfunc_t *func);
 static u8* luac_parse_func(u8* addr, lfunc_t *func, char *filename);
 
 /**
- * @brief Parse a precompiled file
- *
- * @param file the struct to fill in information for
- * @param filename the path to the file to parse
- * @return the parsed description of the file.
- */
-void luac_parse_compiled(luac_file_t *file, char *filename) {
-  int fd = open(filename, O_RDONLY);
-  // get the file size
-  struct stat finfo;
-  int err = fstat(fd, &finfo);
-  xassert(err == 0);
-  size_t size = (size_t) finfo.st_size;
-
-  // mmap the file
-  void *addr = mmap(NULL, size, PROT_READ, MAP_PRIVATE, fd, 0);
-  xassert(addr != MAP_FAILED);
-
-  luac_parse(file, addr, SRC_MMAP, filename);
-  file->size = size;
-  close(fd);
-}
-
-/**
  * @brief Reads the given FILE* into memory and parses it. The FILE should
  *        contain bytecode.
  *
@@ -50,7 +26,7 @@ void luac_parse_compiled(luac_file_t *file, char *filename) {
  * @param f the file to read
  * @param origin the origin of the code (filename, for example)
  */
-static void luac_parse_stream(luac_file_t *file, int fd, char *origin) {
+void luac_parse_stream(luac_file_t *file, int fd, char *origin) {
   size_t buf_size = 1024;
   size_t len = 0;
   char *buf = xmalloc(buf_size);

@@ -1,10 +1,13 @@
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "debug.h"
 #include "error.h"
 #include "lhash.h"
 #include "lstring.h"
+#include "panic.h"
 #include "parse.h"
 #include "vm.h"
 
@@ -54,7 +57,10 @@ int main(int argc, char **argv) {
 
   lua_program = argv[0];
   if (flags.compiled) {
-    luac_parse_compiled(&file, argv[i]);
+    int fd = open(argv[i], O_RDONLY);
+    xassert(fd != -1);
+    luac_parse_stream(&file, fd, argv[i]);
+    close(fd);
   } else if (flags.string) {
     luac_parse_string(&file, argv[i], strlen(argv[i]), "(command line)");
   } else {
@@ -63,6 +69,7 @@ int main(int argc, char **argv) {
 
   if (flags.dump) {
     dbg_dump_function(stdout, &file.func);
+    return 0;
   }
 
   register_argv(i, argc, argv);
@@ -73,6 +80,6 @@ int main(int argc, char **argv) {
   return 0;
 
 usage:
-  printf("Usage: %s [-c] [-d] <file>\n", argv[0]);
+  printf("Usage: %s [-c] [-d] [-e] <file>\n", argv[0]);
   return 1;
 }
