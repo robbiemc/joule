@@ -42,6 +42,7 @@ static u32  lua_pairs(LSTATE);
 static u32  lua_nexti(LSTATE);
 static u32  lua_ipairs(LSTATE);
 static u32  lua_unpack(LSTATE);
+static u32  lua_dofile(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -61,6 +62,7 @@ static LUAF(lua_pairs);
 static LUAF(lua_nexti);
 static LUAF(lua_ipairs);
 static LUAF(lua_unpack);
+static LUAF(lua_dofile);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -91,6 +93,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "pairs",         &lua_pairs_f);
   REGISTER(&lua_globals, "ipairs",        &lua_ipairs_f);
   REGISTER(&lua_globals, "unpack",        &lua_unpack_f);
+  REGISTER(&lua_globals, "dofile",        &lua_dofile_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -286,6 +289,7 @@ static u32 lua_loadstring(LSTATE) {
   lstring_t *name = (argc > 1) ? lstate_getstring(1) : str;
 
   /* TODO: file is leaked here */
+  /* TODO: parse error isn't propogated */
   luac_file_t *file = xmalloc(sizeof(luac_file_t));
   luac_parse_string(file, str->ptr, str->length, name->ptr);
 
@@ -414,4 +418,16 @@ static u32 lua_unpack(LSTATE) {
     lstate_return(lhash_get(table, lv_number(k + i)), k);
   }
   return k;
+}
+
+static u32 lua_dofile(LSTATE) {
+  if (argc == 0) {
+    panic("Read from stdin? That's silly.");
+  }
+  /* TODO: luac_parse_source() panics on error, should propogate error */
+  lstring_t *filename = lstate_getstring(0);
+  luac_file_t file;
+  luac_parse_source(&file, filename->ptr);
+  lclosure_t closure = {.function.lua = &file.func, .type = LUAF_LUA};
+  return vm_fun(&closure, vm_running, 0, NULL, retc, retv);
 }
