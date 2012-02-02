@@ -434,6 +434,7 @@ top:
         if (c == 0) {
           c = func->instrs[frame.pc++];
         }
+        if (b == 0) { b = last_ret; }
         lhash_t *hash = lv_gettable(REG(func, a), 0);
         for (i = 1; i <= b; i++) {
           lhash_set(hash, lv_number((c - 1) * LFIELDS_PER_FLUSH + i),
