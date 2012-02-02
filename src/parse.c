@@ -40,7 +40,7 @@ void luac_parse_stream(luac_file_t *file, int fd, char *origin) {
     buf = xrealloc(buf, buf_size);
   }
 
-  luac_parse(file, buf, SRC_MALLOC, origin);
+  luac_parse(file, buf, origin);
 }
 
 /**
@@ -118,13 +118,11 @@ void luac_parse_source(luac_file_t *file, char *filename) {
  *
  * @param file the struct to parse into
  * @param addr the address at which the luac file is visible
- * @param source an integer SRC_* specifying where the file came from
  * @param filename the name that should be attributed to the source
  * @return the parsed description of the file.
  */
-void luac_parse(luac_file_t *file, void *addr, int source, char *filename) {
+void luac_parse(luac_file_t *file, void *addr, char *filename) {
   file->addr = addr;
-  file->source = source;
 
   // read and validate the file header
   luac_header_t *header = addr;
@@ -150,14 +148,6 @@ void luac_parse(luac_file_t *file, void *addr, int source, char *filename) {
 void luac_close(luac_file_t *file) {
   // free everything then unmap the file if necessary
   luac_free_func(&file->func);
-  switch (file->source) {
-    case SRC_MMAP:
-      munmap(file->addr, file->size);
-      break;
-    case SRC_MALLOC:
-      free(file->addr);
-      break;
-  }
 }
 
 static void luac_free_func(lfunc_t *func) {

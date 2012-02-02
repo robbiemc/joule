@@ -12,14 +12,9 @@
 #define LUAC_TNUMBER    3
 #define LUAC_TSTRING    4
 
-#define SRC_UNKNOWN     0
-#define SRC_MMAP        1
-#define SRC_MALLOC      2
-
 #define SKIP_STRING(ptr) ((u8*)(ptr) + *((size_t*)(ptr)) + sizeof(size_t))
 
 typedef struct luac_file {
-  int       source;
   void*     addr;
   size_t    size;
   lfunc_t   func;
@@ -40,7 +35,7 @@ typedef struct luac_header {
 void luac_parse_stream(luac_file_t *file, int fd, char *origin);
 void luac_parse_source(luac_file_t *file, char *filename);
 void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin);
-void luac_parse(luac_file_t *file, void *addr, int source, char *filename);
+void luac_parse(luac_file_t *file, void *addr, char *filename);
 void luac_close(luac_file_t *file);
 
 #endif /* _PARSE_H_ */
