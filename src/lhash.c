@@ -233,8 +233,15 @@ static void lhash_resize(lhash_t *map) {
 }
 
 void lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval) {
-  u32 i, h = (lv_hash(key) % map->cap) + 1;
-  if (key == LUAV_NIL) { h = 0; }
+  u32 i, h = 0;
+  if (key != LUAV_NIL) {
+    struct lh_pair *entry;
+    h = lv_hash(key) % map->cap;
+    do {
+      entry = &map->hash[h];
+      h++;
+    } while (h < map->cap && entry->key != key);
+  }
   for (i = h; i < map->cap; i++) {
     if (map->hash[i].key != LUAV_NIL) {
       *nxtkey = map->hash[i].key;
