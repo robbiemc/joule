@@ -129,7 +129,9 @@ top:
 
   // handle c functions
   if (closure->type != LUAF_LUA) {
-    return closure->function.c->f(argc, argv, retc, retv);
+    u32 ret = closure->function.c->f(argc, argv, retc, retv);
+    vm_running = parent;
+    return ret;
   }
 
   // it's a lua function
@@ -156,8 +158,6 @@ top:
 
   while (instrs < end) {
     u32 code = *instrs++;
-    /* TODO: figure out how to execute these only as necessary */
-    vm_running = &frame;
 
     switch (OP(code)) {
       case OP_GETGLOBAL: {
@@ -243,6 +243,7 @@ top:
         if (need_close) {
           op_close(STACK_SIZE(func), stack);
         }
+        vm_running = parent;
         return i;
 
       case OP_TAILCALL:
