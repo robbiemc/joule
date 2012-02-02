@@ -135,6 +135,7 @@ top:
   // it's a lua function
   u32 i, a, b, c, bx, limit;
   u32 last_ret = 0;
+  u32 need_close = 0;
   lfunc_t *func = closure->function.lua;
   luav temp;
   assert(closure->env != NULL);
@@ -233,7 +234,9 @@ top:
         for (i = 0; i < limit && i < retc; i++) {
           retv[i] = REG(func, a + i);
         }
-        op_close(STACK_SIZE(func), stack);
+        if (need_close) {
+          op_close(STACK_SIZE(func), stack);
+        }
         return i;
 
       case OP_TAILCALL:
@@ -285,6 +288,7 @@ top:
         }
 
         SETREG(func, A(code), lv_function(closure2));
+        need_close = function->num_upvalues > 0;
         break;
       }
 
