@@ -578,9 +578,9 @@ static luav meta_gettable(lhash_t *table, luav key, lframe_t *frame) {
 }
 
 static void meta_settable(lhash_t *table, luav key, luav val, lframe_t *frame) {
-  if (lhash_get(table, key) != LUAV_NIL) goto normal;
   lhash_t *meta = table->metatable;
   if (meta == NULL) goto normal;
+  if (lhash_get(table, key) != LUAV_NIL) goto normal;
 
   luav method = meta->metamethods[META_NEWINDEX];
   if (lv_istable(method)) {
