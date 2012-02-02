@@ -108,20 +108,6 @@ upvalue_t* lv_getupvalue(luav value) {
 }
 
 /**
- * @brief Hash a lua value
- *
- * @param value the object or reference or value to hash
- * @return the hash for the given value
- */
-u32 lv_hash(luav value) {
-  /* Most values have some form of entropy somewhere in their 64 bits. By taking
-     both halves into account, we get a quick and dirty hash function which
-     works fairly well. This hinges upon the fact that two values are equal
-     if and only if the object they represent are the same */
-  return (u32) (value ^ (value >> 32));
-}
-
-/**
  * @brief Returns the type of the luav
  *
  * @param value the luav to get the type of

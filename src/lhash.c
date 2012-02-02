@@ -124,7 +124,6 @@ size_t lhash_check_meta(luav key) {
  *         or NIL if the key is not present in the table.
  */
 luav lhash_get(lhash_t *map, luav key) {
-  u32 i;
   assert(!lv_isupvalue(key));
   if (key == LUAV_NIL) {
     return LUAV_NIL;
@@ -139,15 +138,16 @@ luav lhash_get(lhash_t *map, luav key) {
     return map->metamethods[meta_index];
   }
 
-  u32 h = lv_hash(key);
-  for (i = 0; ; i++) {
-    u32 idx = (h + i) % map->cap;
-    luav cur = map->hash[idx].key;
+  u32 h = lv_hash(key) % map->cap;
+  while (1) {
+    luav cur = map->hash[h].key;
     if (cur == key) {
-      return map->hash[idx].value;
+      return map->hash[h].value;
     } else if (cur == LUAV_NIL) {
       return LUAV_NIL;
     }
+    h++;
+    if (h >= map->cap) { h = 0; }
   }
 }
 
@@ -182,16 +182,15 @@ void lhash_set(lhash_t *map, luav key, luav value) {
     map->metamethods[meta_index] = value;
   }
 
-  u32 i, h = lv_hash(key);
-  for (i = 0; ; i++) {
-    u32 idx = (h + i) % map->cap;
-    luav cur = map->hash[idx].key;
+  u32 h = lv_hash(key) % map->cap;
+  while (1) {
+    luav cur = map->hash[h].key;
     if (cur == key) {
-      map->hash[idx].value = value;
+      map->hash[h].value = value;
       break;
     } else if (cur == LUAV_NIL) {
-      map->hash[idx].key = key;
-      map->hash[idx].value = value;
+      map->hash[h].key = key;
+      map->hash[h].value = value;
       map->size++;
       if (map->size * 100 / map->cap > LHASH_MAP_THRESH) {
         lhash_resize(map);
@@ -206,6 +205,9 @@ void lhash_set(lhash_t *map, luav key, luav value) {
       }
       break;
     }
+
+    h++;
+    if (h >= map->cap) { h = 0; }
   }
 }
 

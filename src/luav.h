@@ -127,9 +127,9 @@ struct lthread*  lv_getthread(luav value, u32 argnum);
 int lv_parsenum(struct lstring *str, u32 base, double *value);
 
 #define lv_castnumber(a, b) lv_castnumberb(a, 10, b)
+#define lv_hash(lv) ((u32) ((lv) ^ ((lv) >> 32)))
 
 u8  lv_gettype(luav value);
-u32 lv_hash(luav value);
 int lv_compare(luav v1, luav v2);
 
 static inline double lv_cvt(u64 bits) {
