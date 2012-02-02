@@ -42,6 +42,7 @@ typedef struct cfunc {
 
 typedef struct lclosure {
   u32 type;
+  struct lhash *env;
   union {
     lfunc_t *lua;
     cfunc_t *c;
@@ -63,7 +64,7 @@ typedef struct lframe {
 
 #define LUAF(fun) \
   cfunc_t fun ## _cf = {.f = fun}; \
-  lclosure_t fun ## _f = {.type = LUAF_C, .function.c = &fun ## _cf}
+  lclosure_t fun ## _f = {.type = LUAF_C, .function.c = &fun##_cf, .env = NULL}
 
 #define REGISTER(tbl, str, fun) {                 \
     lhash_set(tbl, LSTR(str), lv_function(fun));  \

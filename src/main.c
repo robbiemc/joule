@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
   if (flags.compiled) {
     luac_parse_compiled(&file, argv[i]);
   } else if (flags.string) {
-    luac_parse_string(&file, argv[i], strlen(argv[i]), "shell");
+    luac_parse_string(&file, argv[i], strlen(argv[i]), "(command line)");
   } else {
     luac_parse_source(&file, argv[i]);
   }

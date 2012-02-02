@@ -107,7 +107,10 @@ DESTROY static void vm_destroy() {
 }
 
 void vm_run(lfunc_t *func) {
-  lclosure_t closure = {.function.lua = func, .type = LUAF_LUA};
+  lclosure_t closure;
+  closure.function.lua = func;
+  closure.type         = LUAF_LUA;
+  closure.env          = &lua_globals;
   assert(func->num_upvalues == 0);
   vm_fun(&closure, NULL, 0, NULL, 0, NULL);
 }
@@ -132,6 +135,7 @@ top:
   u32 last_ret = 0;
   lfunc_t *func = closure->function.lua;
   luav temp;
+  assert(closure->env != NULL);
 
   luav stack[STACK_SIZE(func)];
   memcpy(stack, argv, sizeof(luav) * argc);
@@ -146,14 +150,14 @@ top:
       case OP_GETGLOBAL: {
         luav key = CONST(func, PAYLOAD(code));
         assert(lv_isstring(key));
-        SETREG(func, A(code), meta_gettable(&lua_globals, key, &frame));
+        SETREG(func, A(code), meta_gettable(closure->env, key, &frame));
         break;
       }
 
       case OP_SETGLOBAL: {
         luav key = CONST(func, PAYLOAD(code));
         luav value = REG(func, A(code));
-        meta_settable(&lua_globals, key, value, &frame);
+        meta_settable(closure->env, key, value, &frame);
         break;
       }
 
@@ -244,6 +248,7 @@ top:
         lclosure_t *closure2 = xmalloc(CLOSURE_SIZE(function->num_upvalues));
         closure2->type = LUAF_LUA;
         closure2->function.lua = function;
+        closure2->env = closure->env;
 
         for (i = 0; i < function->num_upvalues; i++) {
           u32 pseudo = func->instrs[frame.pc++];
