@@ -93,6 +93,8 @@ static int meta2(lhash_t *table, u32 op, luav lv, luav rv,
                  luav *ret, lframe_t *frame);
 static int meta_eq(lhash_t *table1, lhash_t *table2, u32 op,
                    luav lv, luav rv, luav *ret, lframe_t *frame);
+static luav meta_gettable(lhash_t *table, luav key, lframe_t *frame);
+static void meta_settable(lhash_t *table, luav key, luav val, lframe_t *frame);
 
 INIT static void vm_setup() {
   lhash_init(&lua_globals);
@@ -141,28 +143,34 @@ top:
     u32 code = func->instrs[frame.pc++];
 
     switch (OP(code)) {
-      case OP_GETGLOBAL:
-        temp = CONST(func, PAYLOAD(code));
-        assert(lv_isstring(temp));
-        SETREG(func, A(code), lhash_get(&lua_globals, temp));
+      case OP_GETGLOBAL: {
+        luav key = CONST(func, PAYLOAD(code));
+        assert(lv_isstring(key));
+        SETREG(func, A(code), meta_gettable(&lua_globals, key, &frame));
         break;
+      }
 
-      case OP_SETGLOBAL:
-        temp = CONST(func, PAYLOAD(code));
-        assert(lv_isstring(temp));
-        lhash_set(&lua_globals, temp, REG(func, A(code)));
+      case OP_SETGLOBAL: {
+        luav key = CONST(func, PAYLOAD(code));
+        luav value = REG(func, A(code));
+        meta_settable(&lua_globals, key, value, &frame);
         break;
+      }
 
-      case OP_GETTABLE:
-        temp = KREG(func, C(code));
-        temp = lhash_get(lv_gettable(REG(func, B(code)), 0), temp);
-        SETREG(func, A(code), temp);
+      case OP_GETTABLE: {
+        lhash_t *table = lv_gettable(REG(func, B(code)), 0);
+        luav key = KREG(func, C(code));
+        SETREG(func, A(code), meta_gettable(table, key, &frame));
         break;
+      }
 
-      case OP_SETTABLE:
-        lhash_set(lv_gettable(REG(func, A(code)), 0),
-                  KREG(func, B(code)), KREG(func, C(code)));
+      case OP_SETTABLE: {
+        lhash_t *table = lv_gettable(REG(func, A(code)), 0);
+        luav key = KREG(func, B(code));
+        luav value = KREG(func, C(code));
+        meta_settable(table, key, value, &frame);
         break;
+      }
 
       case OP_GETUPVAL:
         temp = UPVALUE(closure, B(code));
@@ -539,4 +547,42 @@ static int meta_eq(lhash_t *table1, lhash_t *table2, u32 op,
     }
   }
   return FALSE;
+}
+
+static luav meta_gettable(lhash_t *table, luav key, lframe_t *frame) {
+  luav val = lhash_get(table, key);
+  if (val != LUAV_NIL) return val;
+
+  lhash_t *meta = table->metatable;
+  if (meta == NULL) return val;
+
+  luav method = meta->metamethods[META_INDEX];
+  if (lv_istable(method))
+    return meta_gettable(lv_gettable(method, 0), key, frame);
+
+  if (!lv_isfunction(method)) return val;
+  luav v[2] = {lv_table(table), key};
+  u32 got = vm_fun(lv_getfunction(method, 0), frame, 2, v, 1, &val);
+  if (got == 0) return LUAV_NIL;
+  return val;
+}
+
+static void meta_settable(lhash_t *table, luav key, luav val, lframe_t *frame) {
+  if (lhash_get(table, key) != LUAV_NIL) goto normal;
+  lhash_t *meta = table->metatable;
+  if (meta == NULL) goto normal;
+
+  luav method = meta->metamethods[META_NEWINDEX];
+  if (lv_istable(method)) {
+    meta_settable(lv_gettable(method, 0), key, val, frame);
+    return;
+  }
+
+  if (!lv_isfunction(method)) goto normal;
+  luav v[3] = {lv_table(table), key, val};
+  vm_fun(lv_getfunction(method, 0), frame, 3, v, 0, NULL);
+  return;
+
+normal:
+  lhash_set(table, key, val);
 }
