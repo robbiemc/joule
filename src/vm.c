@@ -146,7 +146,8 @@ top:
 
   luav stack[STACK_SIZE(func)];
   memcpy(stack, argv, sizeof(luav) * argc);
-  for (i = argc; i < STACK_SIZE(func); i++) {
+  u32 ssize = STACK_SIZE(func);
+  for (i = argc; i < ssize; i++) {
     stack[i] = LUAV_NIL;
   }
 
