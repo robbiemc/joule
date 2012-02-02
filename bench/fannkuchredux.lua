@@ -12,18 +12,18 @@ local function fannkuch(n)
       for i=2,n do q[i] = p[i] end		-- Work on a copy.
       local flips = 1
       repeat
-	local qq = q[q1]
-	if qq == 1 then				-- ... until 1st element is 1.
-	  sum = sum + sign*flips
-	  if flips > maxflips then maxflips = flips end -- New maximum?
-	  break
-	end
-	q[q1] = q1
-	if q1 >= 4 then
-	  local i, j = 2, q1 - 1
-	  repeat q[i], q[j] = q[j], q[i]; i = i + 1; j = j - 1; until i >= j
-	end
-	q1 = qq; flips = flips + 1
+        local qq = q[q1]
+        if qq == 1 then				-- ... until 1st element is 1.
+          sum = sum + sign*flips
+          if flips > maxflips then maxflips = flips end -- New maximum?
+          break
+        end
+        q[q1] = q1
+        if q1 >= 4 then
+          local i, j = 2, q1 - 1
+          repeat q[i], q[j] = q[j], q[i]; i = i + 1; j = j - 1; until i >= j
+        end
+        q1 = qq; flips = flips + 1
       until false
     end
     -- Permute.
@@ -32,12 +32,12 @@ local function fannkuch(n)
     else
       p[2], p[3] = p[3], p[2]; sign = 1		-- Rotate 1<-2 and 1<-2<-3.
       for i=3,n do
-	local sx = s[i]
-	if sx ~= 1 then s[i] = sx-1; break end
-	if i == n then return sum, maxflips end	-- Out of permutations.
-	s[i] = i
-	-- Rotate 1<-...<-i+1.
-	local t = p[1]; for j=1,i do p[j] = p[j+1] end; p[i+1] = t
+        local sx = s[i]
+        if sx ~= 1 then s[i] = sx-1; break end
+        if i == n then return sum, maxflips end	-- Out of permutations.
+        s[i] = i
+        -- Rotate 1<-...<-i+1.
+        local t = p[1]; for j=1,i do p[j] = p[j+1] end; p[i+1] = t
       end
     end
   until false
