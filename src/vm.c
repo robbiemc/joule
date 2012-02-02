@@ -80,8 +80,9 @@
     } else {                                                      \
       lt = op(lv_compare(bv, cv), 0);                             \
     }                                                             \
-    if (lt != A(code))                                            \
-      frame.pc++;                                                 \
+    if (lt != A(code)) {                                          \
+      instrs++;                                                   \
+    }                                                             \
   }
 
 lhash_t lua_globals;
@@ -124,7 +125,6 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent,
 top:
   frame.caller  = parent;
   frame.closure = closure;
-  frame.pc      = 0;
   vm_running    = &frame;
 
   // handle c functions
@@ -137,6 +137,8 @@ top:
   u32 last_ret = 0;
   u32 need_close = 0;
   lfunc_t *func = closure->function.lua;
+  u32 *instrs = func->instrs;
+  u32 *end = instrs + func->num_instrs;
   luav temp;
   assert(closure->env != NULL);
 
@@ -151,8 +153,11 @@ top:
     stack[i] = LUAV_NIL;
   }
 
-  for (frame.pc = 0; frame.pc < func->num_instrs;) {
-    u32 code = func->instrs[frame.pc++];
+  while (instrs < end) {
+    u32 code = *instrs++;
+    /* TODO: figure out how to execute these only as necessary */
+    frame.pc = instrs;
+    vm_running = &frame;
 
     switch (OP(code)) {
       case OP_GETGLOBAL: {
@@ -260,7 +265,7 @@ top:
         need_close |= function->num_upvalues > 0;
 
         for (i = 0; i < function->num_upvalues; i++) {
-          u32 pseudo = func->instrs[frame.pc++];
+          u32 pseudo = *instrs++;
           luav upvalue;
           if (OP(pseudo) == OP_MOVE) {
             /* Can't use the REG macro because we don't want to duplicate
@@ -299,7 +304,7 @@ top:
         break;
 
       case OP_JMP:
-        frame.pc += UNBIAS(PAYLOAD(code));
+        instrs += UNBIAS(PAYLOAD(code));
         break;
 
       case OP_EQ: { // could use META_COMPARE, but this should be faster
@@ -311,8 +316,9 @@ top:
             meta_eq(TBL(bv), TBL(cv), META_EQ, bv, cv, &res, &frame)) {
           eq = lv_getbool(res, 0);
         }
-        if (eq != A(code))
-          frame.pc++;
+        if (eq != A(code)) {
+          instrs++;
+        }
         break;
       }
 
@@ -322,7 +328,7 @@ top:
       case OP_TEST:
         temp = REG(func, A(code));
         if (lv_getbool(temp, 0) != C(code)) {
-          frame.pc++;
+          instrs++;
         }
         break;
 
@@ -331,14 +337,14 @@ top:
         if (lv_getbool(temp, 0) != C(code)) {
           SETREG(func, A(code), temp);
         } else {
-          frame.pc++;
+          instrs++;
         }
         break;
 
       case OP_LOADBOOL:
         SETREG(func, A(code), lv_bool((u8) B(code)));
         if (C(code)) {
-          frame.pc++;
+          instrs++;
         }
         break;
 
@@ -401,7 +407,7 @@ top:
         a = A(code);
         SETREG(func, a, lv_number(lv_castnumber(REG(func, a), 0) -
                                   lv_castnumber(REG(func, a + 2), 0)));
-        frame.pc += UNBIAS(PAYLOAD(code));
+        instrs += UNBIAS(PAYLOAD(code));
         break;
 
       case OP_FORLOOP: {
@@ -413,7 +419,7 @@ top:
         d1 += step;
         if ((step > 0 && d1 <= d2) || (step < 0 && d1 >= d2)) {
           SETREG(func, a + 3, lv_number(d1));
-          frame.pc += UNBIAS(PAYLOAD(code));
+          instrs += UNBIAS(PAYLOAD(code));
         }
         break;
       }
@@ -441,7 +447,7 @@ top:
         a = A(code);
         c = C(code);
         if (c == 0) {
-          c = func->instrs[frame.pc++];
+          c = *instrs++;
         }
         if (b == 0) { b = last_ret - a - 1; }
         lhash_t *hash = lv_gettable(REG(func, a), 0);
@@ -478,9 +484,10 @@ top:
         lclosure_t *closure2 = lv_getfunction(REG(func, a), 0);
         u32 got = vm_fun(closure2, &frame, 2, &stack[a + 1],
                                    (u32) REG(func, c), &stack[a + 3]);
+        vm_running = &frame;
         temp = REG(func, a + 3);
         if (got == 0 || temp == LUAV_NIL) {
-          frame.pc++;
+          instrs++;
         } else {
           SETREG(func, a + 2, temp);
         }
@@ -497,9 +504,6 @@ top:
         opcode_dump(stderr, code);
         abort();
     }
-
-    /* TODO: this is a bad fix */
-    vm_running = &frame;
   }
 
   panic("ran out of opcodes!");

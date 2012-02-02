@@ -52,7 +52,7 @@ typedef struct lclosure {
 
 typedef struct lframe {
   lclosure_t *closure;
-  u32 pc;
+  u32 *pc;
   struct lframe *caller;
 } lframe_t;
 

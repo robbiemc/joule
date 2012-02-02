@@ -19,6 +19,8 @@ char err_desc[ERRBUF_SIZE];
 static u32 err_info[10];
 static char *err_custom;
 
+#define GETPC(frame, func) ((u32) ((u64) frame->pc - (u64) func->instrs) / 4)
+
 char* err_typestr(u32 type) {
   switch (type) {
     case LNIL:      return "nil";
@@ -58,12 +60,14 @@ void err_explain(int err, lframe_t *frame) {
   }
 
   int len;
+  u32 pc = GETPC(caller_frame, func) - 1;
+  xassert(caller->type == LUAF_LUA);
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
-  xassert(frame->pc < func->dbg_linecount);
+  xassert(pc < func->dbg_linecount);
   len = sprintf(err_desc, "%.25s:%u: ", func->file,
-                func->dbg_lines[caller_frame->pc - 1]);
+                func->dbg_lines[pc - 1]);
 
   switch (err) {
     case ERR_MISSING:
@@ -115,8 +119,9 @@ void err_explain(int err, lframe_t *frame) {
       printf("[C]: in function '%s'", closure->function.c->name);
     } else {
       lfunc_t *function = closure->function.lua;
-      xassert(frame->pc - 1 < function->dbg_linecount);
-      printf("%s:%d: ", function->file, function->dbg_lines[frame->pc - 1]);
+      pc = GETPC(frame, function) - 1;
+      xassert(pc < function->dbg_linecount);
+      printf("%s:%d: ", function->file, function->dbg_lines[pc]);
       lstring_t *fname = lstr_get(function->name);
 
       if (fname->length == 0) {
