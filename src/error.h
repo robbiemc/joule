@@ -8,6 +8,24 @@
 
 #define ERRBUF_SIZE 200
 
+#define ONERR(try, catch, errvar) {             \
+    jmp_buf onerr;                              \
+    jmp_buf *prev = err_catcher;                \
+    err_catcher = &onerr;                       \
+    struct lthread *env = coroutine_current();  \
+    if (setjmp(onerr) == 0) {                   \
+      { try }                                   \
+      errvar = 0;                               \
+    } else {                                    \
+      if (env != coroutine_current()) {         \
+        coroutine_changeenv(env);               \
+      }                                         \
+      { catch }                                 \
+      errvar = 1;                               \
+    }                                           \
+    err_catcher = prev;                         \
+  }
+
 struct lframe;
 
 extern char *lua_program;

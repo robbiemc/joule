@@ -309,24 +309,6 @@ static u32 lua_loadstring(LSTATE) {
   lstate_return1(lv_function(closure));
 }
 
-#define ONERR(try, catch, errvar) {             \
-    jmp_buf onerr;                              \
-    jmp_buf *prev = err_catcher;                \
-    err_catcher = &onerr;                       \
-    struct lthread *env = coroutine_current();  \
-    if (setjmp(onerr) == 0) {                   \
-      { try }                                   \
-      errvar = 0;                               \
-    } else {                                    \
-      if (env != coroutine_current()) {         \
-        coroutine_changeenv(env);               \
-      }                                         \
-      { catch }                                 \
-      errvar = 1;                               \
-    }                                           \
-    err_catcher = prev;                         \
-  }
-
 static u32 lua_pcall(LSTATE) {
   lclosure_t *closure = lstate_getfunction(0);
   int err;
