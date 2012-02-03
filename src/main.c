@@ -11,6 +11,7 @@
 #include "parse.h"
 #include "vm.h"
 
+
 #define SET(i,str) (strcmp(argv[(i)], (str)) == 0)
 
 static lhash_t lua_arg;
@@ -73,7 +74,13 @@ int main(int argc, char **argv) {
   }
 
   register_argv(i, argc, argv);
+#ifdef HASH_PROFILE
+  lhash_start_profile();
+#endif
   vm_run(&func);
+#ifdef HASH_PROFILE
+  lhash_show_profile();
+#endif
   lhash_free(&lua_arg);
 
   luac_free(&func);

@@ -11,6 +11,11 @@
 #define LHASH_MAP_THRESH 60
 #define LHASH_INIT_SIZE 17
 
+#ifdef HASH_PROFILE
+void lhash_start_profile();
+void lhash_show_profile();
+#endif
+
 /* Actual hash implementation, currently just a simple resizing table with
    linear probing to resolve collisions */
 typedef struct lhash {

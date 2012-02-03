@@ -75,7 +75,7 @@ coverage: clean test
 	genhtml --output-directory coverage coverage/app.info
 	@rm -f *.gcda *.gcno
 
-profile: CFLAGS += -pg
+profile: CFLAGS += -pg -DHASH_PROFILE
 profile: clean joule ctests
 
 # Generic targets

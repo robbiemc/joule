@@ -25,6 +25,31 @@ static luav meta_empty[NUM_META_METHODS];
 static luav meta_strings[NUM_META_METHODS];
 static luav max_meta_string;
 
+
+#ifdef HASH_PROFILE
+#define HPROF(code) if (profiling) { code; }
+int profiling = FALSE;
+double set_avg_collisions = 0;
+double set_count = 0;
+double get_avg_collisions = 0;
+double get_count = 0;
+
+void lhash_start_profile() {
+  profiling = TRUE;
+}
+
+void lhash_show_profile() {
+  printf("\n\n");
+  printf("%.0f hashtable gets:\n", get_count);
+  printf("    mean collisions: %f\n", get_avg_collisions);
+  printf("%.0f hashtable sets:\n", set_count);
+  printf("    mean collisions: %f\n", set_avg_collisions);
+}
+#else
+#define HPROF(code)
+#endif
+
+
 INIT static void lua_lhash_init() {
   // a nil meta table array - this is default
   size_t i;
@@ -138,6 +163,8 @@ luav lhash_get(lhash_t *map, luav key) {
     return map->metamethods[meta_index];
   }
 
+  HPROF(get_avg_collisions *= (get_count / (get_count + 1)));
+  HPROF(get_count++);
   u32 h = lv_hash(key) % map->cap;
   u32 step = 1;
   while (1) {
@@ -147,6 +174,7 @@ luav lhash_get(lhash_t *map, luav key) {
     } else if (cur == LUAV_NIL) {
       return LUAV_NIL;
     }
+    HPROF(get_avg_collisions += 1.0 / get_count);
     h = (h + step++) % map->cap;
   }
 }
@@ -182,6 +210,8 @@ void lhash_set(lhash_t *map, luav key, luav value) {
     map->metamethods[meta_index] = value;
   }
 
+  HPROF(set_avg_collisions *= (set_count / (set_count + 1)));
+  HPROF(set_count++);
   u32 h = lv_hash(key) % map->cap;
   u32 step = 1;
   while (1) {
@@ -206,6 +236,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
       }
       break;
     }
+    HPROF(get_avg_collisions += 1.0 / set_count);
     h = (h + step++) % map->cap;
   }
 }
