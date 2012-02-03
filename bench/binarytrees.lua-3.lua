@@ -3,7 +3,7 @@
 -- contributed by Mike Pall
 -- modified by Sokolov yura
 
-collectgarbage("setstepmul", 0) -- sometimes it helps much. For this benchmark ~ 10%
+-- collectgarbage("setstepmul", 0) -- sometimes it helps much. For this benchmark ~ 10%
 
 local function BottomUpTree(item, depth)
   if depth > 0 then
@@ -24,7 +24,7 @@ local function ItemCheck(tree)
   end
 end
 
-local N = tonumber(arg and arg[1]) or 0
+local N = tonumber(arg and arg[1]) or 10
 local mindepth = 4
 local maxdepth = mindepth + 2
 if maxdepth < N then maxdepth = N end
