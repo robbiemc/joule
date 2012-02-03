@@ -426,6 +426,7 @@ static u32 lua_unpack(LSTATE) {
   u32 j = argc > 2 ? (u32) lstate_getnumber(2) : table->length;
 
   u32 k;
+  if (i > j) { return 0; }
   for (k = 0; k < retc && k <= j - i; k++) {
     lstate_return(lhash_get(table, lv_number(k + i)), k);
   }
