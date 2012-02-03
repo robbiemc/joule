@@ -11,11 +11,12 @@ local function link(n)
       next = coroutine.create(link) 
       _,message = coroutine.resume(next,n-1)
    end   
+   print(message)
    coroutine.yield(message + 1)   
 end
 
 
-local n = tonumber(arg[1]) or 1000
+local n = tonumber(arg[1]) or 150
 local message = 0
 local chain = coroutine.create(link)
 

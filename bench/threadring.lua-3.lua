@@ -3,10 +3,10 @@
 -- contributed by Sam Roberts
 -- reviewed by Bruno Massa
 
-require"coroutine"
+-- require"coroutine"
 
 -- first and only argument is number of token passes
-local n         = assert(tonumber(arg[1]))
+local n         = assert(tonumber(arg[1]) or 10)
 
 -- fixed size pool
 local poolsize  = 503

@@ -2,7 +2,7 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local n = tonumber(arg[1])
+local n = tonumber(arg[1]) or 100000
 local function pr(fmt, x) io.write(string.format(fmt, x)) end
 
 do

@@ -19,7 +19,7 @@ local function tak(x, y, z)
 end
 
 local write, format = io.write, string.format
-local n = tonumber(arg[1]) - 1
+local n = tonumber(arg[1] or 2) - 1
 write(format("Ack(3,%d): %d\n", n+1, ack(3, n+1)))
 write(format("Fib(%.1f): %.1f\n", n+28.0, fib(n+28.0)))
 write(format("Tak(%d,%d,%d): %d\n", 3*n, 2*n, n, tak(3*n, 2*n, n)))
