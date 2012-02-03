@@ -10,12 +10,13 @@
 #define ERR_BADTYPE  2
 #define ERR_STR      3
 #define ERR_RAWSTR   4
-#define ERR_NOPOSSTR 5
+#define ERR_LUAV     5
 
 char *lua_program = NULL;
 jmp_buf *err_catcher = NULL;
-char err_desc[ERRBUF_SIZE];
+luav err_value;
 
+static char err_desc[ERRBUF_SIZE];
 static u32 err_info[10];
 static char *err_custom;
 
@@ -95,8 +96,16 @@ void err_explain(int err, lframe_t *frame) {
       len += sprintf(err_desc + len, "%s", err_custom);
       break;
 
-    case ERR_NOPOSSTR:
-      len = sprintf(err_desc, "%s", err_custom);
+    case ERR_LUAV:
+      if (err_catcher) {
+        if (lv_isstring(err_value)) {
+          len += sprintf(err_desc + len, "%s",
+                         lv_caststring(err_value, 0)->ptr);
+          err_value = lv_string(lstr_add(err_desc, (size_t) len, FALSE));
+        }
+      } else {
+        len = sprintf(err_desc, "(error object is not a string)");
+      }
       break;
 
     default:
@@ -104,6 +113,9 @@ void err_explain(int err, lframe_t *frame) {
   }
 
   if (err_catcher != NULL) {
+    if (err != ERR_LUAV) {
+      err_value = lv_string(lstr_add(err_desc, (size_t) len, FALSE));
+    }
     longjmp(*err_catcher, 1);
   }
 
@@ -163,12 +175,7 @@ void err_rawstr(char *explain) {
   err_explain(ERR_RAWSTR, vm_running);
 }
 
-void err_noposstr(char *explain) {
-  err_custom = explain;
-  err_explain(ERR_NOPOSSTR, vm_running);
-}
-
-void err_fromframe(lframe_t *frame, char *explain) {
-  err_custom = explain;
-  err_explain(ERR_NOPOSSTR, frame);
+void err_luav(lframe_t *frame, luav value) {
+  err_value = value;
+  err_explain(ERR_LUAV, frame);
 }
