@@ -197,6 +197,7 @@ top:
     STACK(i) = LUAV_NIL;
   }
 
+  assert((((u64) instrs) & 3) == 0);
   while (instrs < end) {
     u32 code = *instrs++;
     // opcode_dump(stdout, code);
