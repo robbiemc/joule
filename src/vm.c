@@ -512,7 +512,7 @@ top:
       case OP_VARARG: {
         a = A(code);
         b = B(code);
-        u32 limit = b > 0 ? b - 1 : argc;
+        u32 limit = b > 0 ? b - 1 : argc - func->num_parameters;
         if (stack + limit + a > vm_stack.size) {
           vm_stack_grow(&vm_stack, stack + limit + a - vm_stack.size);
         }
