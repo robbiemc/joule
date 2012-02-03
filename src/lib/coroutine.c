@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <string.h>
 #include <sys/mman.h>
 
@@ -17,22 +18,21 @@
 #define CO_NEVER_RUN  4
 
 #define CO_STACK_SIZE (16 * 1024)
-#define CO_RETC       20
 
 typedef struct lthread {
   int status;
   void *stack;
 
   u32 argc;
-  luav *argv;
+  u32 argvi;
   u32 retc;
-  luav *retv;
+  u32 retvi;
 
   struct lthread *caller;
   lclosure_t *closure;
   void *curstack;
-
   lhash_t *env;
+  lstack_t vm_stack;
 } lthread_t;
 
 static lhash_t    lua_coroutine;
@@ -93,6 +93,10 @@ static void coroutine_swap(lthread_t *to) {
   cur_thread = to;
   to->status = CO_RUNNING;
   global_env = to->env;
+
+  old->vm_stack = vm_stack;
+  vm_stack = to->vm_stack;
+
   coroutine_swap_asm(&old->curstack, to->curstack);
 }
 
@@ -101,13 +105,12 @@ static void coroutine_swap(lthread_t *to) {
  *        essentially calls coroutine.yield() upon return
  */
 static void coroutine_wrapper() {
-  luav retv[CO_RETC];
   xassert(cur_thread->status == CO_RUNNING);
   u32 retc = vm_fun(cur_thread->closure, vm_running,
-                    cur_thread->argc, cur_thread->argv,
-                    CO_RETC, retv);
+                    cur_thread->argc, cur_thread->argvi,
+                    UINT_MAX, 0);
   cur_thread->status = CO_DEAD;
-  lua_co_yield(retc, retv, 0, NULL);
+  lua_co_yield(retc, 0, 0, 0);
   /* We should never be resumed to here */
   panic("coroutine went too far");
 }
@@ -126,6 +129,7 @@ static u32 lua_co_create(LSTATE) {
   thread->caller  = NULL;
   thread->closure = function;
   thread->env     = cur_thread->env;
+  vm_stack_init(&thread->vm_stack, 20);
 
   u64 *stack = (u64*) ((u64) thread->stack + CO_STACK_SIZE);
   /* Bogus return address, and then actual address to return to */
@@ -144,11 +148,11 @@ static u32 lua_co_resume(LSTATE) {
     return 2;
   }
   if (retc > 0) {
-    u32 amt = co_wrap_helper(thread, argc - 1, argv + 1, retc - 1, retv + 1);
-    retv[0] = LUAV_TRUE;
+    u32 amt = co_wrap_helper(thread, argc - 1, argvi + 1, retc - 1, retvi + 1);
+    lstate_return(LUAV_TRUE, 0);
     return amt + 1;
   }
-  return co_wrap_helper(thread, argc - 1, argv + 1, retc, retv);
+  return co_wrap_helper(thread, argc - 1, argvi + 1, retc, retvi);
 }
 
 static u32 lua_co_running(LSTATE) {
@@ -173,12 +177,15 @@ static u32 lua_co_status(LSTATE) {
 
 static u32 co_wrap_trampoline(LSTATE) {
   lthread_t *thread = lv_getthread(vm_running->closure->upvalues[0], 0);
-  return co_wrap_helper(thread, argc, argv, retc, retv);
+  return co_wrap_helper(thread, argc, argvi, retc, retvi);
 }
 
 static u32 lua_co_wrap(LSTATE) {
   luav routine;
-  lua_co_create(argc, argv, 1, &routine);
+  u32 idx = vm_stack_alloc(&vm_stack, 1);
+  lua_co_create(argc, argvi, 1, idx);
+  routine = vm_stack.base[idx];
+  vm_stack_dealloc(&vm_stack, idx);
   lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
   closure->type = LUAF_C;
   closure->function.c = &co_wrapper_cf;
@@ -188,24 +195,27 @@ static u32 lua_co_wrap(LSTATE) {
 }
 
 static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
-  thread->retc = retc;
-  thread->retv = retv;
+  u32 i;
+  xassert(thread->status != CO_RUNNING);
 
   if (thread->status == CO_NEVER_RUN) {
     /* If this thread has no run before, it's argc/argv will be passed to the
        initial function. A call to coroutine.yield() will fill in the retc/retv
        automatically, setting thread->retc to how many return values were
        actally placed into the array */
+    u32 idx = vm_stack_alloc(&thread->vm_stack, argc);
+    for (i = 0; i < argc; i++) {
+      thread->vm_stack.base[idx + i] = lstate_getval(i);
+    }
     thread->argc = argc;
-    thread->argv = argv;
+    thread->argvi = idx;
   } else {
     /* If the thread has already run, then we are resuming a previous
        coroutine.yield(). We need to fill in the retc/retv of the call to
        yield(), whose variables have been placed into the thread's argc/argv
        fields. */
-    u32 i;
     for (i = 0; i < argc && i < thread->argc; i++) {
-      thread->argv[i] = argv[i];
+      thread->vm_stack.base[thread->argvi + i] = lstate_getval(i);
     }
     thread->argc = i;
   }
@@ -220,20 +230,21 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
     xassert(munmap(thread->stack, CO_STACK_SIZE) == 0);
   }
 
-  return thread->retc;
+  /* Gather all the return values from yield() */
+  for (i = 0; i < retc && i < thread->retc; i++) {
+    lstate_return(thread->vm_stack.base[thread->retvi + i], i);
+  }
+
+  return i;
 }
 
 static u32 lua_co_yield(LSTATE) {
-  u32 i;
-  /* Fill in return values from where coroutine.resume() was called a long
-     time ago */
-  for (i = 0; i < argc && i < cur_thread->retc; i++) {
-    cur_thread->retv[i] = argv[i];
-  }
-  cur_thread->retc = i;
-  /* Filled in during coroutine.resume() */
+  /* Tell coroutine.resume() where to find its return values, and where to put
+     further arguments to this thread */
+  cur_thread->retc = argc;
+  cur_thread->retvi = argvi;
   cur_thread->argc = retc;
-  cur_thread->argv = retv;
+  cur_thread->argvi = retvi;
 
   if (cur_thread->status != CO_DEAD) {
     cur_thread->status = CO_SUSPENDED;

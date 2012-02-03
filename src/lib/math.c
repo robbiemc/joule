@@ -203,7 +203,7 @@ static u32 lua_math_mod(LSTATE) {
   lstate_return1(lv_number(fmod(x, y)));
 }
 
-static u32 lua_math_modf(u32 argc, luav *argv, u32 retc, luav *retv) {
+static u32 lua_math_modf(LSTATE) {
   double ipart;
   double fpart = modf(lstate_getnumber(0), &ipart);
   lstate_return(lv_number(ipart), 0);

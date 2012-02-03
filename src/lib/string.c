@@ -345,8 +345,10 @@ static u32 lua_string_reverse(LSTATE) {
 static u32 lua_string_byte(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   ssize_t i, j, len = (ssize_t) str->length;
-  i = argc < 2 || argv[1] == LUAV_NIL ? 1 : (ssize_t) lstate_getnumber(1);
-  j = argc < 3 || argv[2] == LUAV_NIL ? i : (ssize_t) lstate_getnumber(2);
+  i = argc < 2 || lstate_getval(1) == LUAV_NIL ?
+        1 : (ssize_t) lstate_getnumber(1);
+  j = argc < 3 || lstate_getval(2) == LUAV_NIL ?
+        i : (ssize_t) lstate_getnumber(2);
 
   FIX_INDICES(i, j, len);
 
@@ -354,7 +356,7 @@ static u32 lua_string_byte(LSTATE) {
   if (j < i) { return 0; }
   for (k = 0; k < retc && k <= j - i; k++) {
     /* All bytes are considered unsigned, so we need to cast from char to u8 */
-    retv[k] = lv_number((u8) str->ptr[i + k]);
+    lstate_return(lv_number((u8) str->ptr[i + k]), k);
   }
   return k;
 }

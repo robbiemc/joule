@@ -3,9 +3,11 @@
 
 #include <stdint.h>
 
+#include "lstate.h"
 #include "lstring.h"
 #include "luav.h"
-#include "lstate.h"
+
+#define VM_STACK_INIT 1024
 
 struct lhash;
 
@@ -54,7 +56,13 @@ typedef struct lframe {
   struct lframe *caller;
 } lframe_t;
 
-#define LUAF_NIL  0
+typedef struct lstack {
+  luav *top;
+  luav *base;
+  u32 size;
+  u32 limit;
+} lstack_t;
+
 #define LUAF_C    1
 #define LUAF_LUA  2
 #define CLOSURE_SIZE(num_upvalues) \
@@ -71,10 +79,15 @@ typedef struct lframe {
 
 extern struct lhash lua_globals;
 extern lframe_t *vm_running;
+extern lstack_t vm_stack;
 extern struct lhash *global_env;
 
 void vm_run(lfunc_t *fun);
-u32 vm_fun(lclosure_t *c, lframe_t *frame,
-           u32 argc, luav *argv, u32 retc, luav *retv);
+u32 vm_fun(lclosure_t *c, lframe_t *frame, LSTATE);
+void vm_stack_init(lstack_t *stack, u32 size);
+
+void vm_stack_grow(lstack_t *stack, u32 size);
+u32 vm_stack_alloc(lstack_t *stack, u32 size);
+void vm_stack_dealloc(lstack_t *stack, u32 base);
 
 #endif /* _VM_H_ */

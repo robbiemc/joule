@@ -114,7 +114,7 @@ static u32 lua_assert(LSTATE) {
   }
   u32 i;
   for (i = 0; i < argc && i < retc; i++) {
-    retv[i] = argv[i];
+    lstate_return(lstate_getval(i), i);
   }
   return i;
 }
@@ -246,7 +246,7 @@ static u32 lua_select(LSTATE) {
 
   u32 i, off = (u32) lv_castnumber(first, 0);
   for (i = 0; i < retc && i + off < argc; i++) {
-    retv[i] = argv[i + off];
+    lstate_return(lstate_getval(i + off), i);
   }
   return i;
 }
@@ -320,7 +320,8 @@ static u32 lua_pcall(LSTATE) {
     return 2;
   }
 
-  u32 ret = vm_fun(closure, vm_running, argc - 1, argv + 1, retc - 1, retv + 1);
+  u32 ret = vm_fun(closure, vm_running, argc - 1, argvi + 1,
+                                        retc - 1, retvi + 1);
   err_catcher = prev;
   lstate_return(LUAV_TRUE, 0);
   return ret + 1;
@@ -338,9 +339,12 @@ static u32 lua_xpcall(LSTATE) {
     luav retval;
     if (!tried) {
       tried = 1;
+      u32 idx = vm_stack_alloc(&vm_stack, 1);
       luav error = lv_string(lstr_add(err_desc, strlen(err_desc), FALSE));
-      retval = LUAV_NIL;
-      vm_fun(err, vm_running, 1, &error, 1, &retval);
+      vm_stack.base[idx] = error;
+      vm_fun(err, vm_running, 1, idx, 1, idx);
+      retval = vm_stack.base[idx];
+      vm_stack_dealloc(&vm_stack, idx);
     } else {
       retval = LSTR("error in error handling");
     }
@@ -350,7 +354,7 @@ static u32 lua_xpcall(LSTATE) {
     return 2;
   }
 
-  u32 ret = vm_fun(f, vm_running, 0, NULL, retc - 1, retv + 1);
+  u32 ret = vm_fun(f, vm_running, 0, 0, retc - 1, retvi + 1);
   err_catcher = prev;
   lstate_return(LUAV_TRUE, 0);
   return ret + 1;
@@ -383,10 +387,10 @@ static u32 lua_next(LSTATE) {
   if (argc > 1) {
     key = lstate_getval(1);
   }
-  luav t1, t2, *nxtkey = &t1, *nxtvalue = &t2;
-  if (retc > 0) nxtkey = retv;
-  if (retc > 1) nxtvalue = retv + 1;
-  lhash_next(table, key, nxtkey, nxtvalue);
+  luav nxtkey, nxtvalue;
+  lhash_next(table, key, &nxtkey, &nxtvalue);
+  lstate_return(nxtkey, 0);
+  lstate_return(nxtvalue, 1);
   return 2;
 }
 
@@ -440,7 +444,7 @@ static u32 lua_dofile(LSTATE) {
   closure.function.lua = &func;
   closure.type         = LUAF_LUA;
   closure.env          = vm_running->closure->env;
-  return vm_fun(&closure, vm_running, 0, NULL, retc, retv);
+  return vm_fun(&closure, vm_running, 0, 0, retc, retvi);
 }
 
 static u32 lua_getfenv(LSTATE) {

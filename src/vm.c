@@ -13,22 +13,22 @@
 #include "panic.h"
 #include "vm.h"
 
-/* TODO: is_vararg requires more stack, exactly how much more? */
-#define STACK_SIZE(f) ((u32) (f)->max_stack + 10)
+#define STACKI(n) (stack + (n))
+#define STACK(n) vm_stack.base[STACKI(n)]
 #define CONST(f, n) ({ assert((n) < (f)->num_consts); (f)->consts[n]; })
 #define REG(f, n)                                                             \
   ({                                                                          \
-    assert((n) < STACK_SIZE(f));                                              \
-    luav _tmp = stack[n];                                                     \
+    assert(&STACK(n) < vm_stack.top);                                         \
+    luav _tmp = STACK(n);                                                     \
     need_close && lv_isupvalue(_tmp) ? lv_getupvalue(_tmp)->value : _tmp;     \
   })
 #define SETREG(f, n, v)                         \
   ({                                            \
-    assert((n) < STACK_SIZE(f));                \
-    if (need_close && lv_isupvalue(stack[n])) { \
-      lv_getupvalue(stack[n])->value = v;       \
+    assert(&STACK(n) < vm_stack.top);           \
+    if (need_close && lv_isupvalue(STACK(n))) { \
+      lv_getupvalue(STACK(n))->value = v;       \
     } else {                                    \
-      stack[n] = v;                             \
+      STACK(n) = v;                             \
     }                                           \
   })
 
@@ -62,9 +62,9 @@
       break;                                                      \
     }                                                             \
     if ((lv_istable(bv) && meta2(lv_gettable(bv, 0), idx, bv, cv, \
-                                &stack[a], &frame)) ||            \
+                                 STACKI(a), &frame)) ||           \
         (lv_istable(cv) && meta2(lv_gettable(cv, 0), idx, bv, cv, \
-                                &stack[a], &frame)))              \
+                                 STACKI(a), &frame)))             \
       break;                                                      \
     double bd = lv_castnumber(bv, 0);                             \
     double cd = lv_castnumber(cv, 1);                             \
@@ -88,13 +88,14 @@
 lhash_t lua_globals;
 lhash_t *global_env = NULL;
 lframe_t *vm_running = NULL;
+lstack_t vm_stack;
 
 static void op_close(u32 upc, luav *upv);
-static int meta1(lhash_t *table, u32 op, luav v, luav *ret, lframe_t *frame);
+static int meta1(lhash_t *table, u32 op, luav v, u32 reti, lframe_t *frame);
 static int meta2(lhash_t *table, u32 op, luav lv, luav rv,
-                 luav *ret, lframe_t *frame);
+                 u32 reti, lframe_t *frame);
 static int meta_eq(lhash_t *table1, lhash_t *table2, u32 op,
-                   luav lv, luav rv, luav *ret, lframe_t *frame);
+                   luav lv, luav rv, luav *res, lframe_t *frame);
 static luav meta_gettable(lhash_t *table, luav key, lframe_t *frame);
 static void meta_settable(lhash_t *table, luav key, luav val, lframe_t *frame);
 
@@ -102,10 +103,43 @@ INIT static void vm_setup() {
   lhash_init(&lua_globals);
   lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
   lhash_set(&lua_globals, LSTR("_G"), lv_table(&lua_globals));
+
+  vm_stack_init(&vm_stack, VM_STACK_INIT);
 }
 
 DESTROY static void vm_destroy() {
   lhash_free(&lua_globals);
+}
+
+void vm_stack_init(lstack_t *stack, u32 size) {
+  stack->size = 0;
+  stack->limit = size;
+  stack->base = xmalloc(sizeof(luav) * size);
+  stack->top = stack->base;
+}
+
+void vm_stack_grow(lstack_t *stack, u32 amt) {
+  stack->size += amt;
+  if (stack->size >= stack->limit) {
+    stack->limit *= 2;
+    stack->base = xrealloc(stack->base, stack->limit * sizeof(luav));
+  }
+  stack->top = stack->base + stack->size;
+}
+
+u32 vm_stack_alloc(lstack_t *stack, u32 amt) {
+  u32 base = stack->size;
+  vm_stack_grow(stack, amt);
+  return base;
+}
+
+void vm_stack_dealloc(lstack_t *stack, u32 base) {
+  stack->size = base;
+  if (stack->size > VM_STACK_INIT && stack->size < stack->limit / 2) {
+    stack->limit /= 2;
+    stack->base = xrealloc(stack->base, stack->limit * sizeof(luav));
+  }
+  stack->top = stack->base + stack->size;
 }
 
 void vm_run(lfunc_t *func) {
@@ -115,13 +149,16 @@ void vm_run(lfunc_t *func) {
   closure.env = &lua_globals;
   global_env = &lua_globals;
   assert(func->num_upvalues == 0);
-  vm_fun(&closure, NULL, 0, NULL, 0, NULL);
+  vm_fun(&closure, NULL, 0, 0, 0, 0);
 }
 
-u32 vm_fun(lclosure_t *closure, lframe_t *parent,
-           u32 argc, luav *argv, u32 retc, luav *retv) {
+u32 vm_fun(lclosure_t *closure, lframe_t *parent, LSTATE) {
   lframe_t frame;
 
+  u32 stack = vm_stack.size;
+  if (closure->type == LUAF_LUA) {
+    stack = vm_stack_alloc(&vm_stack, (u32) closure->function.lua->max_stack);
+  }
 top:
   frame.caller  = parent;
   frame.closure = closure;
@@ -129,8 +166,9 @@ top:
 
   // handle c functions
   if (closure->type != LUAF_LUA) {
-    u32 ret = closure->function.c->f(argc, argv, retc, retv);
+    u32 ret = closure->function.c->f(argc, argvi, retc, retvi);
     vm_running = parent;
+    vm_stack_dealloc(&vm_stack, stack);
     return ret;
   }
 
@@ -145,19 +183,24 @@ top:
   luav temp;
   assert(closure->env != NULL);
 
-  if (argc > func->num_parameters && !func->is_vararg) {
+  if (func->is_vararg) {
+    if (argc > func->max_stack) {
+      vm_stack_grow(&vm_stack, argc - func->max_stack);
+    }
+  } else if (argc > func->num_parameters) {
     argc = func->num_parameters;
   }
 
-  luav stack[STACK_SIZE(func)];
-  memcpy(stack, argv, sizeof(luav) * argc);
-  u32 ssize = STACK_SIZE(func);
-  for (i = argc; i < ssize; i++) {
-    stack[i] = LUAV_NIL;
+  memcpy(&STACK(0), &vm_stack.base[argvi], sizeof(luav) * argc);
+  assert(&STACK(argc) <= vm_stack.top);
+  for (i = argc; &STACK(i) < vm_stack.top; i++) {
+    STACK(i) = LUAV_NIL;
   }
 
   while (instrs < end) {
     u32 code = *instrs++;
+    // opcode_dump(stdout, code);
+    // printf("\n");
 
     switch (OP(code)) {
       case OP_GETGLOBAL: {
@@ -219,10 +262,10 @@ top:
         u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
 
-        u32 got = vm_fun(closure2, &frame, num_args, &stack[a + 1],
-                                           want_ret, &stack[a]);
+        u32 got = vm_fun(closure2, &frame, num_args, STACKI(a + 1),
+                                           want_ret, STACKI(a));
         // fill in the nils
-        for (i = got; i < c - 1 && a + i < STACK_SIZE(func); i++) {
+        for (i = got; i < c - 1 && &STACK(a + i) < vm_stack.top; i++) {
           SETREG(func, a + i, LUAV_NIL);
         }
         last_ret = a + got;
@@ -238,21 +281,28 @@ top:
           limit = b - 1;
         }
         for (i = 0; i < limit && i < retc; i++) {
-          retv[i] = REG(func, a + i);
+          vm_stack.base[retvi + i] = REG(func, a + i);
         }
         if (need_close) {
-          op_close(STACK_SIZE(func), stack);
+          op_close(vm_stack.size - stack, vm_stack.base + stack);
         }
         vm_running = parent;
+        vm_stack_dealloc(&vm_stack, max(retvi + i, stack));
         return i;
 
       case OP_TAILCALL:
         a = A(code);
         b = B(code);
         closure = lv_getfunction(REG(func, a), 0);
+        if (closure->type == LUAF_LUA) {
+          int diff = closure->function.lua->max_stack - func->max_stack;
+          if (diff > 0) {
+            vm_stack_grow(&vm_stack, (u32) diff);
+          }
+        }
         assert(C(code) == 0);
         argc = (b == 0 ? last_ret : a + b) - a - 1;
-        argv = &stack[a + 1];
+        argvi = STACKI(a + 1);
         goto top;
 
       case OP_CLOSURE: {
@@ -272,8 +322,8 @@ top:
             /* Can't use the REG macro because we don't want to duplicate
                upvalues. If the register on the stack is an upvalue, we want to
                use the same upvalue... */
-            assert(B(pseudo) < STACK_SIZE(func));
-            temp = stack[B(pseudo)];
+            assert(&STACK(B(pseudo)) < vm_stack.top);
+            temp = STACK(B(pseudo));
             if (lv_isupvalue(temp)) {
               upvalue = temp;
             } else {
@@ -284,7 +334,7 @@ top:
               ptr->refcnt = 1; /* one for us, one for them added later */
               ptr->value = temp;
               upvalue = lv_upvalue(ptr);
-              stack[B(pseudo)] = upvalue;
+              STACK(B(pseudo)) = upvalue;
             }
           } else {
             upvalue = UPVALUE(closure, B(pseudo));
@@ -301,7 +351,7 @@ top:
 
       case OP_CLOSE:
         need_close = 0;
-        op_close(STACK_SIZE(func) - A(code), &stack[A(code)]);
+        op_close(vm_stack.size - stack - A(code), &STACK(A(code)));
         break;
 
       case OP_JMP:
@@ -364,7 +414,7 @@ top:
           break;
         }
         if (lv_istable(bv) &&
-            meta1(lv_gettable(bv, 0), META_UNM, bv, &stack[a], &frame))
+            meta1(lv_gettable(bv, 0), META_UNM, bv, STACKI(a), &frame))
           break;
         SETREG(func, a, lv_number(-lv_castnumber(bv, 0)));
         break;
@@ -463,8 +513,11 @@ top:
         a = A(code);
         b = B(code);
         u32 limit = b > 0 ? b - 1 : argc;
+        if (stack + limit + a > vm_stack.size) {
+          vm_stack_grow(&vm_stack, stack + limit + a - vm_stack.size);
+        }
         for (i = 0; i < limit && i < argc; i++) {
-          SETREG(func, a + i, argv[i]);
+          SETREG(func, a + i, vm_stack.base[argvi + i]);
         }
         for (; i < limit; i++) {
           SETREG(func, a + i, LUAV_NIL);
@@ -483,8 +536,8 @@ top:
       case OP_TFORLOOP:
         a = A(code); c = C(code);
         lclosure_t *closure2 = lv_getfunction(REG(func, a), 0);
-        u32 got = vm_fun(closure2, &frame, 2, &stack[a + 1],
-                                   (u32) REG(func, c), &stack[a + 3]);
+        u32 got = vm_fun(closure2, &frame, 2, STACKI(a + 1),
+                                   (u32) REG(func, c), STACKI(a + 3));
         vm_running = &frame;
         temp = REG(func, a + 3);
         if (got == 0 || temp == LUAV_NIL) {
@@ -523,14 +576,17 @@ static void op_close(u32 upc, luav *upv) {
   }
 }
 
-static int meta1(lhash_t *table, u32 op, luav v, luav *ret, lframe_t *frame) {
+static int meta1(lhash_t *table, u32 op, luav v, u32 reti, lframe_t *frame) {
   lhash_t *meta = table->metatable;
   if (meta != NULL) {
     luav method = meta->metamethods[op];
     if (method != LUAV_NIL) {
-      u32 got = vm_fun(lv_getfunction(method, 0), frame, 1, &v, 1, ret);
+      u32 idx = vm_stack_alloc(&vm_stack, 1);
+      vm_stack.base[idx] = v;
+      u32 got = vm_fun(lv_getfunction(method, 0), frame, 1, idx, 1, reti);
+      vm_stack_dealloc(&vm_stack, idx);
       if (got == 0)
-        *ret = LUAV_NIL;
+        vm_stack.base[reti] = LUAV_NIL;
       return TRUE;
     }
   }
@@ -538,15 +594,18 @@ static int meta1(lhash_t *table, u32 op, luav v, luav *ret, lframe_t *frame) {
 }
 
 static int meta2(lhash_t *table, u32 op, luav lv, luav rv,
-                luav *ret, lframe_t *frame) {
+                 u32 reti, lframe_t *frame) {
   lhash_t *meta = table->metatable;
   if (meta != NULL) {
     luav method = meta->metamethods[op];
     if (method != LUAV_NIL) {
-      luav v[2] = {lv, rv};
-      u32 got = vm_fun(lv_getfunction(method, 0), frame, 2, v, 1, ret);
+      u32 idx = vm_stack_alloc(&vm_stack, 2);
+      vm_stack.base[idx] = lv;
+      vm_stack.base[idx + 1] = rv;
+      u32 got = vm_fun(lv_getfunction(method, 0), frame, 2, idx, 1, reti);
+      vm_stack_dealloc(&vm_stack, idx);
       if (got == 0)
-        *ret = LUAV_NIL;
+        vm_stack.base[reti] = LUAV_NIL;
       return TRUE;
     }
   }
@@ -561,10 +620,16 @@ static int meta_eq(lhash_t *table1, lhash_t *table2, u32 op,
     luav meth1 = meta1->metamethods[op];
     luav meth2 = meta2->metamethods[op];
     if (meth1 != LUAV_NIL && meth1 == meth2) {
-      luav v[2] = {lv, rv};
-      u32 got = vm_fun(lv_getfunction(meth1, 0), frame, 2, v, 1, ret);
-      if (got == 0)
+      u32 idx = vm_stack_alloc(&vm_stack, 3);
+      vm_stack.base[idx] = lv;
+      vm_stack.base[idx + 1] = rv;
+      u32 got = vm_fun(lv_getfunction(meth1, 0), frame, 2, idx, 1, idx + 2);
+      if (got == 0) {
         *ret = LUAV_NIL;
+      } else {
+        *ret = vm_stack.base[idx + 2];
+      }
+      vm_stack_dealloc(&vm_stack, idx);
       return TRUE;
     }
   }
@@ -583,8 +648,12 @@ static luav meta_gettable(lhash_t *table, luav key, lframe_t *frame) {
     return meta_gettable(lv_gettable(method, 0), key, frame);
 
   if (!lv_isfunction(method)) return val;
-  luav v[2] = {lv_table(table), key};
-  u32 got = vm_fun(lv_getfunction(method, 0), frame, 2, v, 1, &val);
+  u32 idx = vm_stack_alloc(&vm_stack, 3);
+  vm_stack.base[idx] = lv_table(table);
+  vm_stack.base[idx + 1] = key;
+  u32 got = vm_fun(lv_getfunction(method, 0), frame, 2, idx, 1, idx + 2);
+  val = vm_stack.base[idx + 2];
+  vm_stack_dealloc(&vm_stack, idx);
   if (got == 0) return LUAV_NIL;
   return val;
 }
@@ -601,8 +670,12 @@ static void meta_settable(lhash_t *table, luav key, luav val, lframe_t *frame) {
   }
 
   if (!lv_isfunction(method)) goto normal;
-  luav v[3] = {lv_table(table), key, val};
-  vm_fun(lv_getfunction(method, 0), frame, 3, v, 0, NULL);
+  u32 idx = vm_stack_alloc(&vm_stack, 3);
+  vm_stack.base[idx] = lv_table(key);
+  vm_stack.base[idx + 1] = key;
+  vm_stack.base[idx + 2] = val;
+  vm_fun(lv_getfunction(method, 0), frame, 3, idx, 0, 0);
+  vm_stack_dealloc(&vm_stack, idx);
   return;
 
 normal:

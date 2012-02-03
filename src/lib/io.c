@@ -26,7 +26,7 @@ static u32 lua_io_write(LSTATE) {
   u32 i;
 
   for (i = 0; i < argc; i++) {
-    luav value = argv[i];
+    luav value = lstate_getval(i);
 
     switch (lv_gettype(value)) {
       case LSTRING:
