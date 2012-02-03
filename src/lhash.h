@@ -33,7 +33,9 @@ typedef struct lhash {
 void lhash_init(lhash_t *map);
 void lhash_free(lhash_t *map);
 luav lhash_get(lhash_t *map, luav key);
+luav lhash_rawget(lhash_t *map, luav key);
 void lhash_set(lhash_t *map, luav key, luav value);
+void lhash_rawset(lhash_t *map, luav key, luav value);
 void lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval);
 
 #endif /* _LHASH_H */

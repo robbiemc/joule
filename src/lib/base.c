@@ -33,6 +33,7 @@ static u32  lua_tonumber(LSTATE);
 static u32  lua_print(LSTATE);
 static u32  lua_select(LSTATE);
 static u32  lua_rawget(LSTATE);
+static u32  lua_rawset(LSTATE);
 static u32  lua_setmetatable(LSTATE);
 static u32  lua_getmetatable(LSTATE);
 static u32  lua_loadstring(LSTATE);
@@ -55,6 +56,7 @@ static LUAF(lua_print);
 static LUAF(lua_select);
 static LUAF(lua_tonumber);
 static LUAF(lua_rawget);
+static LUAF(lua_rawset);
 static LUAF(lua_setmetatable);
 static LUAF(lua_getmetatable);
 static LUAF(lua_loadstring);
@@ -89,6 +91,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "tonumber",      &lua_tonumber_f);
   REGISTER(&lua_globals, "select",        &lua_select_f);
   REGISTER(&lua_globals, "rawget",        &lua_rawget_f);
+  REGISTER(&lua_globals, "rawset",        &lua_rawset_f);
   REGISTER(&lua_globals, "setmetatable",  &lua_setmetatable_f);
   REGISTER(&lua_globals, "getmetatable",  &lua_getmetatable_f);
   REGISTER(&lua_globals, "loadstring",    &lua_loadstring_f);
@@ -253,8 +256,13 @@ static u32 lua_select(LSTATE) {
 }
 
 static u32 lua_rawget(LSTATE) {
-  luav value = lhash_get(lstate_gettable(0), lstate_getval(1));
+  luav value = lhash_rawget(lstate_gettable(0), lstate_getval(1));
   lstate_return1(value);
+}
+
+static u32 lua_rawset(LSTATE) {
+  lhash_rawset(lstate_gettable(0), lstate_getval(1), lstate_getval(2));
+  lstate_return1(lstate_getval(0));
 }
 
 static u32 lua_setmetatable(LSTATE) {
