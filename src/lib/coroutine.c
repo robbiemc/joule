@@ -157,9 +157,11 @@ static u32 lua_co_resume(LSTATE) {
       ret = co_wrap_helper(thread, argc - 1, argvi + 1, retc, retvi);
     }
   }, {
-    thread->caller = NULL;
-    thread->status = CO_DEAD;
-    cur_thread->status = CO_RUNNING;
+    if (thread != cur_thread) {
+      thread->caller = NULL;
+      thread->status = CO_DEAD;
+      cur_thread->status = CO_RUNNING;
+    }
   }, iserr);
 
   if (iserr) {
@@ -217,10 +219,11 @@ static u32 lua_co_wrap(LSTATE) {
 
 static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
   u32 i;
-  xassert(thread->status != CO_RUNNING);
 
   if (thread->status == CO_DEAD) {
     err_rawstr("cannot resume dead coroutine");
+  } else if (thread == cur_thread) {
+    err_rawstr("cannot resume running coroutine");
   } else if (thread->status == CO_NEVER_RUN) {
     /* If this thread has no run before, it's argc/argv will be passed to the
        initial function. A call to coroutine.yield() will fill in the retc/retv
@@ -243,6 +246,7 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
     thread->argc = i;
   }
 
+  xassert(thread->status != CO_RUNNING);
   xassert(thread->caller == NULL);
   thread->caller = cur_thread;
   cur_thread->status = CO_NORMAL;

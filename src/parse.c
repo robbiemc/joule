@@ -5,7 +5,6 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "config.h"
@@ -65,7 +64,6 @@ void luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin) {
 
   luac_parse_bytecode(func, out_fds[0], origin);
   close(out_fds[0]);
-  xassert(wait(NULL) == pid);
 }
 
 /**
@@ -218,7 +216,7 @@ fderr:
   return -1;
 }
 
-// TODO - actually free stuff 
+// TODO - actually free stuff
 void luac_free(lfunc_t *func) {
   free(func->consts);
   u32 i;
