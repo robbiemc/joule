@@ -9,4 +9,6 @@ setfenv(1,g)
 -- an example
 rawset(g,"x",3)
 x=2
-y=1	-- cannot redefine `y'
+print(pcall(function()
+  y=1  -- cannot redefine `y'
+end))
