@@ -21,19 +21,24 @@ endif
 # Order matters in this list because object files listed first have their
 # initializers run first, and destructors run last.
 OBJS := lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
-				lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o error.o \
-				lib/coroutine.o lib/co_asm.o lib/table.o
+	lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o error.o \
+	lib/coroutine.o lib/co_asm.o lib/table.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
 LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
-	    			loop sort func fib select math2 bisect cf printf select smallfun \
-            os strings coroutine2 sieve load pcall metabasic calls coroutine
+	    loop sort func fib select math2 bisect cf printf select smallfun \
+            os strings coroutine2 sieve load pcall metabasic calls coroutine \
+	    noglobals fibfor readonly echo
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 
 BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2 \
-	      			nbody.lua-4 hash hello fibo matrix nestedloop nsieve.lua-3 \
-              nsievebits prodcons random sieve sieve.lua-2 spectralnorm
+	      nbody.lua-4 hash hello fibo matrix nestedloop nsieve.lua-3 \
+              nsievebits prodcons random sieve sieve.lua-2 spectralnorm takfp \
+	      threadring.lua-3 strcat.lua-2 recursive process \
+	      partialsums.lua-3 partialsums.lua-2 message.lua-2 harmonic \
+	      fannkuchredux fasta fannkuch fannkuch.lua-2 chameneos \
+	      binarytrees.lua-3
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
 CTESTS := hash types
@@ -56,11 +61,11 @@ ctest: ctests
 	@echo -- All C tests passed --
 
 # Run all lua tests
-ltest: $(LUATESTS)
+ltest: $(LUATESTS:=test)
 	@echo -- All lua tests passed --
 
 # Run all benchmark tests
-btest: $(BENCHTESTS)
+btest: $(BENCHTESTS:=test)
 	@echo -- All benchmark tests passed --
 
 lmissing:
@@ -97,12 +102,12 @@ $(OBJDIR)/%: $(OBJS) %.c
 	$(CC) $(CFLAGS) -o $@ $^ -lm
 
 # Running a lua test
-%.lua: joule
+%.luatest:
 	@mkdir -p $(OBJDIR)/$(@D)
-	@echo $@
-	@lua $@ > $(OBJDIR)/$(@:.lua=.out)
-	@./joule $@ > $(OBJDIR)/$(@:.lua=.log)
-	@diff -u $(OBJDIR)/$(@:.lua=.out) $(OBJDIR)/$(@:.lua=.log)
+	@echo $(@:.luatest=.lua)
+	@lua $(@:.luatest=.lua) > $(OBJDIR)/$(@:.luatest=.out)
+	@./joule $(@:.luatest=.lua) > $(OBJDIR)/$(@:.luatest=.log)
+	@diff -u $(OBJDIR)/$(@:.luatest=.out) $(OBJDIR)/$(@:.luatest=.log)
 
 # If we're cleaning, no need to regenerate all .dep files
 ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
