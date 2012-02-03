@@ -4,6 +4,7 @@
 
 #include "debug.h"
 #include "lhash.h"
+#include "lib/coroutine.h"
 #include "panic.h"
 #include "vm.h"
 
@@ -84,19 +85,23 @@ DESTROY static void lua_coroutine_destroy() {
   lhash_free(&lua_coroutine);
 }
 
-static void coroutine_swap(lthread_t *to) {
+void coroutine_changeenv(lthread_t *to) {
   lthread_t *old = cur_thread;
   old->env = global_env;
   xassert(to != NULL);
+  xassert(to != old);
   xassert(to->status != CO_RUNNING);
   xassert(to->status != CO_DEAD);
   cur_thread = to;
   to->status = CO_RUNNING;
   global_env = to->env;
-
   old->vm_stack = vm_stack;
   vm_stack = to->vm_stack;
+}
 
+static void coroutine_swap(lthread_t *to) {
+  lthread_t *old = cur_thread;
+  coroutine_changeenv(to);
   coroutine_swap_asm(&old->curstack, to->curstack);
 }
 
@@ -153,6 +158,10 @@ static u32 lua_co_resume(LSTATE) {
     return amt + 1;
   }
   return co_wrap_helper(thread, argc - 1, argvi + 1, retc, retvi);
+}
+
+lthread_t* coroutine_current() {
+  return cur_thread;
 }
 
 static u32 lua_co_running(LSTATE) {

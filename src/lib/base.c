@@ -8,6 +8,7 @@
 #include "config.h"
 #include "error.h"
 #include "lhash.h"
+#include "lib/coroutine.h"
 #include "lstate.h"
 #include "luav.h"
 #include "meta.h"
@@ -308,40 +309,57 @@ static u32 lua_loadstring(LSTATE) {
   lstate_return1(lv_function(closure));
 }
 
-static u32 lua_pcall(LSTATE) {
-  lclosure_t *closure = lstate_getfunction(0);
-  jmp_buf onerr;
-  jmp_buf *prev = err_catcher;
-  err_catcher = &onerr;
-  if (setjmp(onerr) != 0) {
-    lstate_return(LUAV_FALSE, 0);
-    lstate_return(lv_string(lstr_add(err_desc, strlen(err_desc), FALSE)), 1);
-    err_catcher = prev;
-    return 2;
+#define ONERR(try, catch, errvar) {             \
+    jmp_buf onerr;                              \
+    jmp_buf *prev = err_catcher;                \
+    err_catcher = &onerr;                       \
+    struct lthread *env = coroutine_current();  \
+    if (setjmp(onerr) == 0) {                   \
+      { try }                                   \
+      errvar = 0;                               \
+    } else {                                    \
+      if (env != coroutine_current()) {         \
+        coroutine_changeenv(env);               \
+      }                                         \
+      { catch }                                 \
+      errvar = 1;                               \
+    }                                           \
+    err_catcher = prev;                         \
   }
 
-  u32 ret = vm_fun(closure, vm_running, argc - 1, argvi + 1,
-                                        retc - 1, retvi + 1);
-  err_catcher = prev;
-  lstate_return(LUAV_TRUE, 0);
-  return ret + 1;
+static u32 lua_pcall(LSTATE) {
+  lclosure_t *closure = lstate_getfunction(0);
+  int err;
+  u32 ret;
+  ONERR({
+    ret = vm_fun(closure, vm_running, argc - 1, argvi + 1,
+                                      retc - 1, retvi + 1);
+    lstate_return(LUAV_TRUE, 0);
+  }, {
+    lstate_return(LUAV_FALSE, 0);
+    lstate_return(err_value, 1);
+  }, err);
+
+  return err ? 2 : ret + 1;
 }
 
 static u32 lua_xpcall(LSTATE) {
   lclosure_t *f = lstate_getfunction(0);
   lclosure_t *err = lstate_getfunction(1);
-  jmp_buf onerr;
-  jmp_buf *prev = err_catcher;
-  err_catcher = &onerr;
-  int tried = 0;
+  int iserr, tried = 0;
+  u32 ret;
 
-  if (setjmp(onerr) != 0) {
+  ONERR({
+    ret = vm_fun(f, vm_running, 0, 0, retc - 1, retvi + 1);
+    lstate_return(LUAV_TRUE, 0);
+  }, {
     luav retval;
+    /* If the error handling function has an error, we need to return something
+       different, otherwise invoke the error handling function */
     if (!tried) {
       tried = 1;
       u32 idx = vm_stack_alloc(&vm_stack, 1);
-      luav error = lv_string(lstr_add(err_desc, strlen(err_desc), FALSE));
-      vm_stack.base[idx] = error;
+      vm_stack.base[idx] = err_value;
       vm_fun(err, vm_running, 1, idx, 1, idx);
       retval = vm_stack.base[idx];
       vm_stack_dealloc(&vm_stack, idx);
@@ -350,35 +368,23 @@ static u32 lua_xpcall(LSTATE) {
     }
     lstate_return(LUAV_FALSE, 0);
     lstate_return(retval, 1);
-    err_catcher = prev;
-    return 2;
-  }
+  }, iserr)
 
-  u32 ret = vm_fun(f, vm_running, 0, 0, retc - 1, retvi + 1);
-  err_catcher = prev;
-  lstate_return(LUAV_TRUE, 0);
-  return ret + 1;
+  return iserr ? 2 : ret + 1;
 }
 
 static u32 lua_error(LSTATE) {
-  lstring_t *message = lstate_getstring(0);
+  luav value = lstate_getval(0);
   u32 level = 1;
   if (argc > 1) {
     level = (u32) lstate_getnumber(1);
   }
-
-  if (level == 0) {
-    err_noposstr(message->ptr);
-  }
-
   lframe_t *frame = vm_running;
-
-  while (--level > 0) {
-    assert(frame->caller != NULL);
+  while (level-- > 0 && frame != NULL) {
     frame = frame->caller;
   }
 
-  err_fromframe(frame, message->ptr);
+  err_luav(frame, value);
 }
 
 static u32 lua_next(LSTATE) {
