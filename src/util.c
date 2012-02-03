@@ -1,24 +1,17 @@
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "panic.h"
 #include "util.h"
 
-u8 pread1(u8 **p) {
-  u8 b = **p;
-  *p += sizeof(u8);
-  return b;
-}
-
-u32 pread4(u8 **p) {
-  u32 b = *(u32*)*p;
-  *p += sizeof(u32);
-  return b;
-}
-
-u64 pread8(u8 **p) {
-  u64 b = *(u64*)*p;
-  *p += sizeof(u64);
-  return b;
+int fdread(int fd, void *buf, size_t len) {
+  while (len > 0) {
+    ssize_t rd = read(fd, buf, len);
+    if (rd == -1) return -1;
+    len -= (size_t) rd;
+    buf += (size_t) rd;
+  }
+  return 0;
 }
 
 void* xmalloc(size_t s) {

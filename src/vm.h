@@ -28,11 +28,9 @@ typedef struct lfunc {
   size_t        num_funcs;
   struct lfunc  *funcs;
 
-  // raw pointers to debug information - no parsing is done for these
-  u32           dbg_linecount;
-  u32           *dbg_lines;
-  void          *dbg_locals;
-  void          *dbg_upvalues;
+  // debug information
+  u32           num_lines;
+  u32           *lines;
 } lfunc_t;
 
 typedef struct cfunc {

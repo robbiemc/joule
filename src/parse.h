@@ -14,12 +14,6 @@
 
 #define SKIP_STRING(ptr) ((u8*)(ptr) + *((size_t*)(ptr)) + sizeof(size_t))
 
-typedef struct luac_file {
-  void*     addr;
-  size_t    size;
-  lfunc_t   func;
-} luac_file_t;
-
 typedef struct luac_header {
   u32 signature;
   u8  version;
@@ -32,10 +26,9 @@ typedef struct luac_header {
   u8  int_flag;
 } PACKED luac_header_t;
 
-void luac_parse_stream(luac_file_t *file, int fd, char *origin);
-void luac_parse_source(luac_file_t *file, char *filename);
-void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin);
-void luac_parse(luac_file_t *file, void *addr, char *filename);
-void luac_close(luac_file_t *file);
+void luac_parse_file(lfunc_t *func, char *filename);
+void luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin);
+int  luac_parse_bytecode(lfunc_t *func, int fd, char *filename);
+void luac_free(lfunc_t *func);
 
 #endif /* _PARSE_H_ */

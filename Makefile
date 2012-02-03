@@ -36,7 +36,7 @@ BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2 \
               nsievebits prodcons random sieve sieve.lua-2 spectralnorm
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
-CTESTS := hash types parse
+CTESTS := hash types
 CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
 
 all: joule

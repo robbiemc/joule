@@ -20,12 +20,10 @@ char *rk(char *buf, u32 val) {
 }
 
 void opcode_dump_idx(FILE *out, lfunc_t *func, size_t idx) {
-  u32 *line = func->dbg_lines;
-  size_t size = pread8((u8**) &line);
-  if (idx > size)
+  if (idx > func->num_lines)
     fprintf(out, "??  ");
   else
-    fprintf(out, "%2d  ", line[idx]);
+    fprintf(out, "%2d  ", func->lines[idx]);
   opcode_dump(out, func->instrs[idx]);
 }
 

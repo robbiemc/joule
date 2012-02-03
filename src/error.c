@@ -65,9 +65,9 @@ void err_explain(int err, lframe_t *frame) {
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
-  xassert(pc < func->dbg_linecount);
+  xassert(pc < func->num_lines);
   len = sprintf(err_desc, "%.25s:%u: ", func->file,
-                func->dbg_lines[pc - 1]);
+                func->lines[pc - 1]);
 
   switch (err) {
     case ERR_MISSING:
@@ -120,8 +120,8 @@ void err_explain(int err, lframe_t *frame) {
     } else {
       lfunc_t *function = closure->function.lua;
       pc = GETPC(frame, function) - 1;
-      xassert(pc < function->dbg_linecount);
-      printf("%s:%d: ", function->file, function->dbg_lines[pc]);
+      xassert(pc < function->num_lines);
+      printf("%s:%d: ", function->file, function->lines[pc]);
       lstring_t *fname = lstr_get(function->name);
 
       if (fname->length == 0) {

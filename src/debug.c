@@ -27,7 +27,7 @@ static void dbg_dump_func(FILE *out, lfunc_t *func, int level) {
   int width;
 
   __pr("function ");
-  dbg_dump_lstring(out, lstr_get(func->name));
+  //dbg_dump_lstring(out, lstr_get(func->name));
   pr(": Lines %d - %d\n", func->start_line, func->end_line);
 
   __pr("  %d parameters, ", func->num_parameters);

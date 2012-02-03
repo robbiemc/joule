@@ -48,7 +48,7 @@ static void register_argv(int bias, int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
-  luac_file_t file;
+  lfunc_t func;
   lflags_t flags;
 
   memset(&flags, 0, sizeof(lflags_t));
@@ -59,24 +59,24 @@ int main(int argc, char **argv) {
   if (flags.compiled) {
     int fd = open(argv[i], O_RDONLY);
     xassert(fd != -1);
-    luac_parse_stream(&file, fd, argv[i]);
+    luac_parse_bytecode(&func, fd, argv[i]);
     close(fd);
   } else if (flags.string) {
-    luac_parse_string(&file, argv[i], strlen(argv[i]), "(command line)");
+    luac_parse_string(&func, argv[i], strlen(argv[i]), "(command line)");
   } else {
-    luac_parse_source(&file, argv[i]);
+    luac_parse_file(&func, argv[i]);
   }
 
   if (flags.dump) {
-    dbg_dump_function(stdout, &file.func);
+    dbg_dump_function(stdout, &func);
     return 0;
   }
 
   register_argv(i, argc, argv);
-  vm_run(&file.func);
+  vm_run(&func);
   lhash_free(&lua_arg);
 
-  luac_close(&file);
+  luac_free(&func);
   return 0;
 
 usage:

@@ -15,43 +15,17 @@
 #include "util.h"
 #include "vm.h"
 
-static void luac_free_func(lfunc_t *func);
-static u8* luac_parse_func(u8* addr, lfunc_t *func, char *filename);
-
-/**
- * @brief Reads the given FILE* into memory and parses it. The FILE should
- *        contain bytecode.
- *
- * @param file the struct to fill in information for
- * @param f the file to read
- * @param origin the origin of the code (filename, for example)
- */
-void luac_parse_stream(luac_file_t *file, int fd, char *origin) {
-  size_t buf_size = 1024;
-  size_t len = 0;
-  char *buf = xmalloc(buf_size);
-  while (1) {
-    ssize_t tmp = read(fd, buf + len, buf_size - len);
-    if (tmp == 0) break;
-    if (errno == EINTR) continue;
-    assert(tmp > 0);
-    len += (size_t) tmp;
-    buf_size *= 2;
-    buf = xrealloc(buf, buf_size);
-  }
-
-  luac_parse(file, buf, origin);
-}
+static int luac_parse_func(lfunc_t *func, int fd, char *filename);
 
 /**
  * @brief Parses the given lua source
  *
- * @param file the struct to fill in information for
+ * @param func the struct to fill in information for
  * @param code the lua source code
  * @param csz the length of the source string
  * @param origin the origin of the code (filename, for example)
  */
-void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) {
+void luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin) {
   int err = 0;
 
   // create the pipes
@@ -89,7 +63,7 @@ void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) 
   }
   close(in_fds[1]);
 
-  luac_parse_stream(file, out_fds[0], origin);
+  luac_parse_bytecode(func, out_fds[0], origin);
   close(out_fds[0]);
   xassert(wait(NULL) == pid);
 }
@@ -97,10 +71,10 @@ void luac_parse_string(luac_file_t *file, char *code, size_t csz, char *origin) 
 /**
  * @brief Parse the lua file (source code) given
  *
- * @param file the struct to fill in information for
+ * @param func the struct to fill in information for
  * @param filename the filename to open
  */
-void luac_parse_source(luac_file_t *file, char *filename) {
+void luac_parse_file(lfunc_t *func, char *filename) {
   char cmd_prefix[] = "luac -o - ";
   char *cmd = xmalloc(sizeof(cmd_prefix) + strlen(filename) + 1);
   strcpy(cmd, cmd_prefix);
@@ -108,7 +82,7 @@ void luac_parse_source(luac_file_t *file, char *filename) {
 
   FILE *f = popen(cmd, "r");
   assert(f != NULL);
-  luac_parse_stream(file, fileno(f), filename);
+  luac_parse_bytecode(func, fileno(f), filename);
   pclose(f);
   free(cmd);
 }
@@ -116,115 +90,142 @@ void luac_parse_source(luac_file_t *file, char *filename) {
 /**
  * @brief Parse a luac file which is visible at the specified address
  *
- * @param file the struct to parse into
- * @param addr the address at which the luac file is visible
+ * @param func the struct to parse into
+ * @param fd the file descriptor to read from
  * @param filename the name that should be attributed to the source
- * @return the parsed description of the file.
+ * @return return code
  */
-void luac_parse(luac_file_t *file, void *addr, char *filename) {
-  file->addr = addr;
-
+int luac_parse_bytecode(lfunc_t *func, int fd, char *filename) {
   // read and validate the file header
-  luac_header_t *header = addr;
-  xassert(header->signature == 0x61754C1B);
-  xassert(header->version == 0x51);
-  xassert(header->format == 0);
-  xassert(header->endianness == 1); // 0 = big endian, 1 = little endian
-  xassert(header->int_size == sizeof(int));
-  xassert(header->size_t_size == sizeof(size_t));
-  xassert(header->instr_size == 4);
-  xassert(header->num_size == sizeof(double));
-  xassert(header->int_flag == 0); // 0 = doubles, 1 = integers
+  luac_header_t header;
+  xread(fd, &header, sizeof(header));
+
+  if (header.signature   != 0x61754C1B)     return -1;
+  if (header.version     != 0x51)           return -1;
+  if (header.format      != 0)              return -1;
+  if (header.endianness  != 1)              return -1; // 1 = little endian
+  if (header.int_size    != sizeof(int))    return -1;
+  if (header.size_t_size != sizeof(size_t)) return -1;
+  if (header.instr_size  != 4)              return -1;
+  if (header.num_size    != sizeof(double)) return -1;
+  if (header.int_flag    != 0)              return -1; // 0 = doubles
 
   // parse the main function
-  luac_parse_func((u8*)(header + 1), &file->func, filename);
+  return luac_parse_func(func, fd, filename);
+
+fderr:
+  return -1;
 }
 
-/**
- * @brief Close a file, freeing any resources possibly allocated with it
- *
- * @param file the file to close which was previously filled in by parsing
- */
-void luac_close(luac_file_t *file) {
-  // free everything then unmap the file if necessary
-  luac_free_func(&file->func);
-}
-
-static void luac_free_func(lfunc_t *func) {
-  free(func->consts);
-  u32 i;
-  for (i = 0; i < func->num_funcs; i++) {
-    luac_free_func(&func->funcs[i]);
+static int luac_skip(int fd, size_t len) {
+  // apparently lseek doesn't work on all streams, so read the
+  // data into a buffer in chunks
+  char buf[32];
+  while (len > 0) {
+    ssize_t rd = read(fd, buf, min(sizeof(buf), len));
+    if (rd == -1) return -1;
+    len -= (size_t) rd;
   }
-  if (func->num_funcs > 0) {
-    free(func->funcs);
-  }
+  return 0;
 }
 
-static u8* luac_parse_func(u8 *addr, lfunc_t *func, char *filename) {
-  u32 size, i;
-  size_t length = pread8(&addr);
-  func->name = lstr_add((char*) addr, length - !!length, FALSE);
+#define luac_skip_string(fd) ({ luac_skip(fd, xread8(fd)); })
+
+#define luac_read_string(fd) ({             \
+          size_t len = xread8(fd);          \
+          char *ptr = NULL;                 \
+          if (len > 0) {                    \
+            ptr = xmalloc(len);             \
+            xread(fd, ptr, len);            \
+          }                                 \
+          lstr_add(ptr, len - !!len, TRUE); \
+        })
+
+static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
+  size_t size, i;
+  // file / function name
   func->file = filename;
+  func->name = luac_read_string(fd);
 
-  // read the function header
-  addr += length;
-  size_t hdr_size = 12; // FIXME - magic number
-  memcpy(&(func->start_line), addr, hdr_size);
-  addr += hdr_size;
+  // function metadata
+  func->start_line     = xread4(fd);
+  func->end_line       = xread4(fd);
+  func->num_upvalues   = xread1(fd);
+  func->num_parameters = xread1(fd);
+  func->is_vararg      = xread1(fd);
+  func->max_stack      = xread1(fd);
 
-  func->num_instrs = pread4(&addr);
-  func->instrs = (u32*) addr;
-  addr += func->num_instrs * sizeof(u32);
+  // instructions
+  func->num_instrs = xread4(fd);
+  size = func->num_instrs * sizeof(u32);
+  func->instrs = xmalloc(size);
+  xread(fd, func->instrs, size);
 
-  func->num_consts = pread4(&addr);
-  func->consts = (luav*) xcalloc(func->num_consts, sizeof(luav));
+  // constants :(
+  func->num_consts = xread4(fd);
+  func->consts = xcalloc(func->num_consts, sizeof(luav));
   luav *c = func->consts;
   for (i = 0; i < func->num_consts; i++) {
-    switch (pread1(&addr)) {
+    switch (xread1(fd)) {
       case LUAC_TNIL:
         c[i] = LUAV_NIL;
         break;
       case LUAC_TBOOLEAN:
-        c[i] = lv_bool(pread1(&addr));
+        c[i] = lv_bool(xread1(fd));
         break;
       case LUAC_TNUMBER:
-        c[i] = lv_number(lv_cvt(pread8(&addr)));
+        c[i] = lv_number(lv_cvt(xread8(fd)));
         break;
       case LUAC_TSTRING:
-        length = pread8(&addr);
-        c[i] = lv_string(lstr_add((char*) addr, length - !!length, FALSE));
-        addr += length;
+        c[i] = lv_string(luac_read_string(fd));
         break;
       default:
-        panic("Corrupt precompiled file");
+        goto fderr;
     }
   }
 
-  func->num_funcs = pread4(&addr);
+  // nested functions
+  func->num_funcs = xread4(fd);
   if (func->num_funcs == 0) {
     func->funcs = NULL;
   } else {
     func->funcs = xcalloc(func->num_funcs, sizeof(lfunc_t));
-    for (i = 0; i < func->num_funcs; i++)
-      addr = luac_parse_func(addr, &(func->funcs[i]), filename);
+    for (i = 0; i < func->num_funcs; i++) {
+      int ret = luac_parse_func(&(func->funcs[i]), fd, filename);
+      if (ret < 0) goto fderr;
+    }
   }
 
-  func->dbg_linecount = pread4(&addr);
-  func->dbg_lines = (u32*) addr;
-  addr += func->dbg_linecount * sizeof(u32);
+  // source lines
+  func->num_lines = xread4(fd);
+  size = func->num_lines * sizeof(u32);
+  func->lines = xmalloc(size);
+  xread(fd, func->lines, size);
 
-  func->dbg_locals = addr;
-  size = pread4(&addr);
+  // skip locals debug data
+  size = xread4(fd);
   for (i = 0; i < size; i++) {
-    addr = SKIP_STRING(addr);
-    addr += 2 * sizeof(u32);
+    luac_skip_string(fd);
+    luac_skip(fd, 2 * sizeof(u32));
   }
-
-  func->dbg_upvalues = addr;
-  size = pread4(&addr);
+  // skip upvalues debug data
+  size = xread4(fd);
   for (i = 0; i < size; i++)
-    addr = SKIP_STRING(addr);
+    luac_skip_string(fd);
 
-  return addr;
+  return 0;
+fderr:
+  return -1;
+}
+
+// TODO - actually free stuff 
+void luac_free(lfunc_t *func) {
+  free(func->consts);
+  u32 i;
+  for (i = 0; i < func->num_funcs; i++) {
+    luac_free(&func->funcs[i]);
+  }
+  if (func->num_funcs > 0) {
+    free(func->funcs);
+  }
 }

@@ -47,8 +47,8 @@ lstr_idx lstr_add(char *str, size_t size, int freeable) {
   xassert(initialized);
   // lookup the string in the hashset (see if it's already stored)
   if (size == 0) {
-    if (freeable) free(str);
     str = &zerostr;
+    freeable = FALSE;
   }
   assert(str[size] == 0);
   lstr_idx index = smap_lookup(str, size);
