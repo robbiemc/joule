@@ -111,7 +111,7 @@ static u32 lua_assert(LSTATE) {
     if (argc > 1) {
       explain = lstate_getstring(1)->ptr;
     }
-    err_rawstr(explain);
+    err_rawstr(explain, TRUE);
   }
   u32 i;
   for (i = 0; i < argc && i < retc; i++) {

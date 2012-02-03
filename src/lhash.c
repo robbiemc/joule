@@ -167,7 +167,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
   assert(!lv_isupvalue(value));
 
   if (key == LUAV_NIL || (lv_isnumber(key) && isnan(lv_cvt(key)))) {
-    err_rawstr("table index is nil");
+    err_rawstr("table index is nil", TRUE);
   }
 
   // check if it's a metatable key

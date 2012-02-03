@@ -37,7 +37,7 @@ void err_explain(int err, struct lframe *frame) NORETURN;
 void err_missing(u32 n, u32 expected_type) NORETURN;
 void err_badtype(u32 n, u32 expected_type, u32 got_type) NORETURN;
 void err_str(u32 n, char *explain) NORETURN;
-void err_rawstr(char *explain) NORETURN;
+void err_rawstr(char *explain, int withpos) NORETURN;
 void err_luav(struct lframe *frame, luav v) NORETURN;
 
 #endif /* _ERROR_H */

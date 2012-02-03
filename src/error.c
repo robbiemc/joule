@@ -93,7 +93,11 @@ void err_explain(int err, lframe_t *frame) {
       break;
 
     case ERR_RAWSTR:
-      len += sprintf(err_desc + len, "%s", err_custom);
+      if (err_info[0]) {
+        len += sprintf(err_desc + len, "%s", err_custom);
+      } else {
+        len = sprintf(err_desc, "%s", err_custom);
+      }
       break;
 
     case ERR_LUAV:
@@ -170,8 +174,9 @@ void err_str(u32 n, char *explain) {
   err_explain(ERR_STR, vm_running);
 }
 
-void err_rawstr(char *explain) {
+void err_rawstr(char *explain, int withpos) {
   err_custom = explain;
+  err_info[0] = (u32) withpos;
   err_explain(ERR_RAWSTR, vm_running);
 }
 

@@ -247,7 +247,7 @@ static u32 lua_string_format(LSTATE) {
 
       default:
         sprintf(errbuf, "invalid option '%%%c' to 'format'", fmt[i]);
-        err_rawstr(errbuf);
+        err_rawstr(errbuf, TRUE);
     }
   }
 

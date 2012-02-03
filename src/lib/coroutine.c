@@ -221,9 +221,9 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
   u32 i;
 
   if (thread->status == CO_DEAD) {
-    err_rawstr("cannot resume dead coroutine");
+    err_rawstr("cannot resume dead coroutine", FALSE);
   } else if (thread == cur_thread) {
-    err_rawstr("cannot resume running coroutine");
+    err_rawstr("cannot resume running coroutine", FALSE);
   } else if (thread->status == CO_NEVER_RUN) {
     /* If this thread has no run before, it's argc/argv will be passed to the
        initial function. A call to coroutine.yield() will fill in the retc/retv

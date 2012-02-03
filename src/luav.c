@@ -157,7 +157,7 @@ int lv_compare(luav v1, luav v2) {
   static char errbuf[100];
   sprintf(errbuf, "attempt to compare %s with %s",
           err_typestr(lv_gettype(v1)), err_typestr(lv_gettype(v2)));
-  err_rawstr(errbuf);
+  err_rawstr(errbuf, TRUE);
 }
 
 /**
