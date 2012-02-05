@@ -218,17 +218,17 @@ top:
       }
 
       case OP_GETTABLE: {
-        lhash_t *table = lv_gettable(REG(func, B(code)), 0);
+        luav table = REG(func, B(code));
         luav key = KREG(func, C(code));
-        SETREG(func, A(code), meta_lhash_get(lv_table(table), key, &frame));
+        SETREG(func, A(code), meta_lhash_get(table, key, &frame));
         break;
       }
 
       case OP_SETTABLE: {
-        lhash_t *table = lv_gettable(REG(func, A(code)), 0);
+        luav table = REG(func, A(code));
         luav key = KREG(func, B(code));
         luav value = KREG(func, C(code));
-        meta_lhash_set(lv_table(table), key, value, &frame);
+        meta_lhash_set(table, key, value, &frame);
         break;
       }
 
@@ -631,12 +631,10 @@ static luav meta_lhash_get(luav operand, luav key, lframe_t *frame) {
   }
 
   lhash_t *meta = getmetatable(operand);
-  if (meta == NULL) {
-    if (istable) return LUAV_NIL;
-    err_rawstr("metatable.__index not found", TRUE);
-  }
+  if (meta == NULL) goto notfound;
 
   luav method = meta->metamethods[META_INDEX];
+  if (method == LUAV_NIL) goto notfound;
   if (!lv_isfunction(method))
     return meta_lhash_get(method, key, frame);
 
@@ -648,6 +646,10 @@ static luav meta_lhash_get(luav operand, luav key, lframe_t *frame) {
   vm_stack_dealloc(&vm_stack, idx);
   if (got == 0) return LUAV_NIL;
   return val;
+
+notfound:
+  if (istable) return LUAV_NIL;
+  err_rawstr("metatable.__index not found", TRUE);
 }
 
 static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame) {
@@ -658,6 +660,7 @@ static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame) {
     goto normal;
 
   luav method = meta->metamethods[META_NEWINDEX];
+  if (method == LUAV_NIL) goto normal;
   if (!lv_isfunction(method))
     return meta_lhash_set(method, key, val, frame);
 
