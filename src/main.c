@@ -5,6 +5,7 @@
 
 #include "debug.h"
 #include "error.h"
+#include "flags.h"
 #include "lhash.h"
 #include "lstring.h"
 #include "panic.h"
@@ -16,21 +17,19 @@
 
 static lhash_t lua_arg;
 
-typedef struct lflags {
-  char  dump;
-  char  compiled;
-  char  string;
-} lflags_t;
+lflags_t flags;
 
-static int parse_args(lflags_t *flags, int argc, char **argv) {
+static int parse_args(int argc, char **argv) {
   int i;
   for (i = 1; i < argc; i++) {
     if (SET(i, "-d"))
-      flags->dump = TRUE;
+      flags.dump = TRUE;
     else if (SET(i, "-c"))
-      flags->compiled = TRUE;
+      flags.compiled = TRUE;
     else if (SET(i, "-e"))
-      flags->string = TRUE;
+      flags.string = TRUE;
+    else if (SET(i, "-p"))
+      flags.print = TRUE;
     else
       break;
   }
@@ -50,10 +49,9 @@ static void register_argv(int bias, int argc, char **argv) {
 
 int main(int argc, char **argv) {
   lfunc_t func;
-  lflags_t flags;
 
   memset(&flags, 0, sizeof(lflags_t));
-  int i = parse_args(&flags, argc, argv);
+  int i = parse_args(argc, argv);
   if (i >= argc) goto usage;
 
   lua_program = argv[0];
@@ -87,6 +85,10 @@ int main(int argc, char **argv) {
   return 0;
 
 usage:
-  printf("Usage: %s [-c] [-d] [-e] <file>\n", argv[0]);
+  printf("Usage: %s [options] <file>\n", argv[0]);
+  printf("  -c  Execute precompiled lua bytecode\n");
+  printf("  -e  Execute the provided string of lua\n");
+  printf("  -d  Dump the program's instructions\n");
+  printf("  -p  Print each instruction before it's executed\n");
   return 1;
 }

@@ -6,6 +6,7 @@
 
 #include "debug.h"
 #include "error.h"
+#include "flags.h"
 #include "lhash.h"
 #include "luav.h"
 #include "meta.h"
@@ -200,6 +201,11 @@ top:
   assert((((u64) instrs) & 3) == 0);
   while (instrs < end) {
     u32 code = *instrs++;
+
+    if (flags.print) {
+      opcode_dump(stdout, code);
+      printf("\n");
+    }
 
     switch (OP(code)) {
       case OP_GETGLOBAL: {
