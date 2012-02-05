@@ -68,7 +68,7 @@ void err_explain(int err, lframe_t *frame) {
      from (source line) */
   xassert(pc < func->num_lines);
   len = sprintf(err_desc, "%.25s:%u: ", func->file,
-                func->lines[pc - 1]);
+                func->lines[pc]);
 
   switch (err) {
     case ERR_MISSING:
