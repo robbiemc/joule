@@ -56,32 +56,32 @@
 #define BINOP_EQ(a,b)  ((a) == (b))
 #define BINOP_LT(a,b)  ((a) <  (b))
 #define BINOP_LE(a,b)  ((a) <= (b))
-#define META_ARITH_BINARY(op, idx) {                                    \
-          a = A(code);                                                  \
-          luav bv = KREG(B(code));                                      \
-          luav cv = KREG(C(code));                                      \
-          if (lv_isnumber(bv) && lv_isnumber(cv)) {                     \
-            SETREG(a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));           \
-            break;                                                      \
-          }                                                             \
-          if (meta_binary(bv, idx, bv, cv, STACKI(a), &frame) ||        \
-              meta_binary(cv, idx, bv, cv, STACKI(a), &frame))          \
-            break;                                                      \
-          double bd = lv_castnumber(bv, 0);                             \
-          double cd = lv_castnumber(cv, 1);                             \
-          SETREG(a, lv_number(op(bd, cd)));                             \
+#define META_ARITH_BINARY(op, idx) {                                \
+          a = A(code);                                              \
+          luav bv = KREG(B(code));                                  \
+          luav cv = KREG(C(code));                                  \
+          if (lv_isnumber(bv) && lv_isnumber(cv)) {                 \
+            SETREG(a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));       \
+            break;                                                  \
+          }                                                         \
+          if (meta_binary(bv, idx, bv, cv, STACKI(a), &frame) ||    \
+              meta_binary(cv, idx, bv, cv, STACKI(a), &frame))      \
+            break;                                                  \
+          double bd = lv_castnumber(bv, 0);                         \
+          double cd = lv_castnumber(cv, 1);                         \
+          SETREG(a, lv_number(op(bd, cd)));                         \
         }
-#define META_COMPARE(op, idx) {                                         \
-          u32 lt; luav res;                                             \
-          luav bv = KREG(B(code)); luav cv = KREG(C(code));             \
-          if (meta_eq(bv, cv, idx, bv, cv, &res, &frame)) {             \
-            lt = lv_getbool(res, 0);                                    \
-          } else {                                                      \
-            lt = op(lv_compare(bv, cv), 0);                             \
-          }                                                             \
-          if (lt != A(code)) {                                          \
-            instrs++;                                                   \
-          }                                                             \
+#define META_COMPARE(op, idx) {                               \
+          u32 lt; luav res;                                   \
+          luav bv = KREG(B(code)); luav cv = KREG(C(code));   \
+          if (meta_eq(bv, cv, idx, &res, &frame)) {           \
+            lt = lv_getbool(res, 0);                          \
+          } else {                                            \
+            lt = op(lv_compare(bv, cv), 0);                   \
+          }                                                   \
+          if (lt != A(code)) {                                \
+            instrs++;                                         \
+          }                                                   \
         }
 
 lhash_t userdata_meta;
@@ -95,7 +95,7 @@ static int meta_unary(luav operand, u32 op, u32 reti, lframe_t *frame);
 static int meta_binary(luav operand, u32 op, luav lv, luav rv,
                        u32 reti, lframe_t *frame);
 static int meta_eq(luav operand1, luav operand2, u32 op,
-                   luav lv, luav rv, luav *res, lframe_t *frame);
+                   luav *ret, lframe_t *frame);
 static luav meta_lhash_get(luav operand, luav key, lframe_t *frame);
 static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame);
 
@@ -364,7 +364,18 @@ top:
         instrs += SBX(code);
         break;
 
-      case OP_EQ: META_COMPARE(BINOP_EQ, META_EQ); break;
+      case OP_EQ: {
+        luav res;
+        luav bv = KREG(B(code));
+        luav cv = KREG(C(code));
+        u32 eq = (bv != LUAV_NIL) && (bv == cv);
+        if (!eq && meta_eq(bv, cv, META_EQ, &res, &frame))
+          eq = lv_getbool(res, 0);
+        if (eq != A(code))
+          instrs++;
+        break;
+      }
+
       case OP_LT: META_COMPARE(BINOP_LT, META_LT); break;
       case OP_LE: META_COMPARE(BINOP_LE, META_LE); break;
 
@@ -604,7 +615,7 @@ static int meta_binary(luav operand, u32 op, luav lv, luav rv,
 }
 
 static int meta_eq(luav operand1, luav operand2, u32 op,
-                   luav lv, luav rv, luav *ret, lframe_t *frame) {
+                   luav *ret, lframe_t *frame) {
   lhash_t *meta1 = getmetatable(operand1);
   lhash_t *meta2 = getmetatable(operand2);
   if (meta1 != NULL && meta2 != NULL) {
@@ -612,8 +623,8 @@ static int meta_eq(luav operand1, luav operand2, u32 op,
     luav meth2 = meta2->metamethods[op];
     if (meth1 != LUAV_NIL && meth1 == meth2) {
       u32 idx = vm_stack_alloc(&vm_stack, 3);
-      vm_stack.base[idx] = lv;
-      vm_stack.base[idx + 1] = rv;
+      vm_stack.base[idx] = operand1;
+      vm_stack.base[idx + 1] = operand2;
       u32 got = vm_fun(lv_getfunction(meth1, 0), frame, 2, idx, 1, idx + 2);
       if (got == 0) {
         *ret = LUAV_NIL;
