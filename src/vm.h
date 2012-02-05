@@ -77,6 +77,7 @@ typedef struct lstack {
     (fun)->function.c->name = str;                \
   }
 
+extern struct lhash userdata_metatables;
 extern struct lhash lua_globals;
 extern lframe_t *vm_running;
 extern lstack_t vm_stack;

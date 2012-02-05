@@ -18,6 +18,7 @@
 #define lstate_getbool(n)     lv_getbool(lstate_getarg(n, LBOOLEAN), n)
 #define lstate_gettable(n)    lv_gettable(lstate_getarg(n, LTABLE), n)
 #define lstate_getthread(n)   lv_getthread(lstate_getarg(n, LTHREAD), n)
+#define lstate_getuserdata(n) lv_getuserdata(lstate_getarg(n, LUSERDATA), n)
 
 #define lstate_return(v, n)                                 \
   do {                                                      \

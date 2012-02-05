@@ -268,21 +268,15 @@ static u32 lua_rawset(LSTATE) {
 static u32 lua_setmetatable(LSTATE) {
   lhash_t *table = lstate_gettable(0);
   // make sure the current metatable isn't protected
-#ifndef NDEBUG
   lhash_t *old = table->metatable;
-  assert(old == NULL || old->metamethods[META_METATABLE] == LUAV_NIL);
-#endif
+  if (old != NULL && old->metamethods[META_METATABLE] != LUAV_NIL)
+    err_rawstr("You cannot replace a protected metatable", TRUE);
 
   luav value = lstate_getval(1);
-  switch (lv_gettype(value)) {
-    case LNIL:
-      table->metatable = NULL;
-      break;
-    case LTABLE:
-      table->metatable = lv_gettable(value, 1);
-      break;
-    default:
-      panic("Metatables can only be nil or a table");
+  if (value == LUAV_NIL) {
+    table->metatable = NULL;
+  } else {
+    table->metatable = lstate_gettable(1);
   }
   lstate_return1(lv_table(table));
 }
