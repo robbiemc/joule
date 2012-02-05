@@ -368,7 +368,7 @@ top:
         luav res;
         luav bv = KREG(B(code));
         luav cv = KREG(C(code));
-        u32 eq = (bv != LUAV_NIL) && (bv == cv);
+        u32 eq = (bv != LUAV_NAN) && (bv == cv);
         if (!eq && meta_eq(bv, cv, META_EQ, &res, &frame))
           eq = lv_getbool(res, 0);
         if (eq != A(code))
