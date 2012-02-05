@@ -55,8 +55,8 @@
 #define A(opc)        (((opc) >> 6) & 0xff)
 #define B(opc)        (((opc) >> 23) & 0x1ff)
 #define C(opc)        (((opc) >> 14) & 0x1ff)
-#define PAYLOAD(opc)  (((opc) >> 14) & 0x3ffff)
-#define UNBIAS(v)     ((i32) ((v) - 131071))
+#define BX(opc)       (((opc) >> 14) & 0x3ffff)
+#define SBX(opc)      ((i32) (BX(opc) - 131071))
 
 void opcode_dump(FILE *out, uint32_t code);
 void opcode_dump_idx(FILE *out, lfunc_t *func, size_t idx);

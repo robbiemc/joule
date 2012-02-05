@@ -16,14 +16,14 @@
 
 #define STACKI(n) (stack + (n))
 #define STACK(n) vm_stack.base[STACKI(n)]
-#define CONST(f, n) ({ assert((n) < (f)->num_consts); (f)->consts[n]; })
-#define REG(f, n)                                                             \
+#define CONST(n) ({ assert((n) < func->num_consts); func->consts[n]; })
+#define REG(n)                                                                \
   ({                                                                          \
     assert(&STACK(n) < vm_stack.top);                                         \
     luav _tmp = STACK(n);                                                     \
     need_close && lv_isupvalue(_tmp) ? lv_getupvalue(_tmp)->value : _tmp;     \
   })
-#define SETREG(f, n, v)                         \
+#define SETREG(n, v)                            \
   ({                                            \
     assert(&STACK(n) < vm_stack.top);           \
     if (need_close && lv_isupvalue(STACK(n))) { \
@@ -34,7 +34,7 @@
   })
 
 /* TODO: extract out 256 */
-#define KREG(func, n) ((n) >= 256 ? CONST(func, (n) - 256) : REG(func, n))
+#define KREG(n) ((n) >= 256 ? CONST((n) - 256) : REG(n))
 #define UPVALUE(closure, n)                                \
   ({                                                       \
     assert((n) < (closure)->function.lua->num_upvalues);   \
@@ -58,10 +58,10 @@
 #define BINOP_LE(a,b)  ((a) <= (b))
 #define META_ARITH_BINARY(op, idx) {                                    \
           a = A(code);                                                  \
-          luav bv = KREG(func, B(code));                                \
-          luav cv = KREG(func, C(code));                                \
+          luav bv = KREG(B(code));                                      \
+          luav cv = KREG(C(code));                                      \
           if (lv_isnumber(bv) && lv_isnumber(cv)) {                     \
-            SETREG(func, a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));     \
+            SETREG(a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));           \
             break;                                                      \
           }                                                             \
           if (meta_binary(bv, idx, bv, cv, STACKI(a), &frame) ||        \
@@ -69,11 +69,11 @@
             break;                                                      \
           double bd = lv_castnumber(bv, 0);                             \
           double cd = lv_castnumber(cv, 1);                             \
-          SETREG(func, a, lv_number(op(bd, cd)));                       \
+          SETREG(a, lv_number(op(bd, cd)));                             \
         }
 #define META_COMPARE(op, idx) {                                         \
           u32 lt; luav res;                                             \
-          luav bv = KREG(func, B(code)); luav cv = KREG(func, C(code)); \
+          luav bv = KREG(B(code)); luav cv = KREG(C(code));             \
           if (meta_eq(bv, cv, idx, bv, cv, &res, &frame)) {             \
             lt = lv_getbool(res, 0);                                    \
           } else {                                                      \
@@ -209,62 +209,62 @@ top:
 
     switch (OP(code)) {
       case OP_GETGLOBAL: {
-        luav key = CONST(func, PAYLOAD(code));
+        luav key = CONST(BX(code));
         assert(lv_isstring(key));
         luav val = meta_lhash_get(lv_table(closure->env), key, &frame);
-        SETREG(func, A(code), val);
+        SETREG(A(code), val);
         break;
       }
 
       case OP_SETGLOBAL: {
-        luav key = CONST(func, PAYLOAD(code));
-        luav value = REG(func, A(code));
+        luav key = CONST(BX(code));
+        luav value = REG(A(code));
         meta_lhash_set(lv_table(closure->env), key, value, &frame);
         break;
       }
 
       case OP_GETTABLE: {
-        luav table = REG(func, B(code));
-        luav key = KREG(func, C(code));
-        SETREG(func, A(code), meta_lhash_get(table, key, &frame));
+        luav table = REG(B(code));
+        luav key = KREG(C(code));
+        SETREG(A(code), meta_lhash_get(table, key, &frame));
         break;
       }
 
       case OP_SETTABLE: {
-        luav table = REG(func, A(code));
-        luav key = KREG(func, B(code));
-        luav value = KREG(func, C(code));
+        luav table = REG(A(code));
+        luav key = KREG(B(code));
+        luav value = KREG(C(code));
         meta_lhash_set(table, key, value, &frame);
         break;
       }
 
       case OP_GETUPVAL:
         temp = UPVALUE(closure, B(code));
-        SETREG(func, A(code), lv_getupvalue(temp)->value);
+        SETREG(A(code), lv_getupvalue(temp)->value);
         break;
 
       case OP_SETUPVAL:
         temp = UPVALUE(closure, B(code));
-        lv_getupvalue(temp)->value = REG(func, A(code));
+        lv_getupvalue(temp)->value = REG(A(code));
         break;
 
       case OP_LOADK:
-        SETREG(func, A(code), CONST(func, PAYLOAD(code)));
+        SETREG(A(code), CONST(BX(code)));
         break;
 
       case OP_LOADNIL:
         for (i = A(code); i <= B(code); i++) {
-          SETREG(func, i, LUAV_NIL);
+          SETREG(i, LUAV_NIL);
         }
         break;
 
       case OP_MOVE:
-        SETREG(func, A(code), REG(func, B(code)));
+        SETREG(A(code), REG(B(code)));
         break;
 
       case OP_CALL: {
         a = A(code); b = B(code); c = C(code);
-        lclosure_t *closure2 = lv_getfunction(REG(func, a), 0);
+        lclosure_t *closure2 = lv_getfunction(REG(a), 0);
         u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
 
@@ -272,7 +272,7 @@ top:
                                            want_ret, STACKI(a));
         // fill in the nils
         for (i = got; i < c - 1 && &STACK(a + i) < vm_stack.top; i++) {
-          SETREG(func, a + i, LUAV_NIL);
+          SETREG(a + i, LUAV_NIL);
         }
         last_ret = a + got;
         break;
@@ -287,7 +287,7 @@ top:
           limit = b - 1;
         }
         for (i = 0; i < limit && i < retc; i++) {
-          vm_stack.base[retvi + i] = REG(func, a + i);
+          vm_stack.base[retvi + i] = REG(a + i);
         }
         if (need_close) {
           op_close(vm_stack.size - stack, vm_stack.base + stack);
@@ -299,7 +299,7 @@ top:
       case OP_TAILCALL:
         a = A(code);
         b = B(code);
-        closure = lv_getfunction(REG(func, a), 0);
+        closure = lv_getfunction(REG(a), 0);
         if (closure->type == LUAF_LUA) {
           int diff = closure->function.lua->max_stack - func->max_stack;
           if (diff > 0) {
@@ -312,7 +312,7 @@ top:
         goto top;
 
       case OP_CLOSURE: {
-        bx = PAYLOAD(code);
+        bx = BX(code);
         assert(bx < func->num_funcs);
         lfunc_t *function = &func->funcs[bx];
         lclosure_t *closure2 = xmalloc(CLOSURE_SIZE(function->num_upvalues));
@@ -351,7 +351,7 @@ top:
           closure2->upvalues[i] = upvalue;
         }
 
-        SETREG(func, A(code), lv_function(closure2));
+        SETREG(A(code), lv_function(closure2));
         break;
       }
 
@@ -361,7 +361,7 @@ top:
         break;
 
       case OP_JMP:
-        instrs += UNBIAS(PAYLOAD(code));
+        instrs += SBX(code);
         break;
 
       case OP_EQ: META_COMPARE(BINOP_EQ, META_EQ); break;
@@ -369,23 +369,23 @@ top:
       case OP_LE: META_COMPARE(BINOP_LE, META_LE); break;
 
       case OP_TEST:
-        temp = REG(func, A(code));
+        temp = REG(A(code));
         if (lv_getbool(temp, 0) != C(code)) {
           instrs++;
         }
         break;
 
       case OP_TESTSET:
-        temp = REG(func, B(code));
+        temp = REG(B(code));
         if (lv_getbool(temp, 0) != C(code)) {
-          SETREG(func, A(code), temp);
+          SETREG(A(code), temp);
         } else {
           instrs++;
         }
         break;
 
       case OP_LOADBOOL:
-        SETREG(func, A(code), lv_bool((u8) B(code)));
+        SETREG(A(code), lv_bool((u8) B(code)));
         if (C(code)) {
           instrs++;
         }
@@ -400,34 +400,34 @@ top:
 
       case OP_UNM: {
         a = A(code);
-        luav bv = REG(func, B(code));
+        luav bv = REG(B(code));
         if (lv_isnumber(bv)) {
-          SETREG(func, a, lv_number(-lv_cvt(bv)));
+          SETREG(a, lv_number(-lv_cvt(bv)));
           break;
         }
         if (meta_unary(bv, META_UNM, STACKI(a), &frame))
           break;
-        SETREG(func, a, lv_number(-lv_castnumber(bv, 0)));
+        SETREG(a, lv_number(-lv_castnumber(bv, 0)));
         break;
       }
 
       case OP_NOT: { // no metamethod for not
-        u8 bv = lv_getbool(REG(func, B(code)), 0);
-        SETREG(func, A(code), lv_bool(bv ^ 1));
+        u8 bv = lv_getbool(REG(B(code)), 0);
+        SETREG(A(code), lv_bool(bv ^ 1));
         break;
       }
 
       case OP_LEN: {
-        luav bv = REG(func, B(code));
+        luav bv = REG(B(code));
         switch (lv_gettype(bv)) {
           case LSTRING: {
             size_t len = lv_caststring(bv, 0)->length;
-            SETREG(func, A(code), lv_number((double) len));
+            SETREG(A(code), lv_number((double) len));
             break;
           }
           case LTABLE: {
             size_t len = lv_gettable(bv, 0)->length;
-            SETREG(func, A(code), lv_number((double) len));
+            SETREG(A(code), lv_number((double) len));
             break;
           }
           default:
@@ -441,27 +441,27 @@ top:
         //        ignore the size hints. Eventually we should use them.
         lhash_t *ht = xmalloc(sizeof(lhash_t));
         lhash_init(ht);
-        SETREG(func, A(code), lv_table(ht));
+        SETREG(A(code), lv_table(ht));
         break;
       }
 
       case OP_FORPREP:
         a = A(code);
-        SETREG(func, a, lv_number(lv_castnumber(REG(func, a), 0) -
-                                  lv_castnumber(REG(func, a + 2), 0)));
-        instrs += UNBIAS(PAYLOAD(code));
+        SETREG(a, lv_number(lv_castnumber(REG(a), 0) -
+                                  lv_castnumber(REG(a + 2), 0)));
+        instrs += SBX(code);
         break;
 
       case OP_FORLOOP: {
         a = A(code);
-        double d1 = lv_castnumber(REG(func, a), 0);
-        double d2 = lv_castnumber(REG(func, a + 1), 0);
-        double step = lv_castnumber(REG(func, a + 2), 0);
-        SETREG(func, a, lv_number(d1 + step));
+        double d1 = lv_castnumber(REG(a), 0);
+        double d2 = lv_castnumber(REG(a + 1), 0);
+        double step = lv_castnumber(REG(a + 2), 0);
+        SETREG(a, lv_number(d1 + step));
         d1 += step;
         if ((step > 0 && d1 <= d2) || (step < 0 && d1 >= d2)) {
-          SETREG(func, a + 3, lv_number(d1));
-          instrs += UNBIAS(PAYLOAD(code));
+          SETREG(a + 3, lv_number(d1));
+          instrs += SBX(code);
         }
         break;
       }
@@ -471,7 +471,7 @@ top:
         c = C(code);
         char *str = xmalloc(cap);
         for (i = B(code); i <= c; i++) {
-          lstring_t *lstr = lv_caststring(REG(func, i), 0);
+          lstring_t *lstr = lv_caststring(REG(i), 0);
           while (lstr->length + len + 1 >= cap) {
             cap *= 2;
             str = xrealloc(str, cap);
@@ -480,7 +480,7 @@ top:
           len += lstr->length;
         }
         str[len] = 0;
-        SETREG(func, A(code), lv_string(lstr_add(str, len, TRUE)));
+        SETREG(A(code), lv_string(lstr_add(str, len, TRUE)));
         break;
       }
 
@@ -492,10 +492,10 @@ top:
           c = *instrs++;
         }
         if (b == 0) { b = last_ret - a - 1; }
-        lhash_t *hash = lv_gettable(REG(func, a), 0);
+        lhash_t *hash = lv_gettable(REG(a), 0);
         for (i = 1; i <= b; i++) {
           lhash_set(hash, lv_number((c - 1) * LFIELDS_PER_FLUSH + i),
-                          REG(func, a + i));
+                          REG(a + i));
         }
         break;
       }
@@ -508,38 +508,38 @@ top:
           vm_stack_grow(&vm_stack, stack + limit + a - vm_stack.size);
         }
         for (i = 0; i < limit && i < argc; i++) {
-          SETREG(func, a + i, vm_stack.base[argvi + i]);
+          SETREG(a + i, vm_stack.base[argvi + i]);
         }
         for (; i < limit; i++) {
-          SETREG(func, a + i, LUAV_NIL);
+          SETREG(a + i, LUAV_NIL);
         }
         last_ret = a + i;
         break;
       }
 
       case OP_SELF:
-        SETREG(func, A(code) + 1, REG(func, B(code)));
-        temp = KREG(func, C(code));
-        temp = lhash_get(lv_gettable(REG(func, B(code)), 0), temp);
-        SETREG(func, A(code), temp);
+        SETREG(A(code) + 1, REG(B(code)));
+        temp = KREG(C(code));
+        temp = lhash_get(lv_gettable(REG(B(code)), 0), temp);
+        SETREG(A(code), temp);
         break;
 
       case OP_TFORLOOP:
         a = A(code); c = C(code);
-        lclosure_t *closure2 = lv_getfunction(REG(func, a), 0);
+        lclosure_t *closure2 = lv_getfunction(REG(a), 0);
         u32 got = vm_fun(closure2, &frame, 2, STACKI(a + 1),
-                                   (u32) REG(func, c), STACKI(a + 3));
+                                   (u32) REG(c), STACKI(a + 3));
         vm_running = &frame;
-        temp = REG(func, a + 3);
+        temp = REG(a + 3);
         if (got == 0 || temp == LUAV_NIL) {
           instrs++;
         } else {
-          SETREG(func, a + 2, temp);
+          SETREG(a + 2, temp);
         }
         // fill in the nils
         if (c != 0) {
           for (i = got; i < c; i++) {
-            SETREG(func, a + 3 + i, LUAV_NIL);
+            SETREG(a + 3 + i, LUAV_NIL);
           }
         }
         break;

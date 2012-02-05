@@ -32,7 +32,7 @@ void opcode_dump(FILE *out, uint32_t code) {
     case OP_MOVE:
       fprintf(out, "MOVE      R%d = R%d", A(code), B(code)); break;
     case OP_LOADK:
-      fprintf(out, "LOADK     R%d = K%d", A(code), PAYLOAD(code)); break;
+      fprintf(out, "LOADK     R%d = K%d", A(code), BX(code)); break;
     case OP_LOADBOOL:
       fprintf(out, "LOADBOOL  R%d = %s; PC += %d", A(code), B(code)?"true":"false", !!C(code));
       break;
@@ -41,11 +41,11 @@ void opcode_dump(FILE *out, uint32_t code) {
     case OP_GETUPVAL:
       fprintf(out, "GETUPVAL  R%d = UP[%d]", A(code), B(code)); break;
     case OP_GETGLOBAL:
-      fprintf(out, "GETGLOBAL R%d = G[K%d]", A(code), PAYLOAD(code)); break;
+      fprintf(out, "GETGLOBAL R%d = G[K%d]", A(code), BX(code)); break;
     case OP_GETTABLE:
       fprintf(out, "GETTABLE  R%d = R%d[%s]", A(code), B(code), RK(C(code))); break;
     case OP_SETGLOBAL:
-      fprintf(out, "SETGLOBAL G[K%d] = R%d", PAYLOAD(code), A(code)); break;
+      fprintf(out, "SETGLOBAL G[K%d] = R%d", BX(code), A(code)); break;
     case OP_SETUPVAL:
       fprintf(out, "SETUPVAL  UP[%d] = %d", B(code), A(code)); break;
     case OP_SETTABLE:
@@ -76,7 +76,7 @@ void opcode_dump(FILE *out, uint32_t code) {
     case OP_CONCAT:
       fprintf(out, "CONCAT    R%d = R%d .. Rn .. R%d", A(code), B(code), C(code)); break;
     case OP_JMP:
-      fprintf(out, "JMP       PC += %d", UNBIAS(PAYLOAD(code))); break;
+      fprintf(out, "JMP       PC += %d", SBX(code)); break;
     case OP_EQ:
       fprintf(out, "EQ        if (%s %s %s) PC++", RK(B(code)), A(code)?"!=":"==",
                                                    RK2(C(code))); break;
@@ -100,9 +100,9 @@ void opcode_dump(FILE *out, uint32_t code) {
     case OP_RETURN:
       fprintf(out, "RETURN    R%d, ..., R%d", A(code), A(code)+B(code)-2); break;
     case OP_FORLOOP:
-      fprintf(out, "FORPREP   %d %d", A(code), UNBIAS(PAYLOAD(code))); break;
+      fprintf(out, "FORPREP   %d %d", A(code), SBX(code)); break;
     case OP_FORPREP:
-      fprintf(out, "FORLOOP   %d %d", A(code), UNBIAS(PAYLOAD(code))); break;
+      fprintf(out, "FORLOOP   %d %d", A(code), SBX(code)); break;
     case OP_TFORLOOP:
       fprintf(out, "TFORLOOP  %d %d", A(code), C(code)); break;
     case OP_SETLIST:
@@ -110,7 +110,7 @@ void opcode_dump(FILE *out, uint32_t code) {
     case OP_CLOSE:
       fprintf(out, "CLOSE     %d", A(code)); break;
     case OP_CLOSURE:
-      fprintf(out, "CLOSURE   R%d = F%d", A(code), PAYLOAD(code)); break;
+      fprintf(out, "CLOSURE   R%d = F%d", A(code), BX(code)); break;
     case OP_VARARG:
       fprintf(out, "VARARG    %d %d", A(code), B(code)); break;
 
