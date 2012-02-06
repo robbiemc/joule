@@ -34,5 +34,5 @@ ARGV.sort.each do |file|
     pct = sprintf "#{RESET}%10.2f%%#{RESET}", pct
   end
 
-  printf "%25s\tl:%10f\tj:%10f\t%s\n", file, lua_time, joule_time, pct
+  printf "%27s\tl:%10f\tj:%10f\t%s\n", file, lua_time, joule_time, pct
 end
