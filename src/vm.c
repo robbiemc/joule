@@ -686,7 +686,7 @@ static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame) {
     return meta_lhash_set(method, key, val, frame);
 
   u32 idx = vm_stack_alloc(vm_stack, 3);
-  vm_stack->base[idx] = lv_table(key);
+  vm_stack->base[idx] = operand;
   vm_stack->base[idx + 1] = key;
   vm_stack->base[idx + 2] = val;
   vm_fun(lv_getfunction(method, 0), frame, 3, idx, 0, 0);
