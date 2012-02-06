@@ -29,7 +29,7 @@ OBJS := $(OBJS:%=$(OBJDIR)/%)
 LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
 	    loop sort func fib select math2 bisect cf printf select smallfun \
             os strings coroutine2 sieve load pcall metabasic calls coroutine \
-	    noglobals fibfor readonly echo
+	    noglobals fibfor readonly echo constructs
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 
 BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2 \
