@@ -204,6 +204,8 @@ top:
     u32 code = *instrs++;
 
     if (flags.print) {
+      u64 idx = ((u64)instrs - (u64)func->instrs) / sizeof(u32);
+      printf("[%d] ", func->lines[idx]);
       opcode_dump(stdout, code);
       printf("\n");
     }
