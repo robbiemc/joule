@@ -525,7 +525,7 @@ top:
           vm_stack_grow(vm_stack, stack + limit + a - vm_stack->size);
         }
         for (i = 0; i < limit && i < argc; i++) {
-          SETREG(a + i, vm_stack->base[argvi + i]);
+          SETREG(a + i, vm_stack->base[argvi + i + func->num_parameters]);
         }
         for (; i < limit; i++) {
           SETREG(a + i, LUAV_NIL);
