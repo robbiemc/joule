@@ -122,6 +122,7 @@ u8               lv_getbool(luav value, u32 argnum);
 void*            lv_getuserdata(luav value, u32 argnum);
 struct lclosure* lv_getfunction(luav value, u32 argnum);
 struct lthread*  lv_getthread(luav value, u32 argnum);
+#define lv_getbool(v, _) ((v) != LUAV_NIL && (v) != LUAV_FALSE)
 #define lv_getupvalue(v) \
   ({ assert(lv_isupvalue(v)); (upvalue_t*) LUAV_DATA(v); })
 
