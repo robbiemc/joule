@@ -391,7 +391,7 @@ top:
 
       case OP_TESTSET:
         temp = REG(B(code));
-        if (lv_getbool(temp, 0) != C(code)) {
+        if (lv_getbool(temp, 0) == C(code)) {
           SETREG(A(code), temp);
         } else {
           instrs++;
