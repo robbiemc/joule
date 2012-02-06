@@ -16,8 +16,8 @@ typedef u32 cfunction_t(LSTATE);
 typedef struct lfunc {
   lstr_idx      name;
   char          *file;
-  int           start_line;
-  int           end_line;
+  u32           start_line;
+  u32           end_line;
   uint8_t       num_upvalues;
   uint8_t       num_parameters;
   uint8_t       is_vararg;
