@@ -128,6 +128,7 @@ int lv_parsenum(struct lstring *str, u32 base, double *value);
 
 #define lv_castnumber(a, b) lv_castnumberb(a, 10, b)
 #define lv_hash(lv) ((u32) ((lv) ^ ((lv) >> 32) ^ 0xfc83d6a5))
+#define lv_nilify(mem, count) memset((mem), 0xff, (count) * sizeof(luav))
 
 u8  lv_gettype(luav value);
 int lv_compare(luav v1, luav v2);

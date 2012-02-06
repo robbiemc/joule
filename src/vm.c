@@ -194,6 +194,7 @@ top:
 
   memcpy(&STACK(0), &vm_stack.base[argvi], sizeof(luav) * argc);
   assert(&STACK(argc) <= vm_stack.top);
+  // TODO - convert this to lv_nilify
   for (i = argc; &STACK(i) < vm_stack.top; i++) {
     STACK(i) = LUAV_NIL;
   }

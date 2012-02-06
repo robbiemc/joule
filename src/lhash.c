@@ -5,6 +5,8 @@
  *
  * TODO: optimize
  * TODO: shrink when keys set to nil
+ * TODO: iterate over metamethods in lhash_next
+ * TODO: fix the len operator
  */
 
 #include <assert.h>
@@ -228,9 +230,7 @@ void lhash_rawset(lhash_t *map, i32 index, int isnew, luav key, luav val) {
     // metatable set
     if (map->metamethods == meta_empty) {
       map->metamethods = xmalloc(NUM_META_METHODS * sizeof(luav));
-      size_t i;
-      for (i = 0; i < NUM_META_METHODS; i++)
-        map->metamethods[i] = LUAV_NIL;
+      lv_nilify(map->metamethods, NUM_META_METHODS);
     }
     map->metamethods[-index] = val;
     return;
