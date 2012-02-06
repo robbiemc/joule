@@ -22,8 +22,8 @@
 
 static void lhash_resize(lhash_t *hash);
 
+luav meta_strings[NUM_META_METHODS];
 static luav meta_empty[NUM_META_METHODS];
-static luav meta_strings[NUM_META_METHODS];
 static luav max_meta_string;
 
 INIT static void lua_lhash_init() {

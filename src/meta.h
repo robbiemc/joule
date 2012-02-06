@@ -23,4 +23,6 @@
 #define META_METATABLE    16
 #define NUM_META_METHODS  17
 
+extern luav meta_strings[NUM_META_METHODS];
+
 #endif /* _META_H_ */
