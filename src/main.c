@@ -72,13 +72,7 @@ int main(int argc, char **argv) {
   }
 
   register_argv(i, argc, argv);
-#ifdef HASH_PROFILE
-  lhash_start_profile();
-#endif
   vm_run(&func);
-#ifdef HASH_PROFILE
-  lhash_show_profile();
-#endif
   lhash_free(&lua_arg);
 
   luac_free(&func);

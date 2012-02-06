@@ -9,7 +9,6 @@
 
 #include <assert.h>
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,29 +23,6 @@ static void lhash_resize(lhash_t *hash);
 static luav meta_empty[NUM_META_METHODS];
 static luav meta_strings[NUM_META_METHODS];
 static luav max_meta_string;
-
-#ifdef HASH_PROFILE
-#define HPROF(code) if (profiling) { code; }
-int profiling = FALSE;
-double set_avg_collisions = 0;
-double set_count = 0;
-double get_avg_collisions = 0;
-double get_count = 0;
-
-void lhash_start_profile() {
-  profiling = TRUE;
-}
-
-void lhash_show_profile() {
-  printf("\n\n");
-  printf("%.0f hashtable gets:\n", get_count);
-  printf("    mean collisions: %f\n", get_avg_collisions);
-  printf("%.0f hashtable sets:\n", set_count);
-  printf("    mean collisions: %f\n", set_avg_collisions);
-}
-#else
-#define HPROF(code)
-#endif
 
 INIT static void lua_lhash_init() {
   // a nil meta table array - this is default
@@ -125,11 +101,11 @@ void lhash_free(lhash_t *hash) {
  * @return the metatable index of the given key, or META_INVALID if it is not a
  *         valid event
  */
-size_t lhash_check_meta(luav key) {
+i32 lhash_check_meta(luav key) {
   if (!lv_isstring(key) || key > max_meta_string)
     return META_INVALID;
 
-  size_t i;
+  i32 i;
   for (i = 0; i < NUM_META_METHODS; i++) {
     if (meta_strings[i] == key) {
       return i;
@@ -152,30 +128,10 @@ luav lhash_get(lhash_t *map, luav key) {
     return LUAV_NIL;
   }
 
-  // check if it's a metatable key
-  size_t meta_index = lhash_check_meta(key);
-  if (meta_index != META_INVALID) {
-    if (map->metamethods == NULL) {
-      return LUAV_NIL;
-    }
-    return map->metamethods[meta_index];
-  }
-
-  HPROF(get_avg_collisions *= (get_count / (get_count + 1)));
-  HPROF(get_count++);
-  u32 h = lv_hash(key) % map->cap;
-  u32 step = 1;
-  while (1) {
-    luav cur = map->hash[h].key;
-    if (cur == key) {
-      return map->hash[h].value;
-    } else if (cur == LUAV_NIL) {
-      return LUAV_NIL;
-    }
-    HPROF(get_avg_collisions += 1.0 / get_count);
-    h = (h + step++) % map->cap;
-  }
-
+  i32 index;
+  int found = lhash_index(map, key, &index);
+  if (!found) return LUAV_NIL;
+  return lhash_rawget(map, index);
 }
 
 /**
@@ -197,46 +153,106 @@ void lhash_set(lhash_t *map, luav key, luav value) {
     err_rawstr("table index is nil", TRUE);
   }
 
+  i32 index;
+  int found = lhash_index(map, key, &index);
+  lhash_rawset(map, index, !found, key, value);
+}
+
+/**
+ * @brief Finds which index the given key is at, or would be inserted at
+ *
+ * If the key is already in the table, 'index' is set to the index of the key,
+ * otherwise, 'index' is set to the index the key would be inserted at. The
+ * function returns TRUE if the key was found, and FALSE if it was not.
+ *
+ * @param map the table to look in
+ * @param key the key to look up in the table
+ * @param index where to store the index
+ * @return TRUE if the key was found in the table
+ */
+int lhash_index(lhash_t *map, luav key, i32 *index) {
   // check if it's a metatable key
-  size_t meta_index = lhash_check_meta(key);
+  i32 meta_index = lhash_check_meta(key);
   if (meta_index != META_INVALID) {
+    *index = -meta_index;
+    return TRUE;
+  }
+
+  i32 h = (i32) (lv_hash(key) % map->cap);
+  i32 step = 1;
+  while (1) {
+    struct lh_pair *entry = &map->hash[h];
+    luav cur = entry->key;
+    if (cur == key) {
+      *index = h;
+      return (entry->value != LUAV_NIL);
+    } else if (cur == LUAV_NIL) {
+      *index = h;
+      return FALSE;
+    }
+    h = (h + step++) % (i32) map->cap;
+  }
+}
+
+/**
+ * @brief Gets the value at the given index of the given table
+ *
+ * The index is not checked - it is assumed it is a valid index.
+ *
+ * @param map the table to look in
+ * @param index the index into the table to return
+ * @return the value at the given index - LUAV_NIL if there isn't one
+ */
+luav lhash_rawget(lhash_t *map, i32 index) {
+  if (index < 0) {
+    // metatable get
+    return map->metamethods[-index];
+  }
+  return map->hash[index].value;
+}
+
+/**
+ * @brief Sets the key/value at the given index of the given table
+ *
+ * The index is not checked - it is assumed it is a valid index.
+ * TODO - if val is nil, we should decrease the size of the hashtable
+ *
+ * @param map the table to alter
+ * @param index the index within the table to set
+ * @param isnew TRUE if the key was previously nil
+ * @param key the key to assign to map[index]
+ * @param value the value to assign to map[index]
+ */
+void lhash_rawset(lhash_t *map, i32 index, int isnew, luav key, luav val) {
+  if (index < 0) {
+    // metatable set
     if (map->metamethods == meta_empty) {
       map->metamethods = xmalloc(NUM_META_METHODS * sizeof(luav));
       size_t i;
       for (i = 0; i < NUM_META_METHODS; i++)
         map->metamethods[i] = LUAV_NIL;
     }
-    map->metamethods[meta_index] = value;
+    map->metamethods[-index] = val;
+    return;
   }
 
-  HPROF(set_avg_collisions *= (set_count / (set_count + 1)));
-  HPROF(set_count++);
-  u32 h = lv_hash(key) % map->cap;
-  u32 step = 1;
-  while (1) {
-    luav cur = map->hash[h].key;
-    if (cur == key) {
-      map->hash[h].value = value;
-      break;
-    } else if (cur == LUAV_NIL) {
-      map->hash[h].key = key;
-      map->hash[h].value = value;
-      map->size++;
-      if (map->size * 100 / map->cap > LHASH_MAP_THRESH) {
-        lhash_resize(map);
-      }
-      // FIXME - this doesn't always work (but will in this hashtable
-      //         implementation)
-      if (lv_isnumber(key)) {
-        double len = lv_castnumber(key, 0);
-        if ((u64)len == len && len > map->length) {
-          map->length = (u32) len;
-        }
-      }
-      break;
+  map->hash[index].key = key;
+  map->hash[index].value = val;
+
+  // update the array size 
+  if (isnew) {
+    map->size++;
+    if (map->size * 100 / map->cap > LHASH_MAP_THRESH) {
+      lhash_resize(map);
     }
-    HPROF(get_avg_collisions += 1.0 / set_count);
-    h = (h + step++) % map->cap;
+    // FIXME - this doesn't always work (but will in this hashtable
+    //         implementation)
+    if (lv_isnumber(key)) {
+      double len = lv_castnumber(key, 0);
+      if ((u64)len == len && len > map->length) {
+        map->length = (u32) len;
+      }
+    }
   }
 }
 
