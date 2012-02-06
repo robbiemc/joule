@@ -13,6 +13,6 @@ local function gen_random(max)
   return (max * y) / IM
 end
 
-local N = tonumber(arg and arg[1]) or 1
+local N = tonumber(arg and arg[1]) or 1000000
 for i=2,N do gen_random(100) end
 io.write(string.format("%.9f\n", gen_random(100)))

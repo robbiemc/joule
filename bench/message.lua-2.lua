@@ -17,10 +17,9 @@ local function link(n)
   end
 end
 
-local N = tonumber(arg and arg[1]) or 10
+local N = tonumber(arg and arg[1]) or 10000
 local cofunc = wrap(link)
 cofunc(100)
 local count = 0
 for i = 1,N do count = count + cofunc() end
 io.write(count, "\n")
-

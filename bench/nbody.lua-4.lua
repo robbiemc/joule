@@ -112,7 +112,7 @@ local function offsetMomentum(b, nbody)
   b[1].vz = -pz / SOLAR_MASS
 end
 
-local N = tonumber(arg and arg[1]) or 1000
+local N = tonumber(arg and arg[1]) or 10000
 local nbody = #bodies
 
 offsetMomentum(bodies, nbody)

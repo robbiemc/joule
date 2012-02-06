@@ -2,7 +2,7 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local n = tonumber(arg[1]) or 100000
+local n = tonumber(arg[1]) or 200000
 local function pr(fmt, x) io.write(string.format(fmt, x)) end
 
 local a1, a2, a3, a4, a5, a6, a7, a8, a9, alt = 1, 0, 0, 0, 0, 0, 0, 0, 0, 1
@@ -30,4 +30,3 @@ pr("%.9f\tHarmonic\n", a6)
 pr("%.9f\tRiemann Zeta\n", a7)
 pr("%.9f\tAlternating Harmonic\n", a8)
 pr("%.9f\tGregory\n", a9)
-

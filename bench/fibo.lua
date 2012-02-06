@@ -6,5 +6,5 @@ function fib(n)
     return( fib(n-2) + fib(n-1) )
 end
 
-N = tonumber((arg and arg[1])) or 1
+N = tonumber((arg and arg[1])) or 28
 io.write(fib(N), "\n")

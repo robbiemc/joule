@@ -30,7 +30,7 @@ local function nsieve(p, m)
   return count
 end
 
-local N = tonumber(arg and arg[1]) or 1
+local N = tonumber(arg and arg[1]) or 4
 if N < 2 then N = 2 end
 local primes = {}
 

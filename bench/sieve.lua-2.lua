@@ -19,8 +19,7 @@ function main(num)
     end
 end
 
-NUM = tonumber((arg and arg[1])) or 1
+NUM = tonumber((arg and arg[1])) or 100
 count = 0
 main(NUM)
 io.write("Count: ", count, "\n")
-

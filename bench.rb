@@ -4,7 +4,7 @@ RED = "\e[;31m"
 GREEN = "\e[;32m"
 RESET = "\e[;0m"
 
-ARGV.each do |file|
+ARGV.sort.each do |file|
   if file == nil || !File.exist?(file)
     puts "Unknown file: #{file}"
     exit 1
@@ -14,9 +14,11 @@ ARGV.each do |file|
   lua_out = `lua #{file}`
   lua_time = Time.now - t1
 
+  system "luac #{file}"
   t1 = Time.now
-  joule_out = `./joule #{file}`
+  joule_out = `./joule -c luac.out`
   joule_time = Time.now - t1
+  system 'rm luac.out'
 
   if lua_out != joule_out
     puts "Different output, bad test run"

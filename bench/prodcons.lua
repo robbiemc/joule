@@ -2,14 +2,14 @@
 -- http://shootout.alioth.debian.org
 -- contributed by Isaac Gouy (Lua novice)
 
-n = tonumber(arg[1]) or 1
+n = tonumber(arg[1]) or 200000
 
 produced = 0
 consumed = 0
 buffer = 0
 
 function producer()
-   return coroutine.create( 
+   return coroutine.create(
 
       function()
          while produced < n do
@@ -22,10 +22,9 @@ function producer()
 
    )
 end
-   
 
 function consumer(p)
-   return coroutine.create( 
+   return coroutine.create(
 
       function()
          local value = 0
@@ -39,7 +38,6 @@ function consumer(p)
 
    )
 end
-
 
 coroutine.resume( consumer( producer() ))
 io.write(produced, " ", consumed, "\n")

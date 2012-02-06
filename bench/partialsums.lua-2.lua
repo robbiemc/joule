@@ -2,7 +2,7 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local n = tonumber(arg[1]) or 100000
+local n = tonumber(arg[1]) or 200000
 local function pr(fmt, x) io.write(string.format(fmt, x)) end
 
 do
@@ -35,4 +35,3 @@ pr("%.9f\tAlternating Harmonic\n", sum) end
 do local sum = 0; for k=1,2*n-1,4 do sum = sum + 1/k end
 for k=3,2*n,4 do sum = sum - 1/k end
 pr("%.9f\tGregory\n", sum) end
-

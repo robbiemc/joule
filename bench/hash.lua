@@ -2,7 +2,7 @@
 -- http://www.bagley.org/~doug/shootout/
 -- Author: Roberto Ierusalimschy
 
-local n = tonumber((arg and arg[1]) or 1)
+local n = tonumber((arg and arg[1]) or 60000)
 
 local X={}
 for i=1,n do

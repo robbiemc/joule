@@ -11,5 +11,5 @@ local function Ack(m, n)
   return Ack(m-1, Ack(m, n-1))
 end
 
-local N = tonumber(arg and arg[1]) or 1
+local N = tonumber(arg and arg[1]) or 7
 io.write("Ack(3,", N ,"): ", Ack(3,N), "\n")

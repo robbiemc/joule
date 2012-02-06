@@ -2,7 +2,7 @@
 -- http://shootout.alioth.debian.org/
 -- with help from Roberto Ierusalimschy
 
-local n = tonumber((arg and arg[1]) or 1)
+local n = tonumber((arg and arg[1]) or 60)
 
 local size = 30
 
@@ -10,12 +10,12 @@ function mkmatrix(rows, cols)
     local count = 1
     local mx = {}
     for i=1,rows do
-	local row = {}
-	for j=1,cols do
-	    row[j] = count
-	    count = count + 1
-	end
-	mx[i] = row
+  local row = {}
+  for j=1,cols do
+      row[j] = count
+      count = count + 1
+  end
+  mx[i] = row
     end
     return(mx)
 end
