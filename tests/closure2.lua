@@ -55,7 +55,6 @@ a = {}
 for i, k in pairs{'a', 'b'} do
   a[i] = {set = function(x, y) i=x; k=y end,
           get = function () return i, k end}
-  if i == 2 then break end
 end
 a[1].set(10, 20)
 local r,s = a[2].get()
@@ -74,11 +73,13 @@ end
 assert(f() == 1)
 
 for k, v in pairs{"a", "b"} do
+  kv = k
+  vv = v
   f = function () return k, v end
   break
 end
-assert(({f()})[1] == 1)
-assert(({f()})[2] == "a")
+assert(({f()})[1] == kv)
+assert(({f()})[2] == vv)
 
 -- testing closure x break x return x errors
 
