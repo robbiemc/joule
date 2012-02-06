@@ -358,7 +358,7 @@ static u32 lua_xpcall(LSTATE) {
 }
 
 static u32 lua_error(LSTATE) {
-  luav value = lstate_getval(0);
+  luav value = argc > 0 ? lstate_getval(0) : LUAV_NIL;
   u32 level = 1;
   if (argc > 1) {
     level = (u32) lstate_getnumber(1);

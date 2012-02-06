@@ -103,8 +103,13 @@ void err_explain(int err, lframe_t *frame) {
     case ERR_LUAV:
       if (err_catcher) {
         if (lv_isstring(err_value)) {
-          len += sprintf(err_desc + len, "%s",
-                         lv_caststring(err_value, 0)->ptr);
+          if (frame->closure->type != LUAF_LUA) {
+            len = sprintf(err_desc, "%s",
+                          lv_caststring(err_value, 0)->ptr);
+          } else {
+            len += sprintf(err_desc + len, "%s",
+                           lv_caststring(err_value, 0)->ptr);
+          }
           err_value = lv_string(lstr_add(err_desc, (size_t) len, FALSE));
         }
       } else {
