@@ -204,6 +204,8 @@ top:
     u32 code = *instrs++;
 
     if (flags.print) {
+      u64 idx = ((u64)instrs - (u64)func->instrs) / sizeof(u32);
+      printf("[%d] ", func->lines[idx]);
       opcode_dump(stdout, code);
       printf("\n");
     }
@@ -389,7 +391,7 @@ top:
 
       case OP_TESTSET:
         temp = REG(B(code));
-        if (lv_getbool(temp, 0) != C(code)) {
+        if (lv_getbool(temp, 0) == C(code)) {
           SETREG(A(code), temp);
         } else {
           instrs++;
@@ -686,7 +688,7 @@ static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame) {
     return meta_lhash_set(method, key, val, frame);
 
   u32 idx = vm_stack_alloc(vm_stack, 3);
-  vm_stack->base[idx] = lv_table(key);
+  vm_stack->base[idx] = operand;
   vm_stack->base[idx + 1] = key;
   vm_stack->base[idx + 2] = val;
   vm_fun(lv_getfunction(method, 0), frame, 3, idx, 0, 0);

@@ -217,7 +217,10 @@ static u32 lua_co_wrap(LSTATE) {
   lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
   closure->type = LUAF_C;
   closure->function.c = &co_wrapper_cf;
-  closure->env = vm_running->closure->env;
+  /* vm_running is coroutine.wrap(), which has no environment */
+  xassert(vm_running->caller != NULL);
+  closure->env = vm_running->caller->closure->env;
+  xassert(closure->env != NULL);
   closure->upvalues[0] = routine;
   lstate_return1(lv_function(closure));
 }

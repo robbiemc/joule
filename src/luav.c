@@ -33,19 +33,6 @@ lhash_t* lv_gettable(luav value, u32 argnum) {
 }
 
 /**
- * @brief Get the boolean associated with the given value
- *
- * It is considered a fatal error to call this function when the type of the
- * value is not a bool
- *
- * @param value the lua value which is a table
- * @return the pointer to the table struct
- */
-u8 lv_getbool(luav value, u32 argnum) {
-  return value != LUAV_NIL && value != LUAV_FALSE;
-}
-
-/**
  * @brief Get the user data associated with the given value
  *
  * It is considered a fatal error to call this function when the type of the
