@@ -38,6 +38,7 @@ typedef struct lthread {
 
 static lhash_t    lua_coroutine;
 static lthread_t  main_thread;
+static lstack_t  *main_stack;
 static lthread_t *cur_thread;
 
 static luav str_running;
@@ -69,6 +70,7 @@ INIT static void lua_coroutine_init() {
   str_dead      = LSTR("dead");
   cur_thread = &main_thread;
   main_thread.env = &lua_globals;
+  main_stack = vm_stack;
 
   lhash_init(&lua_coroutine);
   REGISTER(&lua_coroutine, "create",  &lua_co_create_f);
@@ -95,8 +97,11 @@ void coroutine_changeenv(lthread_t *to) {
   cur_thread = to;
   to->status = CO_RUNNING;
   global_env = to->env;
-  old->vm_stack = vm_stack;
-  vm_stack = to->vm_stack;
+  if (to == &main_thread) {
+    vm_stack = main_stack;
+  } else {
+    vm_stack = &to->vm_stack;
+  }
 }
 
 static void coroutine_swap(lthread_t *to) {
@@ -205,10 +210,10 @@ static u32 co_wrap_trampoline(LSTATE) {
 
 static u32 lua_co_wrap(LSTATE) {
   luav routine;
-  u32 idx = vm_stack_alloc(&vm_stack, 1);
+  u32 idx = vm_stack_alloc(vm_stack, 1);
   lua_co_create(argc, argvi, 1, idx);
-  routine = vm_stack.base[idx];
-  vm_stack_dealloc(&vm_stack, idx);
+  routine = vm_stack->base[idx];
+  vm_stack_dealloc(vm_stack, idx);
   lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
   closure->type = LUAF_C;
   closure->function.c = &co_wrapper_cf;

@@ -342,11 +342,11 @@ static u32 lua_xpcall(LSTATE) {
        different, otherwise invoke the error handling function */
     if (!tried) {
       tried = 1;
-      u32 idx = vm_stack_alloc(&vm_stack, 1);
-      vm_stack.base[idx] = err_value;
+      u32 idx = vm_stack_alloc(vm_stack, 1);
+      vm_stack->base[idx] = err_value;
       vm_fun(err, vm_running, 1, idx, 1, idx);
-      retval = vm_stack.base[idx];
-      vm_stack_dealloc(&vm_stack, idx);
+      retval = vm_stack->base[idx];
+      vm_stack_dealloc(vm_stack, idx);
     } else {
       retval = LSTR("error in error handling");
     }

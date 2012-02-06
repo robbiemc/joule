@@ -8,9 +8,9 @@
 #include "vm.h"
 
 #define lstate_getarg(n, e) \
-  ({ if ((n) >= argc) { err_missing(n, e); } vm_stack.base[argvi + n]; })
+  ({ if ((n) >= argc) { err_missing(n, e); } vm_stack->base[argvi + n]; })
 #define lstate_getval(n) \
-  ({ if ((n) >= argc) { err_missing(n, LANY); } vm_stack.base[argvi + n]; })
+  ({ if ((n) >= argc) { err_missing(n, LANY); } vm_stack->base[argvi + n]; })
 
 #define lstate_getnumber(n)   lv_castnumber(lstate_getarg(n, LNUMBER), n)
 #define lstate_getstring(n)   lv_caststring(lstate_getarg(n, LSTRING), n)
@@ -23,10 +23,10 @@
 #define lstate_return(v, n)                                 \
   do {                                                      \
     if ((n) < retc) {                                       \
-      if (&vm_stack.base[retvi + (n)] >= vm_stack.top) {    \
-        vm_stack_grow(&vm_stack, 3);                        \
+      if (&vm_stack->base[retvi + (n)] >= vm_stack->top) {  \
+        vm_stack_grow(vm_stack, 3);                         \
       }                                                     \
-      vm_stack.base[retvi + (n)] = v;                       \
+      vm_stack->base[retvi + (n)] = v;                      \
     }                                                       \
   } while (0)
 #define lstate_return1(v) { lstate_return(v, 0); return 1; }

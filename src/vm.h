@@ -80,7 +80,7 @@ typedef struct lstack {
 extern struct lhash userdata_metatables;
 extern struct lhash lua_globals;
 extern lframe_t *vm_running;
-extern lstack_t vm_stack;
+extern lstack_t *vm_stack;
 extern struct lhash *global_env;
 
 void vm_run(lfunc_t *fun);
