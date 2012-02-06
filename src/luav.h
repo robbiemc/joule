@@ -127,7 +127,6 @@ struct lthread*  lv_getthread(luav value, u32 argnum);
 
 int lv_parsenum(struct lstring *str, u32 base, double *value);
 
-#define lv_castnumber(a, b) lv_castnumberb(a, 10, b)
 #define lv_hash(lv) ((u32) ((lv) ^ ((lv) >> 32) ^ 0xfc83d6a5))
 #define lv_nilify(mem, count) memset((mem), 0xff, (count) * sizeof(luav))
 
@@ -144,6 +143,13 @@ static inline u64 lv_bits(double value) {
   union { double converted; u64 bits; } cvt;
   cvt.converted = value;
   return cvt.bits;
+}
+
+static inline double lv_castnumber(luav n, u32 argnum) {
+  if (lv_isnumber(n)) {
+    return lv_cvt(n);
+  }
+  return lv_castnumberb(n, 10, argnum);
 }
 
 #endif /* _LUAV_H_ */

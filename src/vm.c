@@ -479,19 +479,22 @@ top:
       }
 
       case OP_CONCAT: {
-        size_t len = 0, cap = LUAV_INIT_STRING;
+        size_t len = 0;
+        b = B(code);
         c = C(code);
-        char *str = xmalloc(cap);
-        for (i = B(code); i <= c; i++) {
-          lstring_t *lstr = lv_caststring(REG(i), 0);
-          while (lstr->length + len + 1 >= cap) {
-            cap *= 2;
-            str = xrealloc(str, cap);
-          }
-          memcpy(str + len, lstr->ptr, lstr->length);
-          len += lstr->length;
+
+        for (i = b; i <= c; i++) {
+          len += lv_caststring(REG(i), i - b)->length;
         }
-        str[len] = 0;
+
+        char *str = xmalloc(len + 1);
+        char *ptr = str;
+        for (i = b; i <= c; i++) {
+          lstring_t *lstr = lv_caststring(REG(i), i - b);
+          memcpy(ptr, lstr->ptr, lstr->length);
+          ptr += lstr->length;
+        }
+        *ptr = 0;
         SETREG(A(code), lv_string(lstr_add(str, len, TRUE)));
         break;
       }
