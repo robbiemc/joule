@@ -70,7 +70,8 @@ typedef struct lstack {
 
 #define LUAF(fun) \
   cfunc_t fun ## _cf = {.f = fun}; \
-  lclosure_t fun ## _f = {.type = LUAF_C, .function.c = &fun##_cf, .env = NULL}
+  lclosure_t fun ## _f = {.type = LUAF_C, .function.c = &fun##_cf, \
+                          .env = &lua_globals}
 
 #define REGISTER(tbl, str, fun) {                 \
     lhash_set(tbl, LSTR(str), lv_function(fun));  \
