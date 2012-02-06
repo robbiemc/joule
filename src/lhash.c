@@ -161,13 +161,6 @@ luav lhash_get(lhash_t *map, luav key) {
     return map->metamethods[meta_index];
   }
 
-  return lhash_rawget(map, key);
-}
-
-/**
- * @brief Lookup into the hash table without performing any meta methods
- */
-luav lhash_rawget(lhash_t *map, luav key) {
   HPROF(get_avg_collisions *= (get_count / (get_count + 1)));
   HPROF(get_count++);
   u32 h = lv_hash(key) % map->cap;
@@ -216,13 +209,6 @@ void lhash_set(lhash_t *map, luav key, luav value) {
     map->metamethods[meta_index] = value;
   }
 
-  lhash_rawset(map, key, value);
-}
-
-/**
- * @brief Perform a raw set into the table, without invoking any metamethods
- */
-void lhash_rawset(lhash_t *map, luav key, luav value) {
   HPROF(set_avg_collisions *= (set_count / (set_count + 1)));
   HPROF(set_count++);
   u32 h = lv_hash(key) % map->cap;

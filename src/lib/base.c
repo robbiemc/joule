@@ -256,12 +256,12 @@ static u32 lua_select(LSTATE) {
 }
 
 static u32 lua_rawget(LSTATE) {
-  luav value = lhash_rawget(lstate_gettable(0), lstate_getval(1));
+  luav value = lhash_get(lstate_gettable(0), lstate_getval(1));
   lstate_return1(value);
 }
 
 static u32 lua_rawset(LSTATE) {
-  lhash_rawset(lstate_gettable(0), lstate_getval(1), lstate_getval(2));
+  lhash_set(lstate_gettable(0), lstate_getval(1), lstate_getval(2));
   lstate_return1(lstate_getval(0));
 }
 
