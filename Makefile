@@ -44,6 +44,8 @@ BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 CTESTS := hash types
 CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
 
+.PHONY: bench clean
+
 all: joule
 
 joule: $(OBJS) $(OBJDIR)/main.o
@@ -67,6 +69,9 @@ ltest: $(LUATESTS:=test)
 # Run all benchmark tests
 btest: $(BENCHTESTS:=test)
 	@echo -- All benchmark tests passed --
+
+bench: joule
+	./bench.rb $(BENCHTESTS)
 
 lmissing:
 	@ruby -e 'puts `ls $(TESTDIR)/*.lua`.split("\n") - ARGV' $(LUATESTS)
