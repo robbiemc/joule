@@ -121,8 +121,9 @@ struct lhash*    lv_gettable(luav value, u32 argnum);
 u8               lv_getbool(luav value, u32 argnum);
 void*            lv_getuserdata(luav value, u32 argnum);
 struct lclosure* lv_getfunction(luav value, u32 argnum);
-upvalue_t*       lv_getupvalue(luav value);
 struct lthread*  lv_getthread(luav value, u32 argnum);
+#define lv_getupvalue(v) \
+  ({ assert(lv_isupvalue(v)); (upvalue_t*) LUAV_DATA(v); })
 
 int lv_parsenum(struct lstring *str, u32 base, double *value);
 

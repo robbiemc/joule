@@ -94,20 +94,6 @@ struct lthread* lv_getthread(luav value, u32 argnum) {
 }
 
 /**
- * @brief Get the upvalue associated with the given value
- *
- * It is considered a fatal error to call this function when the type of the
- * value is not an upvalue
- *
- * @param value the lua value which is an upvalue
- * @return the pointer to the luav the upvalue stands for
- */
-upvalue_t* lv_getupvalue(luav value) {
-  xassert(lv_isupvalue(value));
-  return (upvalue_t*) LUAV_DATA(value);
-}
-
-/**
  * @brief Returns the type of the luav
  *
  * @param value the luav to get the type of
