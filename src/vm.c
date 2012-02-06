@@ -543,7 +543,7 @@ top:
         a = A(code); c = C(code);
         lclosure_t *closure2 = lv_getfunction(REG(a), 0);
         u32 got = vm_fun(closure2, &frame, 2, STACKI(a + 1),
-                                   (u32) REG(c), STACKI(a + 3));
+                                   c, STACKI(a + 3));
         vm_running = &frame;
         temp = REG(a + 3);
         if (got == 0 || temp == LUAV_NIL) {
