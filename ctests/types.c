@@ -1,9 +1,12 @@
 #include <assert.h>
 #include <math.h>
 
+#include "flags.h"
 #include "lhash.h"
 #include "luav.h"
 #include "vm.h"
+
+lflags_t flags;
 
 int same(double a, double b) {
   return fabs(a - b) < 0.01;

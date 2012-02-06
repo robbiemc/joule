@@ -1,6 +1,9 @@
 #include <assert.h>
 
+#include "flags.h"
 #include "lhash.h"
+
+lflags_t flags;
 
 int main() {
   lhash_t map;
