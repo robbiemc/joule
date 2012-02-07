@@ -335,9 +335,10 @@ static u32 lua_xpcall(LSTATE) {
   lclosure_t *err = lstate_getfunction(1);
   int iserr, tried = 0;
   u32 ret;
+  lframe_t *running = vm_running;
 
   ONERR({
-    ret = vm_fun(f, vm_running, 0, 0, retc - 1, retvi + 1);
+    ret = vm_fun(f, running, 0, 0, retc - 1, retvi + 1);
     lstate_return(LUAV_TRUE, 0);
   }, {
     luav retval;
@@ -347,7 +348,7 @@ static u32 lua_xpcall(LSTATE) {
       tried = 1;
       u32 idx = vm_stack_alloc(vm_stack, 1);
       vm_stack->base[idx] = err_value;
-      vm_fun(err, vm_running, 1, idx, 1, idx);
+      vm_fun(err, running, 1, idx, 1, idx);
       retval = vm_stack->base[idx];
       vm_stack_dealloc(vm_stack, idx);
     } else {
