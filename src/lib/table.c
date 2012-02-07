@@ -1,3 +1,11 @@
+/**
+ * @file lib/table.c
+ * @brief Implementation of the lua 'table' module.
+ *
+ * Implementes the global 'table' table, adding all functions to it to operate
+ * on hashes.
+ */
+
 #include <stdio.h>
 
 #include "config.h"
@@ -24,6 +32,15 @@ DESTROY void lua_table_destroy() {
   lhash_free(&lua_table);
 }
 
+/**
+ * @brief Same as the '#' operator for a table
+ *
+ * Apparently this function is deprecated in 5.1, but we're implementing it for
+ * test compatibility
+ *
+ * @param table the lua hash table to get the length of
+ * @return the length of the table, as specified by '#'
+ */
 static u32 lua_table_getn(LSTATE) {
   lhash_t *table = lstate_gettable(0);
   luav key, value;
@@ -31,6 +48,14 @@ static u32 lua_table_getn(LSTATE) {
   lstate_return1(lv_number(table->length));
 }
 
+/**
+ * @brief Calculates the maximum positive numerical indice for a given table
+ *
+ * @param table the lua table to search
+ * @return the maximum positive numerical indice, or 0 if there are none
+ *
+ * @see lhash_maxn
+ */
 static u32 lua_table_maxn(LSTATE) {
   lhash_t *table = lstate_gettable(0);
   lstate_return1(lv_number(lhash_maxn(table)));
