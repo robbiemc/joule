@@ -300,6 +300,9 @@ static u32 lua_getmetatable(LSTATE) {
     lstate_return1(LUAV_NIL);
   }
   lhash_t *meta = lv_gettable(value, 0)->metatable;
+  if (meta == NULL) {
+    lstate_return1(LUAV_NIL);
+  }
   luav meta_field = meta->metamethods[META_METATABLE];
   if (meta_field != LUAV_NIL) {
     lstate_return1(meta_field);
