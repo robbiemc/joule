@@ -48,6 +48,7 @@ static u32  lua_unpack(LSTATE);
 static u32  lua_dofile(LSTATE);
 static u32  lua_getfenv(LSTATE);
 static u32  lua_setfenv(LSTATE);
+static u32  lua_rawequal(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -71,6 +72,7 @@ static LUAF(lua_unpack);
 static LUAF(lua_dofile);
 static LUAF(lua_getfenv);
 static LUAF(lua_setfenv);
+static LUAF(lua_rawequal);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -105,6 +107,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "dofile",        &lua_dofile_f);
   REGISTER(&lua_globals, "getfenv",       &lua_getfenv_f);
   REGISTER(&lua_globals, "setfenv",       &lua_setfenv_f);
+  REGISTER(&lua_globals, "rawequal",      &lua_rawequal_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -512,4 +515,8 @@ static u32 lua_setfenv(LSTATE) {
   }
 
   return 0;
+}
+
+static u32 lua_rawequal(LSTATE) {
+  lstate_return1(lv_bool(lstate_getval(0) == lstate_getval(1)));
 }
