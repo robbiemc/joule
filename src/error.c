@@ -47,22 +47,17 @@ static char* funstr(lclosure_t *closure) {
 void err_explain(int err, lframe_t *frame) {
   lclosure_t *caller;
   lfunc_t *func;
-  lframe_t *caller_frame;
-  if (frame->caller == NULL || frame->closure->type == LUAF_LUA) {
-    caller = frame->closure;
-    xassert(caller->type == LUAF_LUA);
-    func = caller->function.lua;
-    caller_frame = frame;
-  } else {
-    caller = frame->caller->closure;
-    xassert(caller != NULL && caller->type == LUAF_LUA);
-    func = caller->function.lua;
-    caller_frame = frame->caller;
+  lframe_t *caller_frame = frame;
+  while (caller_frame->closure->type != LUAF_LUA) {
+    xassert(caller_frame->caller != NULL);
+    xassert(caller_frame->caller != caller_frame);
+    caller_frame = caller_frame->caller;
   }
+  caller = caller_frame->closure;
+  func   = caller->function.lua;
 
   int len;
   u32 pc = GETPC(caller_frame, func) - 1;
-  xassert(caller->type == LUAF_LUA);
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
