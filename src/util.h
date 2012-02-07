@@ -3,8 +3,8 @@
 
 #include "config.h"
 
-#define max(a,b) ((a) > (b) ? (a) : (b))
-#define min(a,b) ((a) < (b) ? (a) : (b))
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 #define xread1(f)     xread1l(f,fderr)
 #define xread4(f)     xread4l(f,fderr)

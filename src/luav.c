@@ -120,7 +120,7 @@ int lv_compare(luav v1, luav v2) {
   if (lv_isstring(v1) && lv_isstring(v2)) {
     lstring_t *s1 = lstr_get(LUAV_DATA(v1));
     lstring_t *s2 = lstr_get(LUAV_DATA(v2));
-    size_t minlen = min(s1->length, s2->length);
+    size_t minlen = MIN(s1->length, s2->length);
     int cmp = memcmp(s1->ptr, s2->ptr, minlen);
     if (cmp != 0) return cmp;
     if (s1->length < s2->length) return -1;

@@ -301,7 +301,7 @@ top:
         }
         op_close(vm_stack->size - stack, vm_stack->base + stack);
         vm_running = parent;
-        vm_stack_dealloc(vm_stack, max(retvi + i, stack_orig));
+        vm_stack_dealloc(vm_stack, MAX(retvi + i, stack_orig));
         return i;
 
       case OP_TAILCALL: {

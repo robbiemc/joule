@@ -122,7 +122,7 @@ static int luac_skip(int fd, size_t len) {
   // data into a buffer in chunks
   char buf[32];
   while (len > 0) {
-    ssize_t rd = read(fd, buf, min(sizeof(buf), len));
+    ssize_t rd = read(fd, buf, MIN(sizeof(buf), len));
     if (rd == -1) return -1;
     len -= (size_t) rd;
   }
