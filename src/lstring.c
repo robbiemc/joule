@@ -2,11 +2,11 @@
 #include <string.h>
 
 #include "lstring.h"
+#include "luav.h"
 #include "panic.h"
 #include "util.h"
 
-#define LOAD_FACTOR 50
-#define MAX_HASH 256
+#define LOAD_FACTOR 60
 #define STRING_TABLE_CAP 128
 #define STRING_HASHMAP_CAP 251
 #define NONEMPTY(p) ((p) > 1)
@@ -103,21 +103,28 @@ static void smap_insert(lstring_t *lstr, lstr_idx index) {
 }
 
 static void smap_ins(smap_t *map, lstring_t *str, lstr_idx index) {
-  size_t idx = str->hash % map->capacity;
-  while (NONEMPTY(map->table[idx]))
-    idx = (idx + 1) % map->capacity;
+  size_t cap = map->capacity;
+  size_t idx = str->hash % cap;
+  size_t step = 1;
+  while (NONEMPTY(map->table[idx])) {
+    idx = (idx + step) % cap;
+    step++;
+  }
   map->table[idx] = index;
   map->size++;
 }
 
 static size_t smap_lookup(char *str, size_t size) {
   size_t s;
+  size_t cap = smap.capacity;
   u32 hash = smap_hash((u8*) str, size);
-  size_t idx = hash % smap.capacity;
+  size_t idx = hash % cap;
+  size_t step = 1;
   while (NONEMPTY(s = smap.table[idx])) {
     if (smap_equal(&str_table[s], str, size))
       return s;
-    idx = (idx + 1) % smap.capacity;
+    idx = (idx + step) % cap;
+    step++;
   }
   return 0;
 }
@@ -130,13 +137,12 @@ static int smap_equal(lstring_t *lstr, char *str, size_t size) {
 
 static u32 smap_hash(u8 *str, size_t size) {
   // figure out a step value
-  size_t step = size / MAX_HASH;
-  step = (step == 0) ? 1 : step;
+  size_t step = (size >> 5) + 1;
   // compute the hash
-  u32 hash = 0;
+  u32 hash = lv_hash(size);
   u8 *end = str + size;
   while (str < end) {
-    hash = *str + (hash << 6) + (hash << 16) - hash;
+    hash = hash ^ ((hash << 5) + (hash >> 2) + *str);
     str += step;
   }
   return hash;
