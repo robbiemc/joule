@@ -35,6 +35,7 @@ void lhash_free(lhash_t *map);
 luav lhash_get(lhash_t *map, luav key);
 void lhash_set(lhash_t *map, luav key, luav value);
 void lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval);
+double lhash_maxn(lhash_t *map);
 
 int lhash_index(lhash_t *map, luav key, i32 *index);
 luav lhash_rawget(lhash_t *map, i32 index);

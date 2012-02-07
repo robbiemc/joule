@@ -301,3 +301,25 @@ void lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval) {
   *nxtkey = LUAV_NIL;
   *nxtval = LUAV_NIL;
 }
+
+/**
+ * @brief Finds the maximum positive numerical index in the given map
+ *
+ * Meant to be used by the table.maxn() lua method. Does a linear traversal of
+ * the entire map to find the maximum indice, so it's not recommended that this
+ * is called often.
+ *
+ * @param map the table to look into
+ * @return the maximum index found, or 0 if no index is found
+ */
+double lhash_maxn(lhash_t *map) {
+  double maxi = 0;
+  u32 i;
+  for (i = 0; i < map->cap; i++) {
+    if (lv_isnumber(map->hash[i].key) && map->hash[i].value != LUAV_NIL) {
+      double n = lv_cvt(map->hash[i].key);
+      maxi = MAX(maxi, n);
+    }
+  }
+  return maxi;
+}
