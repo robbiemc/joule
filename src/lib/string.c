@@ -101,6 +101,7 @@ static u32 lua_string_upper(LSTATE);
 static u32 lua_string_reverse(LSTATE);
 static u32 lua_string_byte(LSTATE);
 static u32 lua_string_char(LSTATE);
+static u32 lua_string_find(LSTATE);
 static char errbuf[200];
 
 static LUAF(lua_string_format);
@@ -112,6 +113,7 @@ static LUAF(lua_string_lower);
 static LUAF(lua_string_reverse);
 static LUAF(lua_string_byte);
 static LUAF(lua_string_char);
+static LUAF(lua_string_find);
 
 INIT static void lua_string_init() {
   str_empty = LSTR("");
@@ -126,6 +128,7 @@ INIT static void lua_string_init() {
   REGISTER(&lua_string, "reverse", &lua_string_reverse_f);
   REGISTER(&lua_string, "byte",    &lua_string_byte_f);
   REGISTER(&lua_string, "char",    &lua_string_char_f);
+  REGISTER(&lua_string, "find",    &lua_string_find_f);
 
   lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
 }
@@ -372,4 +375,31 @@ static u32 lua_string_char(LSTATE) {
   }
   str[i] = 0;
   lstate_return1(lv_string(lstr_add(str, argc, TRUE)));
+}
+
+static u32 lua_string_find(LSTATE) {
+  lstring_t *s = lstate_getstring(0);
+  lstring_t *pat = lstate_getstring(1);
+  i32 init = argc > 2 ? (i32) lstate_getnumber(2) : 1;
+
+  if (init < (i32) -s->length) {
+    init = (i32) s->length;
+  } else if (init < 0) {
+    init += (i32) s->length;
+  } else if (init == 0) {
+    init = 1;
+  }
+
+  /* TODO: this is supposed to use regexes... */
+  char *ptr = strnstr(s->ptr + (init - 1), pat->ptr, s->length);
+
+  if (ptr == NULL) {
+    lstate_return1(LUAV_NIL);
+  }
+
+  u64 start = ((u64) ptr - (u64) s->ptr) + 1;
+  u64 end = start + pat->length - 1;
+  lstate_return(lv_number((double) start), 0);
+  lstate_return(lv_number((double) end), 1);
+  return 2;
 }

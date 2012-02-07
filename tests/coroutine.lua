@@ -44,7 +44,7 @@ end
 
 f = coroutine.create(foo)
 assert(type(f) == "thread" and coroutine.status(f) == "suspended")
--- assert(string.find(tostring(f), "thread"))
+assert(string.find(tostring(f), "thread"))
 local s,a,b,c,d
 s,a,b,c,d = coroutine.resume(f, {1,2,3}, {}, {1}, {'a', 'b', 'c'})
 assert(s and a == nil and coroutine.status(f) == "suspended")
@@ -60,7 +60,7 @@ assert(s and a == 1 and b == 2 and c == 3 and d == nil)
 assert(coroutine.status(f) == "dead")
 s, a = coroutine.resume(f, "xuxu")
 assert(not s and coroutine.status(f) == "dead")
--- assert(not s and string.find(a, "dead") and coroutine.status(f) == "dead")
+assert(not s and string.find(a, "dead") and coroutine.status(f) == "dead")
 
 -- yields in tail calls
 local function foo (i) return coroutine.yield(i) end
@@ -135,7 +135,7 @@ a,b = coroutine.resume(x)
 assert(not a and b == foo and coroutine.status(x) == "dead")
 a,b = coroutine.resume(x)
 assert(not a and coroutine.status(x) == "dead")
--- assert(not a and string.find(b, "dead") and coroutine.status(x) == "dead")
+assert(not a and string.find(b, "dead") and coroutine.status(x) == "dead")
 
 -- co-routines x for loop
 function all (a, n, k)
