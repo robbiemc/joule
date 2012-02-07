@@ -31,9 +31,6 @@ var = nil
 print('+')
 
 -- escapes --
-assert("\n\t" == [[
-
-  ]])
 assert([[
 
  $debug]] == "\n $debug")
