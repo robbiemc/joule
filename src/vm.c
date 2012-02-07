@@ -91,7 +91,7 @@ lframe_t *vm_running = NULL;
 lstack_t *vm_stack;
 static lstack_t init_stack;
 
-static void op_close(u32 upc, luav *upv);
+static u32 op_close(u32 upc, luav *upv);
 static int meta_unary(luav operand, u32 op, u32 reti, lframe_t *frame);
 static int meta_binary(luav operand, u32 op, luav lv, luav rv,
                        u32 reti, lframe_t *frame);
@@ -322,7 +322,7 @@ top:
         closure2->type = LUAF_LUA;
         closure2->function.lua = function;
         closure2->env = closure->env;
-        need_close |= function->num_upvalues > 0;
+        need_close += function->num_upvalues;
 
         for (i = 0; i < function->num_upvalues; i++) {
           u32 pseudo = *instrs++;
@@ -359,8 +359,8 @@ top:
       }
 
       case OP_CLOSE:
-        need_close = 0;
-        op_close(vm_stack->size - stack - A(code), &STACK(A(code)));
+        a = A(code);
+        need_close -= op_close(vm_stack->size - stack - a, &STACK(a));
         break;
 
       case OP_JMP:
@@ -571,10 +571,12 @@ top:
   panic("ran out of opcodes!");
 }
 
-static void op_close(u32 upc, luav *upv) {
+static u32 op_close(u32 upc, luav *upv) {
+  u32 closed = 0;
   u32 i;
   for (i = 0; i < upc; i++) {
     if (lv_isupvalue(upv[i])) {
+      closed++;
       upvalue_t *upvalue = lv_getupvalue(upv[i]);
       if (--upvalue->refcnt == 0) {
         upv[i] = upvalue->value;
@@ -582,6 +584,7 @@ static void op_close(u32 upc, luav *upv) {
       }
     }
   }
+  return closed;
 }
 
 static int meta_unary(luav operand, u32 op, u32 reti, lframe_t *frame) {
