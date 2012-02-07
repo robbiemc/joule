@@ -21,12 +21,12 @@
   ({                                                                          \
     assert(&STACK(n) < vm_stack->top);                                         \
     luav _tmp = STACK(n);                                                     \
-    need_close && lv_isupvalue(_tmp) ? lv_getupvalue(_tmp)->value : _tmp;     \
+    lv_isupvalue(_tmp) ? lv_getupvalue(_tmp)->value : _tmp;     \
   })
 #define SETREG(n, v)                            \
   ({                                            \
     assert(&STACK(n) < vm_stack->top);           \
-    if (need_close && lv_isupvalue(STACK(n))) { \
+    if (lv_isupvalue(STACK(n))) { \
       lv_getupvalue(STACK(n))->value = v;       \
     } else {                                    \
       STACK(n) = v;                             \
@@ -91,7 +91,7 @@ lframe_t *vm_running = NULL;
 lstack_t *vm_stack;
 static lstack_t init_stack;
 
-static u32 op_close(u32 upc, luav *upv);
+static void op_close(u32 upc, luav *upv);
 static int meta_unary(luav operand, u32 op, u32 reti, lframe_t *frame);
 static int meta_binary(luav operand, u32 op, luav lv, luav rv,
                        u32 reti, lframe_t *frame);
@@ -178,7 +178,6 @@ top:
   // it's a lua function
   u32 i, a, b, c, bx, limit;
   u32 last_ret = 0;
-  u32 need_close = 0;
   lfunc_t *func = closure->function.lua;
   u32 *instrs = func->instrs;
   frame.pc = &instrs;
@@ -292,9 +291,7 @@ top:
         for (i = 0; i < limit && i < retc; i++) {
           vm_stack->base[retvi + i] = REG(a + i);
         }
-        if (need_close) {
-          op_close(vm_stack->size - stack, vm_stack->base + stack);
-        }
+        op_close(vm_stack->size - stack, vm_stack->base + stack);
         vm_running = parent;
         vm_stack_dealloc(vm_stack, max(retvi + i, stack));
         return i;
@@ -322,7 +319,6 @@ top:
         closure2->type = LUAF_LUA;
         closure2->function.lua = function;
         closure2->env = closure->env;
-        need_close += function->num_upvalues;
 
         for (i = 0; i < function->num_upvalues; i++) {
           u32 pseudo = *instrs++;
@@ -360,7 +356,7 @@ top:
 
       case OP_CLOSE:
         a = A(code);
-        need_close -= op_close(vm_stack->size - stack - a, &STACK(a));
+        op_close(vm_stack->size - stack - a, &STACK(a));
         break;
 
       case OP_JMP:
@@ -571,20 +567,17 @@ top:
   panic("ran out of opcodes!");
 }
 
-static u32 op_close(u32 upc, luav *upv) {
-  u32 closed = 0;
+static void op_close(u32 upc, luav *upv) {
   u32 i;
   for (i = 0; i < upc; i++) {
     if (lv_isupvalue(upv[i])) {
-      closed++;
       upvalue_t *upvalue = lv_getupvalue(upv[i]);
+      upv[i] = upvalue->value;
       if (--upvalue->refcnt == 0) {
-        upv[i] = upvalue->value;
         free(upvalue);
       }
     }
   }
-  return closed;
 }
 
 static int meta_unary(luav operand, u32 op, u32 reti, lframe_t *frame) {
