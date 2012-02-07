@@ -248,7 +248,7 @@ void lhash_rawset(lhash_t *map, i32 index, int isnew, luav key, luav val) {
     }
     // FIXME - this doesn't always work (but will in this hashtable
     //         implementation)
-    if (lv_isnumber(key)) {
+    if (lv_isnumber(key) && val != LUAV_NIL) {
       double len = lv_castnumber(key, 0);
       if ((u64)len == len && len > map->length) {
         map->length = (u32) len;
