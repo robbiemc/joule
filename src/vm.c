@@ -95,6 +95,7 @@ static int meta_eq(luav operand1, luav operand2, u32 op,
                    luav *ret, lframe_t *frame);
 static luav meta_lhash_get(luav operand, luav key, lframe_t *frame);
 static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame);
+static u32  meta_call(luav value, u32 argc, u32 argvi, u32 retc, u32 retvi);
 
 INIT static void vm_setup() {
   lhash_init(&userdata_meta);
@@ -158,6 +159,7 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent, LSTATE) {
   if (closure->type == LUAF_LUA) {
     stack = vm_stack_alloc(vm_stack, (u32) closure->function.lua->max_stack);
   }
+  u32 stack_orig = stack;
 top:
   frame.caller  = parent;
   frame.closure = closure;
@@ -167,7 +169,7 @@ top:
   if (closure->type != LUAF_LUA) {
     u32 ret = closure->function.c->f(argc, argvi, retc, retvi);
     vm_running = parent;
-    vm_stack_dealloc(vm_stack, stack);
+    vm_stack_dealloc(vm_stack, stack_orig);
     return ret;
   }
 
@@ -262,12 +264,20 @@ top:
 
       case OP_CALL: {
         a = A(code); b = B(code); c = C(code);
-        lclosure_t *closure2 = lv_getfunction(REG(a), 0);
         u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
+        u32 got;
+        luav av = REG(a);
+        lhash_t *meta = getmetatable(av);
 
-        u32 got = vm_fun(closure2, &frame, num_args, STACKI(a + 1),
-                                           want_ret, STACKI(a));
+        if (meta != NULL) {
+          got = meta_call(av, num_args, STACKI(a + 1),
+                              want_ret, STACKI(a));
+        } else {
+          lclosure_t *closure2 = lv_getfunction(REG(a), 0);
+          got = vm_fun(closure2, &frame, num_args, STACKI(a + 1),
+                                             want_ret, STACKI(a));
+        }
         // fill in the nils
         for (i = got; i < c - 1 && &STACK(a + i) < vm_stack->top; i++) {
           SETREG(a + i, LUAV_NIL);
@@ -289,23 +299,37 @@ top:
         }
         op_close(vm_stack->size - stack, vm_stack->base + stack);
         vm_running = parent;
-        vm_stack_dealloc(vm_stack, max(retvi + i, stack));
+        vm_stack_dealloc(vm_stack, max(retvi + i, stack_orig));
         return i;
 
-      case OP_TAILCALL:
+      case OP_TAILCALL: {
         a = A(code);
         b = B(code);
-        closure = lv_getfunction(REG(a), 0);
-        if (closure->type == LUAF_LUA) {
-          int diff = closure->function.lua->max_stack - func->max_stack;
-          if (diff > 0) {
-            vm_stack_grow(vm_stack, (u32) diff);
-          }
-        }
-        assert(C(code) == 0);
         argc = (b == 0 ? last_ret : a + b) - a - 1;
         argvi = STACKI(a + 1);
+        luav av = REG(a);
+        lhash_t *meta = getmetatable(av);
+        if (meta != NULL) {
+          /* TODO: bad error message? */
+          closure = lv_getfunction(meta->metamethods[META_CALL], 0);
+          vm_stack_grow(vm_stack, 1);
+          memmove(&vm_stack->base[stack + 1], &vm_stack->base[argvi],
+                  argc * sizeof(luav));
+          vm_stack->base[stack] = av;
+          argc++;
+        } else {
+          closure = lv_getfunction(av, 0);
+          memmove(&vm_stack->base[stack], &vm_stack->base[argvi],
+                  argc * sizeof(luav));
+        }
+        argvi = stack;
+
+        if (closure->type == LUAF_LUA) {
+          stack = vm_stack_alloc(vm_stack, closure->function.lua->max_stack);
+        }
+        assert(C(code) == 0);
         goto top;
+      }
 
       case OP_CLOSURE: {
         bx = BX(code);
@@ -689,4 +713,19 @@ static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame) {
 
 normal:
   lhash_set(TBL(operand), key, val);
+}
+
+static u32 meta_call(luav value, u32 argc, u32 argvi, u32 retc, u32 retvi) {
+  lhash_t *meta = getmetatable(value);
+  if (meta == NULL || meta->metamethods[META_CALL] == LUAV_NIL) {
+    err_rawstr("metatable.__call not found", TRUE);
+  }
+  u32 idx = vm_stack_alloc(vm_stack, argc + 1);
+  /* TODO: bad error message? */
+  lclosure_t *func = lv_getfunction(meta->metamethods[META_CALL], 0);
+  memcpy(&vm_stack->base[idx + 1], &vm_stack->base[argvi], argc * sizeof(luav));
+  vm_stack->base[idx] = value;
+  u32 ret = vm_fun(func, vm_running, argc + 1, idx, retc, retvi);
+  vm_stack_dealloc(vm_stack, idx);
+  return ret;
 }
