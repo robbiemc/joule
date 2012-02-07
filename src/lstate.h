@@ -29,6 +29,10 @@
       vm_stack->base[retvi + (n)] = v;                      \
     }                                                       \
   } while (0)
-#define lstate_return1(v) { lstate_return(v, 0); return 1; }
+#define lstate_return1(v) {    \
+    luav _tmp = v;             \
+    lstate_return(_tmp, 0);    \
+    return 1;                  \
+  }
 
 #endif /* _LSTATE_H */

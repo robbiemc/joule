@@ -249,9 +249,9 @@ void lhash_rawset(lhash_t *map, i32 index, int isnew, luav key, luav val) {
     // FIXME - this doesn't always work (but will in this hashtable
     //         implementation)
     if (lv_isnumber(key) && val != LUAV_NIL) {
-      double len = lv_castnumber(key, 0);
-      if ((u64)len == len && len > map->length) {
-        map->length = (u32) len;
+      double len = lv_cvt(key);
+      if ((u64) len == len && len > map->length) {
+        map->length = (u64) len;
       }
     }
   }
@@ -322,4 +322,58 @@ double lhash_maxn(lhash_t *map) {
     }
   }
   return maxi;
+}
+
+/**
+ * @brief Inserts the given value at the given position into the table.
+ *
+ * The table is intepreted as an array, so values with keys as consecutive
+ * integers at and after the given position are shifted up by one.
+ *
+ * @param map the table to insert into
+ * @param pos the position to insert at
+ * @param value the value to insert at the specified position.
+ */
+void lhash_insert(lhash_t *map, u32 pos, luav value) {
+  i32 index;
+
+  do {
+    luav key = lv_number(pos);
+    lhash_index(map, key, &index);
+    luav temp = map->hash[index].value;
+    map->hash[index].key   = key;
+    map->hash[index].value = value;
+    value = temp;
+  } while (pos++ <= map->length + 1);
+
+  map->length++;
+}
+
+/**
+ * @brief Removes an element at the specified position in a table
+ *
+ * The table is intepreted as an array, so values with keys as consecutive
+ * integers after the given position are shifted down by one.
+ *
+ * @param map the table to remove from
+ * @param pos the position to remove
+ */
+luav lhash_remove(lhash_t *map, u32 pos) {
+  i32 index, prev_idx;
+  if (pos > map->length) {
+    return LUAV_NIL;
+  }
+  lhash_index(map, lv_number(pos++), &index);
+  luav ret = map->hash[index].value;
+  prev_idx = index;
+
+  while (pos <= map->length && lhash_index(map, lv_number(pos), &index)) {
+    map->hash[prev_idx].value = map->hash[index].value;
+    prev_idx = index;
+    pos++;
+  }
+
+  map->hash[index].value = LUAV_NIL;
+  map->length = pos - 2;
+  return ret;
 }

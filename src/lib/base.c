@@ -436,7 +436,7 @@ static u32 lua_ipairs(LSTATE) {
 static u32 lua_unpack(LSTATE) {
   lhash_t *table = lstate_gettable(0);
   u32 i = argc > 1 ? (u32) lstate_getnumber(1) : 1;
-  u32 j = argc > 2 ? (u32) lstate_getnumber(2) : table->length;
+  u32 j = argc > 2 ? (u32) lstate_getnumber(2) : (u32) table->length;
 
   u32 k;
   if (i > j) { return 0; }

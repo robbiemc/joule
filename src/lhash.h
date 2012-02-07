@@ -21,7 +21,7 @@ void lhash_show_profile();
 typedef struct lhash {
   u32 cap;        // capacity of the table
   u32 size;       // size of the table
-  u32 length;     // max non-empty integer index of the table (for # operator)
+  u64 length;     // max non-empty integer index of the table (for # operator)
   struct lh_pair {
     luav key;
     luav value;
@@ -36,6 +36,8 @@ luav lhash_get(lhash_t *map, luav key);
 void lhash_set(lhash_t *map, luav key, luav value);
 void lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval);
 double lhash_maxn(lhash_t *map);
+void lhash_insert(lhash_t *map, u32 pos, luav value);
+luav lhash_remove(lhash_t *map, u32 pos);
 
 int lhash_index(lhash_t *map, luav key, i32 *index);
 luav lhash_rawget(lhash_t *map, i32 index);
