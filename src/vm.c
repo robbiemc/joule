@@ -97,6 +97,7 @@ static int meta_eq(luav operand1, luav operand2, u32 op, luav *ret);
 static luav meta_lhash_get(luav operand, luav key, lframe_t *frame);
 static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame);
 static u32  meta_call(luav value, u32 argc, u32 argvi, u32 retc, u32 retvi);
+static luav meta_concat(luav v1, luav v2);
 
 INIT static void vm_setup() {
   lhash_init(&userdata_meta);
@@ -498,23 +499,15 @@ top:
       }
 
       case OP_CONCAT: {
-        size_t len = 0;
         b = B(code);
         c = C(code);
+        luav value = REG(b);
 
-        for (i = b; i <= c; i++) {
-          len += lv_caststring(REG(i), i - b)->length;
+        for (i = b + 1; i <= c; i++) {
+          value = meta_concat(value, REG(i));
         }
 
-        char *str = xmalloc(len + 1);
-        char *ptr = str;
-        for (i = b; i <= c; i++) {
-          lstring_t *lstr = lv_caststring(REG(i), i - b);
-          memcpy(ptr, lstr->ptr, lstr->length);
-          ptr += lstr->length;
-        }
-        *ptr = 0;
-        SETREG(A(code), lv_string(lstr_add(str, len, TRUE)));
+        SETREG(A(code), value);
         break;
       }
 
@@ -731,4 +724,34 @@ static u32 meta_call(luav value, u32 argc, u32 argvi, u32 retc, u32 retvi) {
   u32 ret = vm_fun(func, vm_running, argc + 1, idx, retc, retvi);
   vm_stack_dealloc(vm_stack, idx);
   return ret;
+}
+
+static luav meta_concat(luav v1, luav v2) {
+  lhash_t *meta = getmetatable(v1);
+  if (meta == NULL || meta->metamethods[META_CONCAT] == LUAV_NIL) {
+    meta = getmetatable(v2);
+  }
+
+  if (meta != NULL && meta->metamethods[META_CONCAT] != LUAV_NIL) {
+    /* TODO: better error message? */
+    lclosure_t *func = lv_getfunction(meta->metamethods[META_CONCAT], 0);
+    u32 idx = vm_stack_alloc(vm_stack, 2);
+    vm_stack->base[idx] = v1;
+    vm_stack->base[idx + 1] = v2;
+    u32 got = vm_fun(func, vm_running, 2, idx, 1, idx);
+    luav ret = LUAV_NIL;
+    if (got > 0) {
+      ret = vm_stack->base[idx];
+    }
+    vm_stack_dealloc(vm_stack, idx);
+    return ret;
+  }
+
+  lstring_t *s1 = lv_caststring(v1, 0);
+  lstring_t *s2 = lv_caststring(v2, 0);
+  char *newbuf = xmalloc(s1->length + s2->length + 1);
+  memcpy(newbuf, s1->ptr, s1->length);
+  memcpy(newbuf + s1->length, s2->ptr, s2->length);
+  newbuf[s1->length + s2->length] = 0;
+  return lv_string(lstr_add(newbuf, s1->length + s2->length, TRUE));
 }
