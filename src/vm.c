@@ -43,10 +43,6 @@
 #define DECODEFP8(v) (((u32)8 | ((v)&7)) << (((u32)(v)>>3) - 1))
 
 /* Metatable macros */
-#define TBL(x) lv_gettable(x,0)
-#define getmetatable(v) (lv_istable(v)    ? TBL(v)->metatable :                \
-                         lv_isuserdata(v) ? TBL(lhash_get(&userdata_meta, v)) :\
-                         NULL)
 #define BINOP_ADD(a,b) ((a)+(b))
 #define BINOP_SUB(a,b) ((a)-(b))
 #define BINOP_MUL(a,b) ((a)*(b))

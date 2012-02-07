@@ -140,7 +140,6 @@ static u32 lua_type(LSTATE) {
 }
 
 static u32 lua_tostring(LSTATE) {
-  /* TODO: if v has a metatable, call __tostring method */
   char *strbuf = xmalloc(LUAV_INIT_STRING);
   int len;
 
@@ -151,14 +150,8 @@ static u32 lua_tostring(LSTATE) {
       break;
     case LSTRING:
       lstate_return1(v);
-    case LTABLE:
-      len = sprintf(strbuf, "table: %p", lv_gettable(v, 0));
-      break;
     case LFUNCTION:
       len = sprintf(strbuf, "function: %p", lv_getfunction(v, 0));
-      break;
-    case LUSERDATA:
-      len = sprintf(strbuf, "userdata: %p", lv_getuserdata(v, 0));
       break;
     case LBOOLEAN:
       len = sprintf(strbuf, lv_getbool(v, 0) ? "true" : "false");
@@ -171,6 +164,26 @@ static u32 lua_tostring(LSTATE) {
     case LTHREAD:
       len = sprintf(strbuf, "thread: %p", lv_getthread(v, 0));
       break;
+
+    case LUSERDATA:
+    case LTABLE: {
+      lhash_t *meta = getmetatable(v);
+      if (meta) {
+        luav value = meta->metamethods[META_TOSTRING];
+        if (value != LUAV_NIL) {
+          free(strbuf);
+          vm_stack->base[argvi] = v;
+          return vm_fun(lv_getfunction(value, 0), vm_running, 1, argvi,
+                        retc, retvi);
+        }
+      }
+      if (lv_gettype(v) == LTABLE) {
+        len = sprintf(strbuf, "table: %p", lv_gettable(v, 0));
+      } else {
+        len = sprintf(strbuf, "userdata: %p", lv_getuserdata(v, 0));
+      }
+      break;
+    }
 
     default:
       panic("Unknown luav: 0x%016" PRIu64, v);

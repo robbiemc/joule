@@ -1,7 +1,8 @@
 #ifndef _META_H_
 #define _META_H_
 
-#include "vm.h"
+#include "lhash.h"
+#include "luav.h"
 
 #define META_INVALID      100 // just some random number
 #define META_UNUSED       0
@@ -21,8 +22,16 @@
 #define META_NEWINDEX     14
 #define META_CALL         15
 #define META_METATABLE    16
-#define NUM_META_METHODS  17
+#define META_TOSTRING     17
+#define NUM_META_METHODS  18
 
 extern luav meta_strings[NUM_META_METHODS];
+
+#define TBL(x) lv_gettable(x,0)
+#define getmetatable(v) (lv_istable(v)    ? TBL(v)->metatable :                \
+                         lv_isuserdata(v) ? TBL(lhash_get(&userdata_meta, v)) :\
+                         NULL)
+
+extern lhash_t userdata_meta;
 
 #endif /* _META_H_ */

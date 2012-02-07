@@ -48,6 +48,7 @@ INIT static void lua_lhash_init() {
   meta_strings[META_NEWINDEX]  = LSTR("__newindex");
   meta_strings[META_CALL]      = LSTR("__call");
   meta_strings[META_METATABLE] = LSTR("__metatable");
+  meta_strings[META_TOSTRING]  = LSTR("__tostring");
 
   // an ugly hack that speeds up lhash_check_meta *A LOT*
   max_meta_string = 0;
@@ -239,7 +240,7 @@ void lhash_rawset(lhash_t *map, i32 index, int isnew, luav key, luav val) {
   map->hash[index].key = key;
   map->hash[index].value = val;
 
-  // update the array size 
+  // update the array size
   if (isnew) {
     map->size++;
     if (map->size * 100 / map->cap > LHASH_MAP_THRESH) {
