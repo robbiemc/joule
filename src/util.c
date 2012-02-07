@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -7,7 +8,9 @@
 int fdread(int fd, void *buf, size_t len) {
   while (len > 0) {
     ssize_t rd = read(fd, buf, len);
-    if (rd == -1) return -1;
+    if (rd <= 0 && errno != EINTR) {
+      return -1;
+    }
     len -= (size_t) rd;
     buf += (size_t) rd;
   }

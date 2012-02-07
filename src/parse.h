@@ -26,9 +26,10 @@ typedef struct luac_header {
   u8  int_flag;
 } PACKED luac_header_t;
 
-void luac_parse_file(lfunc_t *func, char *filename);
-void luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin);
-int  luac_parse_bytecode(lfunc_t *func, int fd, char *filename);
+int  luac_parse_file(lfunc_t *func, char *filename) MUST_CHECK;
+int  luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin)
+        MUST_CHECK;
+int  luac_parse_bytecode(lfunc_t *func, int fd, char *filename) MUST_CHECK;
 void luac_free(lfunc_t *func);
 
 #endif /* _PARSE_H_ */

@@ -15,10 +15,11 @@ typedef int64_t   i64;
 #define FALSE 0
 #define TRUE 1
 
-#define PACKED    __attribute__((packed))
-#define NORETURN  __attribute__((noreturn))
-#define INIT      __attribute__((constructor))
-#define DESTROY   __attribute__((destructor))
+#define PACKED     __attribute__((packed))
+#define NORETURN   __attribute__((noreturn))
+#define INIT       __attribute__((constructor))
+#define DESTROY    __attribute__((destructor))
+#define MUST_CHECK __attribute__((warn_unused_result))
 
 #define LUAV_INIT_STRING  100
 #define LUA_NUMBER_FMT    "%.14g"

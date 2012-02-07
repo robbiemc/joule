@@ -12,7 +12,6 @@
 #include "parse.h"
 #include "vm.h"
 
-
 #define SET(i,str) (strcmp(argv[(i)], (str)) == 0)
 
 static lhash_t lua_arg;
@@ -48,6 +47,7 @@ static void register_argv(int bias, int argc, char **argv) {
 }
 
 int main(int argc, char **argv) {
+  int ret;
   lfunc_t func;
 
   memset(&flags, 0, sizeof(lflags_t));
@@ -58,12 +58,17 @@ int main(int argc, char **argv) {
   if (flags.compiled) {
     int fd = open(argv[i], O_RDONLY);
     xassert(fd != -1);
-    luac_parse_bytecode(&func, fd, argv[i]);
+    ret = luac_parse_bytecode(&func, fd, argv[i]);
     close(fd);
   } else if (flags.string) {
-    luac_parse_string(&func, argv[i], strlen(argv[i]), "(command line)");
+    ret = luac_parse_string(&func, argv[i], strlen(argv[i]), "(command line)");
   } else {
-    luac_parse_file(&func, argv[i]);
+    ret = luac_parse_file(&func, argv[i]);
+  }
+
+  if (ret < 0) {
+    printf("bad file/string provided\n");
+    return 1;
   }
 
   if (flags.dump) {

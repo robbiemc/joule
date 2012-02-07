@@ -24,7 +24,7 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename);
  * @param csz the length of the source string
  * @param origin the origin of the code (filename, for example)
  */
-void luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin) {
+int luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin) {
   int err = 0;
 
   // create the pipes
@@ -44,7 +44,7 @@ void luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin) {
     close(out_fds[0]);
     dup2(in_fds[0], STDIN_FILENO);
     dup2(out_fds[1], STDOUT_FILENO);
-    execl("/bin/sh", "sh", "-c", "luac -o - -", NULL);
+    execl("/bin/sh", "sh", "-c", "luac -o - - 2>/dev/null", NULL);
     panic("exec is returning!");
   }
 
@@ -62,8 +62,9 @@ void luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin) {
   }
   close(in_fds[1]);
 
-  luac_parse_bytecode(func, out_fds[0], origin);
+  int res = luac_parse_bytecode(func, out_fds[0], origin);
   close(out_fds[0]);
+  return res;
 }
 
 /**
@@ -72,7 +73,7 @@ void luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin) {
  * @param func the struct to fill in information for
  * @param filename the filename to open
  */
-void luac_parse_file(lfunc_t *func, char *filename) {
+int luac_parse_file(lfunc_t *func, char *filename) {
   char cmd_prefix[] = "luac -o - ";
   char *cmd = xmalloc(sizeof(cmd_prefix) + strlen(filename) + 1);
   strcpy(cmd, cmd_prefix);
@@ -80,9 +81,10 @@ void luac_parse_file(lfunc_t *func, char *filename) {
 
   FILE *f = popen(cmd, "r");
   assert(f != NULL);
-  luac_parse_bytecode(func, fileno(f), filename);
+  int res = luac_parse_bytecode(func, fileno(f), filename);
   pclose(f);
   free(cmd);
+  return res;
 }
 
 /**

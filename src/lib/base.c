@@ -298,10 +298,13 @@ static u32 lua_loadstring(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   lstring_t *name = (argc > 1) ? lstate_getstring(1) : str;
 
-  /* TODO: file is leaked here */
-  /* TODO: parse error isn't propogated */
   lfunc_t *func = xmalloc(sizeof(lfunc_t));
-  luac_parse_string(func, str->ptr, str->length, name->ptr);
+  if (luac_parse_string(func, str->ptr, str->length, name->ptr) < 0) {
+    free(func);
+    lstate_return(LUAV_NIL, 0);
+    lstate_return(LSTR("Bad lua string"), 1);
+    return 2;
+  }
 
   lclosure_t *closure = xmalloc(sizeof(lclosure_t));
   closure->type = LUAF_LUA;
@@ -430,7 +433,9 @@ static u32 lua_dofile(LSTATE) {
   /* TODO: luac_parse_source() panics on error, should propogate error */
   lstring_t *filename = lstate_getstring(0);
   lfunc_t func;
-  luac_parse_file(&func, filename->ptr);
+  if (luac_parse_file(&func, filename->ptr) < 0) {
+    err_rawstr("Bad lua file.", 0);
+  }
   lclosure_t closure;
   closure.function.lua = &func;
   closure.type         = LUAF_LUA;
