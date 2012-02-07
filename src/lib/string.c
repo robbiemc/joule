@@ -391,7 +391,7 @@ static u32 lua_string_find(LSTATE) {
   }
 
   /* TODO: this is supposed to use regexes... */
-  char *ptr = strnstr(s->ptr + (init - 1), pat->ptr, s->length);
+  char *ptr = strstr(s->ptr + (init - 1), pat->ptr);
 
   if (ptr == NULL) {
     lstate_return1(LUAV_NIL);
