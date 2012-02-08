@@ -129,15 +129,24 @@ static int luac_skip(int fd, size_t len) {
   return 0;
 }
 
-#define luac_skip_string(fd) ({ luac_skip(fd, xread8(fd)); })
+static lstring_t *luac_read_string_(int fd) {
+  size_t len = xread8(fd);
+  if (len <= 1) {
+    if (len == 1) xread1(fd);
+    return lstr_empty();
+  }
+  lstring_t *str = lstr_alloc(len-1);
+  xread(fd, str->data, len);
+  return lstr_add(str);
+fderr:
+  return NULL;
+}
 
-#define luac_read_string(fd) ({             \
-          size_t len = xread8(fd);          \
-          lstring_t *str = lstr_alloc(len); \
-          if (len > 0) {                    \
-            xread(fd, str->data, len);      \
-          }                                 \
-          lstr_add(str);                    \
+#define luac_skip_string(fd) luac_skip(fd, xread8(fd));
+#define luac_read_string(fd) ({                     \
+          lstring_t *str = luac_read_string_(fd);   \
+          if (str == NULL) goto fderr;              \
+          str;                                      \
         })
 
 static int luac_parse_func(lfunc_t *func, int fd, char *filename) {

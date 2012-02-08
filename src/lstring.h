@@ -18,4 +18,6 @@ lstring_t *lstr_alloc(size_t size);
 lstring_t *lstr_add(lstring_t *str);
 lstring_t *lstr_literal(char *cstr);
 
+lstring_t *lstr_empty();
+
 #endif /* _LSTRING_H_ */

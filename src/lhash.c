@@ -24,7 +24,6 @@ static void lhash_resize(lhash_t *hash);
 
 luav meta_strings[NUM_META_METHODS];
 static luav meta_empty[NUM_META_METHODS];
-static luav max_meta_string;
 
 INIT static void lua_lhash_init() {
   // a nil meta table array - this is default
@@ -49,13 +48,6 @@ INIT static void lua_lhash_init() {
   meta_strings[META_CALL]      = LSTR("__call");
   meta_strings[META_METATABLE] = LSTR("__metatable");
   meta_strings[META_TOSTRING]  = LSTR("__tostring");
-
-  // an ugly hack that speeds up lhash_check_meta *A LOT*
-  max_meta_string = 0;
-  for (i = 0; i < NUM_META_METHODS; i++) {
-    if (meta_strings[i] > max_meta_string)
-      max_meta_string = meta_strings[i];
-  }
 }
 
 /**
@@ -105,7 +97,7 @@ void lhash_free(lhash_t *hash) {
  *         valid event
  */
 i32 lhash_check_meta(luav key) {
-  if (!lv_isstring(key) || key > max_meta_string)
+  if (!lv_isstring(key))
     return META_INVALID;
 
   i32 i;

@@ -38,7 +38,7 @@
       str->length *= 2;                                                        \
       str = xrealloc(str, str->length);                                        \
     }                                                                          \
-    len += (size_t) tmp;                                                       \
+    size += (size_t) tmp;                                                      \
   }
 
 /**
@@ -252,6 +252,7 @@ static u32 lua_string_format(LSTATE) {
     }
   }
 
+  newstr->length = len;
   APPEND(newstr, len, 0);
 
   lstate_return1(lv_string(lstr_add(newstr)));
@@ -266,7 +267,7 @@ static u32 lua_string_rep(LSTATE) {
   }
   size_t len = n * str->length;
 
-  lstring_t *newstr = lstr_alloc(len + 1);
+  lstring_t *newstr = lstr_alloc(len);
   char *ptr = newstr->data;
   while (n-- > 0) {
     memcpy(ptr, str->data, str->length);
@@ -295,7 +296,7 @@ static u32 lua_string_sub(LSTATE) {
   }
 
   size_t len = (size_t) (end - start + 1);
-  lstring_t *newstr = lstr_alloc(len + 1);
+  lstring_t *newstr = lstr_alloc(len);
   memcpy(newstr->data, str->data + start, len);
   newstr->data[len] = 0;
 
@@ -311,7 +312,7 @@ static u32 lua_string_lower(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   if (str->length == 0) { lstate_return1(str_empty); }
   size_t i;
-  lstring_t *newstr = lstr_alloc(str->length + 1);
+  lstring_t *newstr = lstr_alloc(str->length);
   for (i = 0; i < str->length; i++) {
     newstr->data[i] = (char) tolower(str->data[i]);
   }
@@ -323,7 +324,7 @@ static u32 lua_string_upper(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   if (str->length == 0) { lstate_return1(str_empty); }
   size_t i;
-  lstring_t *newstr = lstr_alloc(str->length + 1);
+  lstring_t *newstr = lstr_alloc(str->length);
   for (i = 0; i < str->length; i++) {
     newstr->data[i] = (char) toupper(str->data[i]);
   }
@@ -335,7 +336,7 @@ static u32 lua_string_reverse(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   if (str->length == 0) { lstate_return1(str_empty); }
   size_t i;
-  lstring_t *newstr = lstr_alloc(str->length + 1);
+  lstring_t *newstr = lstr_alloc(str->length);
   for (i = 0; i < str->length; i++) {
     newstr->data[i] = str->data[str->length - i - 1];
   }
@@ -366,7 +367,7 @@ static u32 lua_string_char(LSTATE) {
   if (argc == 0) {
     lstate_return1(str_empty);
   }
-  lstring_t *str = lstr_alloc(argc + 1);
+  lstring_t *str = lstr_alloc(argc);
   u32 i;
   for (i = 0; i < argc; i++) {
     str->data[i] = (char) lstate_getnumber(i);

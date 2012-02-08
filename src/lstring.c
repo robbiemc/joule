@@ -18,6 +18,7 @@ typedef struct {
 smap_t smap = {NULL, STRING_HASHMAP_CAP, 0};
 
 int initialized = 0;
+lstring_t empty;
 
 static void smap_insert(lstring_t *str);
 static void smap_ins(smap_t *map, lstring_t *str);
@@ -28,10 +29,18 @@ static u32 smap_hash(u8 *str, size_t size);
 INIT static void lstr_init() {
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
   initialized = 1;
+
+  empty.length = 0;
+  empty.data[0] = 0;
+  lstr_add(&empty);
 }
 
 DESTROY static void lstr_destroy() {
   free(smap.table);
+}
+
+lstring_t *lstr_empty() {
+  return &empty;
 }
 
 lstring_t *lstr_alloc(size_t size) {
@@ -43,10 +52,10 @@ lstring_t *lstr_alloc(size_t size) {
 
 lstring_t *lstr_add(lstring_t *str) {
   xassert(initialized);
+  assert(str->data[str->length] == 0);
   // compute the hash of the string
   str->hash = smap_hash((u8*) str->data, str->length);
   // lookup the string in the hashset (see if it's already stored)
-  assert(str->data[str->length] == 0);
   lstring_t *found = smap_lookup(str);
   if (NONEMPTY(found)) {
     free(str);
