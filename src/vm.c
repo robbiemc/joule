@@ -171,7 +171,9 @@ top:
   if (closure->type != LUAF_LUA) {
     u32 ret = closure->function.c->f(argc, argvi, retc, retvi);
     vm_running = parent;
-    vm_stack_dealloc(vm_stack, stack_orig);
+    if (stack != stack_orig) {
+      vm_stack_dealloc(vm_stack, stack_orig);
+    }
     return ret;
   }
 
