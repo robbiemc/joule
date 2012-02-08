@@ -252,8 +252,8 @@ static u32 lua_string_format(LSTATE) {
     }
   }
 
-  newstr->length = len;
   APPEND(newstr, len, 0);
+  newstr->length = len - 1;
 
   lstate_return1(lv_string(lstr_add(newstr)));
 }
