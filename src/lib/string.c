@@ -17,10 +17,9 @@
  * @param str the string to possibly resize
  * @param size the desired size of the string
  */
-#define RESIZE(str, size)             \
-  if ((size) >= (str)->length) {      \
-    str->length *= 2;                 \
-    str = xrealloc(str, str->length); \
+#define RESIZE(str, size)                     \
+  if ((size) >= (str)->length) {              \
+    str = lstr_realloc(str, str->length * 2); \
   }
 
 /**
@@ -34,9 +33,8 @@
 #define SNPRINTF(str, size, fmt...) {                                          \
     int tmp;                                                                   \
     while ((size_t) (tmp = snprintf(&str->data[size], str->length - size, fmt))\
-                           + size >= cap) {                                    \
-      str->length *= 2;                                                        \
-      str = xrealloc(str, str->length);                                        \
+                           + size >= str->length) {                            \
+      str = lstr_realloc(str, (size_t) tmp + size + 1);                        \
     }                                                                          \
     size += (size_t) tmp;                                                      \
   }
@@ -138,8 +136,8 @@ DESTROY static void lua_string_destroy() {
 static u32 lua_string_format(LSTATE) {
   lstring_t *lfmt = lstate_getstring(0);
   if (lfmt->length == 0) { lstate_return1(str_empty); }
-  size_t len = 0, cap = LUAV_INIT_STRING;
-  lstring_t *newstr = lstr_alloc(cap);
+  size_t len = 0;
+  lstring_t *newstr = lstr_alloc(LUAV_INIT_STRING);
   char *fmt = lfmt->data;
   u32 i, j, argi = 0;
   char buf[MAX_FORMAT];

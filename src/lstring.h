@@ -15,6 +15,7 @@ typedef struct lstring {
 #define LSTR(s) lv_string(lstr_literal(s))
 
 lstring_t *lstr_alloc(size_t size);
+lstring_t *lstr_realloc(lstring_t *str, size_t size);
 lstring_t *lstr_add(lstring_t *str);
 lstring_t *lstr_literal(char *cstr);
 

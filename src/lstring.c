@@ -50,6 +50,12 @@ lstring_t *lstr_alloc(size_t size) {
   return str;
 }
 
+lstring_t *lstr_realloc(lstring_t *str, size_t size) {
+  if (size == 0) size = str->length * 2;
+  str->length = size;
+  return xrealloc(str, sizeof(lstring_t) + size);
+}
+
 lstring_t *lstr_add(lstring_t *str) {
   xassert(initialized);
   assert(str->data[str->length] == 0);
