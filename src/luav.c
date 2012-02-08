@@ -118,10 +118,10 @@ int lv_compare(luav v1, luav v2) {
   if (v1 == v2) return 0;
 
   if (lv_isstring(v1) && lv_isstring(v2)) {
-    lstring_t *s1 = lstr_get(LUAV_DATA(v1));
-    lstring_t *s2 = lstr_get(LUAV_DATA(v2));
+    lstring_t *s1 = (lstring_t*) LUAV_DATA(v1);
+    lstring_t *s2 = (lstring_t*) LUAV_DATA(v2);
     size_t minlen = MIN(s1->length, s2->length);
-    int cmp = memcmp(s1->ptr, s2->ptr, minlen);
+    int cmp = memcmp(s1->data, s2->data, minlen);
     if (cmp != 0) return cmp;
     if (s1->length < s2->length) return -1;
     return s1->length > s2->length;
@@ -150,7 +150,7 @@ double lv_castnumberb(luav number, u32 base, u32 argnum) {
     err_badtype(argnum, LNUMBER, lv_gettype(number));
   }
 
-  lstring_t *str = lstr_get(LUAV_DATA(number));
+  lstring_t *str = (lstring_t*) LUAV_DATA(number);
   double num;
   if (lv_parsenum(str, base, &num) < 0) {
     err_badtype(argnum, LNUMBER, LSTRING);
@@ -160,12 +160,12 @@ double lv_castnumberb(luav number, u32 base, u32 argnum) {
 
 int lv_parsenum(lstring_t *str, u32 base, double *value) {
   char *end;
-  double num = base == 10 ? strtod(str->ptr, &end) :
-                            (double) strtoul(str->ptr, &end, (int) base);
+  double num = base == 10 ? strtod(str->data, &end) :
+                            (double) strtoul(str->data, &end, (int) base);
 
-  if (end == str->ptr) { return -1; }
+  if (end == str->data) { return -1; }
   while (*end != 0 && isspace(*end)) end++;
-  if (end == str->ptr + str->length) {
+  if (end == str->data + str->length) {
     *value = num;
     return 0;
   }
@@ -174,12 +174,12 @@ int lv_parsenum(lstring_t *str, u32 base, double *value) {
 
 lstring_t* lv_caststring(luav number, u32 argnum) {
   if (lv_isstring(number)) {
-    return lstr_get(LUAV_DATA(number));
+    return (lstring_t*) LUAV_DATA(number);
   } else if (!lv_isnumber(number)) {
     err_badtype(argnum, LSTRING, lv_gettype(number));
   }
 
-  char *buf = xmalloc(20);
-  int len = snprintf(buf, 20, LUA_NUMBER_FMT, lv_cvt(number));
-  return lstr_get(lstr_add(buf, (size_t) len, TRUE));
+  lstring_t *str = lstr_alloc(20);
+  str->length = (size_t)snprintf(str->data, 20, LUA_NUMBER_FMT, lv_cvt(number));
+  return lstr_add(str);
 }

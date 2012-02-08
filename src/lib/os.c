@@ -83,19 +83,18 @@ static u32 lua_os_execute(LSTATE) {
     lstate_return1(lv_number(1));
   }
   lstring_t *str = lstate_getstring(0);
-  lstate_return1(lv_number(system(str->ptr)));
+  lstate_return1(lv_number(system(str->data)));
 }
 
 static u32 lua_os_getenv(LSTATE) {
   lstring_t *str = lstate_getstring(0);
-  char *value = getenv(str->ptr);
+  char *value = getenv(str->data);
 
   if (value == NULL) {
     lstate_return1(LUAV_NIL);
   }
 
-  luav ret = lv_string(lstr_add(value, strlen(value), FALSE));
-  lstate_return1(ret);
+  lstate_return1(LSTR(value));
 }
 
 static u32 lua_os_date(LSTATE) {
@@ -104,7 +103,7 @@ static u32 lua_os_date(LSTATE) {
   if (first == LUAV_NIL) {
     format = "%c";
   } else {
-    format = lv_caststring(first, 0)->ptr;
+    format = lv_caststring(first, 0)->data;
   }
 
   time_t t = argc <= 1 ? time(NULL) : (time_t) lstate_getnumber(1);
@@ -135,18 +134,15 @@ static u32 lua_os_date(LSTATE) {
   }
 
   size_t cap = LUAV_INIT_STRING;
-  char *str = xmalloc(cap);
+  lstring_t *str = lstr_alloc(cap);
 
-  while (strftime(str, cap, format, stm) >= cap) {
+  while (strftime(str->data, cap - 1, format, stm) == 0) {
     cap *= 2;
     str = xrealloc(str, cap);
   }
 
-  size_t len = strlen(str);
-  if (len == cap) { str = xrealloc(str, cap + 1); }
-  str[len] = 0;
-
-  lstate_return1(lv_string(lstr_add(str, len, TRUE)));
+  str->length = strlen(str->data);
+  lstate_return1(lv_string(str));
 }
 
 static u32 lua_os_setlocale(LSTATE) {
@@ -168,9 +164,9 @@ static u32 lua_os_setlocale(LSTATE) {
     category = LC_TIME;
   }
 
-  char *ret = setlocale(category, locale->ptr);
+  char *ret = setlocale(category, locale->data);
   if (ret == NULL) {
     lstate_return1(LUAV_NIL);
   }
-  lstate_return1(lv_string(lstr_add(ret, strlen(ret), FALSE)));
+  lstate_return1(LSTR(ret));
 }

@@ -11,48 +11,46 @@
 #define MAX_FORMAT 20
 
 /**
- * @brief Resize a buffer if necessary so that the given size will fit in
- *        the buffer's capacity
+ * @brief Resize a string if necessary so that the given size will fit in
+ *        the string's capacity
  *
- * @param buf the buffer to possibly resize
- * @param size the desired size of the buffer
- * @param cap the current capacity of the buffer
+ * @param str the string to possibly resize
+ * @param size the desired size of the string
  */
-#define RESIZE(buf, size, cap)    \
-  if ((size) >= cap) {            \
-    cap *= 2;                     \
-    buf = xrealloc(buf, cap);     \
+#define RESIZE(str, size)             \
+  if ((size) >= (str)->length) {      \
+    str->length *= 2;                 \
+    str = xrealloc(str, str->length); \
   }
 
 /**
  * @brief Call snprintf() until it successfully fits entirely inside the given
- *        buffer
+ *        string
  *
- * @param buf the buffer to write into
- * @param size the current size of the buffer
- * @param cap the current capacity of the buffer
+ * @param str the string to write into
+ * @param size the current size of the string
  * @param fmt the format and arguments to pass to snprintf()
  */
-#define SNPRINTF(buf, size, cap, fmt...) {                                   \
-    int tmp;                                                                 \
-    while ((size_t) (tmp = snprintf(&buf[size], cap - size, fmt)) + size >= cap) {  \
-      cap *= 2;                                                              \
-      buf = xrealloc(buf, cap);                                              \
-    }                                                                        \
-    len += (size_t) tmp;                                                     \
+#define SNPRINTF(str, size, fmt...) {                                          \
+    int tmp;                                                                   \
+    while ((size_t) (tmp = snprintf(&str->data[size], str->length - size, fmt))\
+                           + size >= cap) {                                    \
+      str->length *= 2;                                                        \
+      str = xrealloc(str, str->length);                                        \
+    }                                                                          \
+    len += (size_t) tmp;                                                       \
   }
 
 /**
- * @brief Append one character into a resizable buffer
+ * @brief Append one character onto a string
  *
- * @param buf the buffer to write into
- * @param size the size of the buffer
- * @param cap the capacity of the buffer
+ * @param str the string to append to
+ * @param size the size of the string
  * @param c the character to add to the buffer
  */
-#define APPEND(buf, size, cap, c) {   \
-    RESIZE(buf, size + 1, cap);       \
-    buf[size++] = c;                  \
+#define APPEND(str, size, c) {  \
+    RESIZE(str, size + 1);      \
+    str->data[size++] = c;      \
   }
 
 /**
@@ -141,14 +139,14 @@ static u32 lua_string_format(LSTATE) {
   lstring_t *lfmt = lstate_getstring(0);
   if (lfmt->length == 0) { lstate_return1(str_empty); }
   size_t len = 0, cap = LUAV_INIT_STRING;
-  char *newstr = xmalloc(cap);
-  char *fmt = lfmt->ptr;
+  lstring_t *newstr = lstr_alloc(cap);
+  char *fmt = lfmt->data;
   u32 i, j, argi = 0;
   char buf[MAX_FORMAT];
 
   for (i = 0; i < lfmt->length; i++) {
     if (fmt[i] != '%') {
-      APPEND(newstr, len, cap, fmt[i]);
+      APPEND(newstr, len, fmt[i]);
       continue;
     }
 
@@ -171,16 +169,16 @@ static u32 lua_string_format(LSTATE) {
     argi++;
     switch (fmt[i]) {
       case '%':
-        APPEND(newstr, len, cap, '%');
+        APPEND(newstr, len, '%');
         argi--;
         break;
       case 'c':
-        SNPRINTF(newstr, len, cap, buf, (char) lstate_getnumber(argi));
+        SNPRINTF(newstr, len, buf, (char) lstate_getnumber(argi));
         break;
 
       case 'i':
       case 'd':
-        SNPRINTF(newstr, len, cap, buf, (int) lstate_getnumber(argi));
+        SNPRINTF(newstr, len, buf, (int) lstate_getnumber(argi));
         break;
 
       case 'o':
@@ -193,7 +191,7 @@ static u32 lua_string_format(LSTATE) {
         buf[end + 1] = buf[end];
         buf[end + 2] = 0;
         buf[end] = 'l';
-        SNPRINTF(newstr, len, cap, buf, (size_t) lstate_getnumber(argi));
+        SNPRINTF(newstr, len, buf, (size_t) lstate_getnumber(argi));
         break;
       }
 
@@ -202,7 +200,7 @@ static u32 lua_string_format(LSTATE) {
       case 'f':
       case 'g':
       case 'G':
-        SNPRINTF(newstr, len, cap, buf, lstate_getnumber(argi));
+        SNPRINTF(newstr, len, buf, lstate_getnumber(argi));
         break;
 
       case 'q':
@@ -210,41 +208,41 @@ static u32 lua_string_format(LSTATE) {
         luav arg = lstate_getval(argi);
         lstring_t *str = lv_caststring(arg, argi);
         if (fmt[i] == 's') {
-          SNPRINTF(newstr, len, cap, buf, str->ptr);
+          SNPRINTF(newstr, len, buf, str->data);
           break;
         }
-        APPEND(newstr, len, cap, '"');
+        APPEND(newstr, len, '"');
         for (j = 0; j < str->length; j++) {
           /* Make sure we escape all escape sequences */
-          switch (str->ptr[j]) {
+          switch (str->data[j]) {
             case 0:
-              APPEND(newstr, len, cap, '\\');
-              APPEND(newstr, len, cap, '0');
-              APPEND(newstr, len, cap, '0');
-              APPEND(newstr, len, cap, '0');
+              APPEND(newstr, len, '\\');
+              APPEND(newstr, len, '0');
+              APPEND(newstr, len, '0');
+              APPEND(newstr, len, '0');
               break;
 
             case '"':
-              APPEND(newstr, len, cap, '\\');
-              APPEND(newstr, len, cap, '"');
+              APPEND(newstr, len, '\\');
+              APPEND(newstr, len, '"');
               break;
 
             case '\n':
-              APPEND(newstr, len, cap, '\\');
-              APPEND(newstr, len, cap, '\n');
+              APPEND(newstr, len, '\\');
+              APPEND(newstr, len, '\n');
               break;
 
             case '\\':
-              APPEND(newstr, len, cap, '\\');
-              APPEND(newstr, len, cap, '\\');
+              APPEND(newstr, len, '\\');
+              APPEND(newstr, len, '\\');
               break;
 
             default:
-              APPEND(newstr, len, cap, str->ptr[j]);
+              APPEND(newstr, len, str->data[j]);
               break;
           }
         }
-        APPEND(newstr, len, cap, '"');
+        APPEND(newstr, len, '"');
         break;
       }
 
@@ -254,9 +252,9 @@ static u32 lua_string_format(LSTATE) {
     }
   }
 
-  APPEND(newstr, len, cap, 0);
+  APPEND(newstr, len, 0);
 
-  lstate_return1(lv_string(lstr_add(newstr, len - 1, TRUE)));
+  lstate_return1(lv_string(lstr_add(newstr)));
 }
 
 static u32 lua_string_rep(LSTATE) {
@@ -268,15 +266,15 @@ static u32 lua_string_rep(LSTATE) {
   }
   size_t len = n * str->length;
 
-  char *newstr = xmalloc(len + 1);
-  char *ptr = newstr;
+  lstring_t *newstr = lstr_alloc(len + 1);
+  char *ptr = newstr->data;
   while (n-- > 0) {
-    memcpy(ptr, str->ptr, str->length);
+    memcpy(ptr, str->data, str->length);
     ptr += str->length;
   }
-  newstr[len] = 0;
+  newstr->data[len] = 0;
 
-  lstate_return1(lv_string(lstr_add(newstr, len, TRUE)));
+  lstate_return1(lv_string(lstr_add(newstr)));
 }
 
 static u32 lua_string_sub(LSTATE) {
@@ -297,11 +295,11 @@ static u32 lua_string_sub(LSTATE) {
   }
 
   size_t len = (size_t) (end - start + 1);
-  char *newstr = xmalloc(len + 1);
-  memcpy(newstr, str->ptr + start, len);
-  newstr[len] = 0;
+  lstring_t *newstr = lstr_alloc(len + 1);
+  memcpy(newstr->data, str->data + start, len);
+  newstr->data[len] = 0;
 
-  lstate_return1(lv_string(lstr_add(newstr, len, TRUE)));
+  lstate_return1(lv_string(lstr_add(newstr)));
 }
 
 static u32 lua_string_len(LSTATE) {
@@ -313,36 +311,36 @@ static u32 lua_string_lower(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   if (str->length == 0) { lstate_return1(str_empty); }
   size_t i;
-  char *newstr = xmalloc(str->length + 1);
+  lstring_t *newstr = lstr_alloc(str->length + 1);
   for (i = 0; i < str->length; i++) {
-    newstr[i] = (char) tolower(str->ptr[i]);
+    newstr->data[i] = (char) tolower(str->data[i]);
   }
-  newstr[i] = 0;
-  lstate_return1(lv_string(lstr_add(newstr, i, TRUE)));
+  newstr->data[i] = 0;
+  lstate_return1(lv_string(lstr_add(newstr)));
 }
 
 static u32 lua_string_upper(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   if (str->length == 0) { lstate_return1(str_empty); }
   size_t i;
-  char *newstr = xmalloc(str->length + 1);
+  lstring_t *newstr = lstr_alloc(str->length + 1);
   for (i = 0; i < str->length; i++) {
-    newstr[i] = (char) toupper(str->ptr[i]);
+    newstr->data[i] = (char) toupper(str->data[i]);
   }
-  newstr[i] = 0;
-  lstate_return1(lv_string(lstr_add(newstr, i, TRUE)));
+  newstr->data[i] = 0;
+  lstate_return1(lv_string(lstr_add(newstr)));
 }
 
 static u32 lua_string_reverse(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   if (str->length == 0) { lstate_return1(str_empty); }
   size_t i;
-  char *newstr = xmalloc(str->length + 1);
+  lstring_t *newstr = lstr_alloc(str->length + 1);
   for (i = 0; i < str->length; i++) {
-    newstr[i] = str->ptr[str->length - i - 1];
+    newstr->data[i] = str->data[str->length - i - 1];
   }
-  newstr[i] = 0;
-  lstate_return1(lv_string(lstr_add(newstr, i, TRUE)));
+  newstr->data[i] = 0;
+  lstate_return1(lv_string(lstr_add(newstr)));
 }
 
 static u32 lua_string_byte(LSTATE) {
@@ -359,7 +357,7 @@ static u32 lua_string_byte(LSTATE) {
   if (j < i) { return 0; }
   for (k = 0; k < retc && k <= j - i; k++) {
     /* All bytes are considered unsigned, so we need to cast from char to u8 */
-    lstate_return(lv_number((u8) str->ptr[i + k]), k);
+    lstate_return(lv_number((u8) str->data[i + k]), k);
   }
   return k;
 }
@@ -368,13 +366,13 @@ static u32 lua_string_char(LSTATE) {
   if (argc == 0) {
     lstate_return1(str_empty);
   }
-  char *str = xmalloc(argc + 1);
+  lstring_t *str = lstr_alloc(argc + 1);
   u32 i;
   for (i = 0; i < argc; i++) {
-    str[i] = (char) lstate_getnumber(i);
+    str->data[i] = (char) lstate_getnumber(i);
   }
-  str[i] = 0;
-  lstate_return1(lv_string(lstr_add(str, argc, TRUE)));
+  str->data[i] = 0;
+  lstate_return1(lv_string(lstr_add(str)));
 }
 
 static u32 lua_string_find(LSTATE) {
@@ -391,13 +389,13 @@ static u32 lua_string_find(LSTATE) {
   }
 
   /* TODO: this is supposed to use regexes... */
-  char *ptr = strstr(s->ptr + (init - 1), pat->ptr);
+  char *ptr = strstr(s->data + (init - 1), pat->data);
 
   if (ptr == NULL) {
     lstate_return1(LUAV_NIL);
   }
 
-  u64 start = ((u64) ptr - (u64) s->ptr) + 1;
+  u64 start = ((u64) ptr - (u64) s->data) + 1;
   u64 end = start + pat->length - 1;
   lstate_return(lv_number((double) start), 0);
   lstate_return(lv_number((double) end), 1);

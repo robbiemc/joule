@@ -39,7 +39,7 @@ char* err_typestr(u32 type) {
 
 static char* funstr(lclosure_t *closure) {
   if (closure->type == LUAF_LUA) {
-    return lstr_get(closure->function.lua->name)->ptr;
+    return closure->function.lua->name->data;
   }
   return closure->function.c->name;
 }
@@ -100,12 +100,13 @@ void err_explain(int err, lframe_t *frame) {
         if (lv_isstring(err_value)) {
           if (frame->closure->type != LUAF_LUA) {
             len = sprintf(err_desc, "%s",
-                          lv_caststring(err_value, 0)->ptr);
+                          lv_caststring(err_value, 0)->data);
           } else {
             len += sprintf(err_desc + len, "%s",
-                           lv_caststring(err_value, 0)->ptr);
+                           lv_caststring(err_value, 0)->data);
           }
-          err_value = lv_string(lstr_add(err_desc, (size_t) len, FALSE));
+          err_desc[len] = 0;
+          err_value = lv_string(LSTR(err_desc));
         }
       } else {
         len = sprintf(err_desc, "(error object is not a string)");
@@ -118,7 +119,8 @@ void err_explain(int err, lframe_t *frame) {
 
   if (err_catcher != NULL) {
     if (err != ERR_LUAV) {
-      err_value = lv_string(lstr_add(err_desc, (size_t) len, FALSE));
+      err_desc[len] = 0;
+      err_value = lv_string(LSTR(err_desc));
     }
     longjmp(*err_catcher, 1);
   }
@@ -138,14 +140,14 @@ void err_explain(int err, lframe_t *frame) {
       pc = GETPC(frame, function) - 1;
       xassert(pc < function->num_lines);
       printf("%s:%d: ", function->file, function->lines[pc]);
-      lstring_t *fname = lstr_get(function->name);
+      lstring_t *fname = function->name;
 
       if (fname->length == 0) {
         printf("in function <%s:%d>", function->file, function->start_line);
-      } else if (fname->ptr[0] == '@') {
+      } else if (fname->data[0] == '@') {
         printf("in main chunk");
       } else {
-        printf("in function '%.*s'", (int) fname->length, fname->ptr);
+        printf("in function '%.*s'", (int) fname->length, fname->data);
       }
     }
     printf("\n");

@@ -133,12 +133,11 @@ static int luac_skip(int fd, size_t len) {
 
 #define luac_read_string(fd) ({             \
           size_t len = xread8(fd);          \
-          char *ptr = NULL;                 \
+          lstring_t *str = lstr_alloc(len); \
           if (len > 0) {                    \
-            ptr = xmalloc(len);             \
-            xread(fd, ptr, len);            \
+            xread(fd, str->data, len);      \
           }                                 \
-          lstr_add(ptr, len - !!len, TRUE); \
+          lstr_add(str);                    \
         })
 
 static int luac_parse_func(lfunc_t *func, int fd, char *filename) {

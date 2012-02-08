@@ -102,7 +102,7 @@ static u32 lua_io_input(LSTATE) {
     switch (lv_gettype(arg)) {
       case LSTRING: {
         lstring_t *filename = lstate_getstring(0);
-        FILE *file = fopen(filename->ptr, lv_caststring(str_r, 0)->ptr);
+        FILE *file = fopen(filename->data, lv_caststring(str_r, 0)->data);
         if (file == NULL)
           err_rawstr("Error opening file in io.input", TRUE);
         default_in = file;
@@ -129,7 +129,7 @@ static u32 lua_io_open(LSTATE) {
     mode = lstate_getstring(1);
   }
 
-  luav lfile = lopen(filename->ptr, mode->ptr);
+  luav lfile = lopen(filename->data, mode->data);
   lstate_return1(lfile);
 }
 
@@ -148,7 +148,7 @@ static u32 lua_io_write(LSTATE) {
     switch (lv_gettype(value)) {
       case LSTRING:
         str = lv_caststring(value, i);
-        printf("%.*s", (int) str->length, str->ptr);
+        printf("%.*s", (int) str->length, str->data);
         break;
 
       case LNUMBER:

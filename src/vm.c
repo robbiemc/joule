@@ -751,9 +751,9 @@ static luav meta_concat(luav v1, luav v2) {
 
   lstring_t *s1 = lv_caststring(v1, 0);
   lstring_t *s2 = lv_caststring(v2, 0);
-  char *newbuf = xmalloc(s1->length + s2->length + 1);
-  memcpy(newbuf, s1->ptr, s1->length);
-  memcpy(newbuf + s1->length, s2->ptr, s2->length);
-  newbuf[s1->length + s2->length] = 0;
-  return lv_string(lstr_add(newbuf, s1->length + s2->length, TRUE));
+  lstring_t *sn = lstr_alloc(s1->length + s2->length + 1);
+  memcpy(sn->data, s1->data, s1->length);
+  memcpy(sn->data + s1->length, s2->data, s2->length);
+  sn->data[s1->length + s2->length] = 0;
+  return lv_string(lstr_add(sn));
 }

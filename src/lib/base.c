@@ -115,7 +115,7 @@ static u32 lua_assert(LSTATE) {
   if (!boolean) {
     char *explain = "assertion failed!";
     if (argc > 1) {
-      explain = lstate_getstring(1)->ptr;
+      explain = lstate_getstring(1)->data;
     }
     err_rawstr(explain, TRUE);
   }
@@ -143,29 +143,29 @@ static u32 lua_type(LSTATE) {
 }
 
 static u32 lua_tostring(LSTATE) {
-  char *strbuf = xmalloc(LUAV_INIT_STRING);
+  lstring_t *str = lstr_alloc(LUAV_INIT_STRING);
   int len;
 
   luav v = lstate_getval(0);
   switch (lv_gettype(v)) {
     case LNIL:
-      len = sprintf(strbuf, "nil");
+      len = sprintf(str->data, "nil");
       break;
     case LSTRING:
       lstate_return1(v);
     case LFUNCTION:
-      len = sprintf(strbuf, "function: %p", lv_getfunction(v, 0));
+      len = sprintf(str->data, "function: %p", lv_getfunction(v, 0));
       break;
     case LBOOLEAN:
-      len = sprintf(strbuf, lv_getbool(v, 0) ? "true" : "false");
+      len = sprintf(str->data, lv_getbool(v, 0) ? "true" : "false");
       break;
     case LNUMBER: {
-      len = snprintf(strbuf, LUAV_INIT_STRING, LUA_NUMBER_FMT,
+      len = snprintf(str->data, LUAV_INIT_STRING, LUA_NUMBER_FMT,
                      lv_castnumber(v, 0));
       break;
     }
     case LTHREAD:
-      len = sprintf(strbuf, "thread: %p", lv_getthread(v, 0));
+      len = sprintf(str->data, "thread: %p", lv_getthread(v, 0));
       break;
 
     case LUSERDATA:
@@ -174,16 +174,16 @@ static u32 lua_tostring(LSTATE) {
       if (meta) {
         luav value = meta->metamethods[META_TOSTRING];
         if (value != LUAV_NIL) {
-          free(strbuf);
+          free(str);
           vm_stack->base[argvi] = v;
           return vm_fun(lv_getfunction(value, 0), vm_running, 1, argvi,
                         retc, retvi);
         }
       }
       if (lv_gettype(v) == LTABLE) {
-        len = sprintf(strbuf, "table: %p", lv_gettable(v, 0));
+        len = sprintf(str->data, "table: %p", lv_gettable(v, 0));
       } else {
-        len = sprintf(strbuf, "userdata: %p", lv_getuserdata(v, 0));
+        len = sprintf(str->data, "userdata: %p", lv_getuserdata(v, 0));
       }
       break;
     }
@@ -192,7 +192,8 @@ static u32 lua_tostring(LSTATE) {
       panic("Unknown luav: 0x%016" PRIu64, v);
   }
 
-  v = lv_string(lstr_add(strbuf, (size_t) len, TRUE));
+  str->length = (size_t) len;
+  v = lv_string(lstr_add(str));
   lstate_return1(v);
 }
 
@@ -211,7 +212,7 @@ static u32 lua_print(LSTATE) {
       case LBOOLEAN:  printf(lv_getbool(value, 0) ? "true" : "false");  break;
       case LSTRING: {
         lstring_t *str = lv_caststring(value, i);
-        printf("%.*s", (int) str->length, str->ptr);
+        printf("%.*s", (int) str->length, str->data);
         break;
       }
 
@@ -318,7 +319,7 @@ static u32 lua_loadstring(LSTATE) {
   lstring_t *name = (argc > 1) ? lstate_getstring(1) : str;
 
   lfunc_t *func = xmalloc(sizeof(lfunc_t));
-  if (luac_parse_string(func, str->ptr, str->length, name->ptr) < 0) {
+  if (luac_parse_string(func, str->data, str->length, name->data) < 0) {
     free(func);
     lstate_return(LUAV_NIL, 0);
     lstate_return(LSTR("Bad lua string"), 1);
@@ -453,7 +454,7 @@ static u32 lua_dofile(LSTATE) {
   /* TODO: luac_parse_source() panics on error, should propogate error */
   lstring_t *filename = lstate_getstring(0);
   lfunc_t func;
-  if (luac_parse_file(&func, filename->ptr) < 0) {
+  if (luac_parse_file(&func, filename->data) < 0) {
     err_rawstr("Bad lua file.", 0);
   }
   lclosure_t closure;

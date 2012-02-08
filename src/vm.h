@@ -14,7 +14,7 @@ struct lhash;
 typedef u32 cfunction_t(LSTATE);
 
 typedef struct lfunc {
-  lstr_idx      name;
+  lstring_t     *name;
   char          *file;
   u32           start_line;
   u32           end_line;

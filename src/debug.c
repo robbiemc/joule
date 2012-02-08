@@ -90,7 +90,7 @@ static void dbg_dump_lstring(FILE *out, lstring_t *str) {
    * the first 2-billion characters of a string. I think the safety
    * in this case outweighs the limitation.
    */
-  fprintf(out, "%.*s", (int) str->length, str->ptr);
+  fprintf(out, "%.*s", (int) str->length, str->data);
 }
 
 static void prindent(int level, FILE *out, char *fmt, ...) {

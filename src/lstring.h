@@ -6,17 +6,16 @@
 #include "config.h"
 #include "util.h"
 
-typedef size_t lstr_idx;
-
 typedef struct lstring {
   size_t  length;
   u32     hash;
-  char    *ptr;
+  char    data[1];
 } lstring_t;
 
-#define LSTR(s) lv_string(lstr_add(s, sizeof(s) - 1, 0))
+#define LSTR(s) lv_string(lstr_literal(s))
 
-lstr_idx lstr_add(char *str, size_t size, int freeable);
-lstring_t *lstr_get(lstr_idx index);
+lstring_t *lstr_alloc(size_t size);
+lstring_t *lstr_add(lstring_t *str);
+lstring_t *lstr_literal(char *cstr);
 
 #endif /* _LSTRING_H_ */
