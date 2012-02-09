@@ -183,7 +183,6 @@ top:
   lfunc_t *func = closure->function.lua;
   u32 *instrs = func->instrs;
   frame.pc = &instrs;
-  u32 *end = instrs + func->num_instrs;
   luav temp;
   assert(closure->env != NULL);
 
@@ -201,15 +200,18 @@ top:
 
   /* Aligned memory accesses are much better */
   assert((((u64) instrs) & 3) == 0);
-  while (instrs < end) {
+  while (1) {
+    assert(instrs < func->instrs + func->num_instrs);
     u32 code = *instrs++;
 
+#ifndef NDEBUG
     if (flags.print) {
       u64 idx = ((u64)instrs - (u64)func->instrs) / sizeof(u32);
       printf("[%d] ", func->lines[idx]);
       opcode_dump(stdout, code);
       printf("\n");
     }
+#endif
 
     switch (OP(code)) {
       case OP_GETGLOBAL: {
@@ -579,8 +581,6 @@ top:
         abort();
     }
   }
-
-  panic("ran out of opcodes!");
 }
 
 static void op_close(u32 upc, luav *upv) {
