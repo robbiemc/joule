@@ -132,7 +132,7 @@ static int luac_skip(int fd, size_t len) {
 static lstring_t *luac_read_string_(int fd) {
   size_t len = xread8(fd);
   if (len <= 1) {
-    if (len == 1) xread1(fd);
+    if (len == 1) xassert(xread1(fd) == 0);
     return lstr_empty();
   }
   lstring_t *str = lstr_alloc(len-1);
