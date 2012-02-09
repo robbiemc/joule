@@ -74,6 +74,9 @@ btest: $(BENCHTESTS:=test)
 bench: joule
 	./bench.rb $(BENCHTESTS)
 
+lbench: joule
+	./bench.lua $(BENCHTESTS)
+
 lmissing:
 	@ruby -e 'puts `ls $(TESTDIR)/*.lua`.split("\n") - ARGV' $(LUATESTS)
 bmissing:
