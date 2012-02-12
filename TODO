@@ -1,15 +1,9 @@
 bench/strcat.lua-2
-bench/harmonic
-bench/recursive
-bench/fannkuchredux
-  - we are much slower
+  - we are much slower -- garbage collection?
 
 debug module
 
 table module
-
-tests/length.lua
-  - fix length operator
 
 bench/mandelbrot*
   - different output?
