@@ -474,7 +474,7 @@ static u32 lua_getfenv(LSTATE) {
     lclosure_t *closure = lv_getfunction(f, 0);
     lstate_return1(lv_table(closure->env));
   } else {
-    u32 lvl = (u32) lv_castnumber(f, 0);
+    u32 lvl = f == LUAV_NIL ? 1 : (u32) lv_castnumber(f, 0);
 
     if (lvl == 0) { lstate_return1(lv_table(global_env)); }
     lframe_t *cur = vm_running;
@@ -513,9 +513,10 @@ static u32 lua_setfenv(LSTATE) {
       cur = cur->caller;
     }
     cur->closure->env = table;
+    f = lv_function(cur->closure);
   }
 
-  return 0;
+  lstate_return1(f);
 }
 
 static u32 lua_rawequal(LSTATE) {
