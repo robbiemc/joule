@@ -127,8 +127,9 @@ int lv_parsenum(struct lstring *str, u32 base, double *value);
 #define lv_hash(lv) ((u32) ((lv) ^ ((lv) >> 32) ^ 0xfc83d6a5))
 #define lv_nilify(mem, count) memset((mem), 0xff, (count) * sizeof(luav))
 
-u8  lv_gettype(luav value);
-int lv_compare(luav v1, luav v2);
+u8   lv_gettype(luav value);
+int  lv_compare(luav v1, luav v2);
+luav lv_concat(luav v1, luav v2);
 
 static inline double lv_cvt(u64 bits) {
   union { double converted; u64 bits; } cvt;

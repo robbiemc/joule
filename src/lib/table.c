@@ -18,11 +18,13 @@ static u32 lua_table_maxn(LSTATE);
 static u32 lua_table_insert(LSTATE);
 static u32 lua_table_remove(LSTATE);
 static u32 lua_table_sort(LSTATE);
+static u32 lua_table_concat(LSTATE);
 static LUAF(lua_table_getn);
 static LUAF(lua_table_maxn);
 static LUAF(lua_table_insert);
 static LUAF(lua_table_remove);
 static LUAF(lua_table_sort);
+static LUAF(lua_table_concat);
 static lhash_t lua_table;
 
 INIT void lua_table_init() {
@@ -33,6 +35,7 @@ INIT void lua_table_init() {
   REGISTER(&lua_table, "insert", &lua_table_insert_f);
   REGISTER(&lua_table, "remove", &lua_table_remove_f);
   REGISTER(&lua_table, "sort",   &lua_table_sort_f);
+  REGISTER(&lua_table, "concat", &lua_table_concat_f);
 
   lhash_set(&lua_globals, LSTR("table"), lv_table(&lua_table));
 }
@@ -153,4 +156,34 @@ static u32 lua_table_sort(LSTATE) {
 
   lhash_sort(table, lua_invoke_compare);
   return 0;
+}
+
+/**
+ * @brief Concatenates elements in the array portion of a table
+ *
+ * @param table the table to access and concatenate
+ * @param [sep = ""]    the separator to use
+ * @param [i = 1]       starting index for concatentation
+ * @param [j = #table]  ending index for concatenation
+ */
+static u32 lua_table_concat(LSTATE) {
+  lhash_t *table = lstate_gettable(0);
+  luav sep = argc > 1 ? lstate_getval(1) : LSTR("");
+  u32 i = argc > 2 ? (u32) lstate_getnumber(2) : 1;
+  u32 j = argc > 3 ? (u32) lstate_getnumber(3) : (u32) table->length;
+  u32 k;
+
+  if (i > j) {
+    lstate_return1(LSTR(""));
+  }
+
+  luav ret = LSTR("");
+  for (k = i; k <= j && k <= table->length; k++) {
+    if (k > i) {
+      ret = lv_concat(ret, sep);
+    }
+    ret = lv_concat(ret, table->array[k]);
+  }
+
+  lstate_return1(ret);
 }
