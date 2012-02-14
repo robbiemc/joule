@@ -354,7 +354,8 @@ static u32 lua_pcall(LSTATE) {
 static u32 lua_xpcall(LSTATE) {
   lclosure_t *f = lstate_getfunction(0);
   lclosure_t *err = lstate_getfunction(1);
-  int iserr, tried = 0;
+  int iserr;
+  volatile int tried = 0;
   u32 ret;
   lframe_t *running = vm_running;
 
