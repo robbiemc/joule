@@ -50,7 +50,7 @@ end
 -- main
 -----------------------------------------------------------
 function main ()
-    local N = tonumber((arg and arg[1])) or 1
+    local N = tonumber((arg and arg[1])) or 100000
     local toggle = Toggle:new(1)
     for i=1,5 do
       toggle:activate()
