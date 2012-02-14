@@ -77,7 +77,7 @@ bench: joule
 lbench: joule
 	./bench.lua $(BENCHTESTS)
 cbench: benchmark
-	./benchmark $(BENCHTESTS)
+	./benchmark $(sort $(BENCHTESTS))
 benchmark: benchmark.c
 	$(CC) -Wall -Wextra -Werror -o $@ $<
 

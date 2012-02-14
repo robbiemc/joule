@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -24,8 +25,10 @@ static void summarize(char *file, rusage_t *lua, rusage_t *joule) {
   pct(USECS(&lua->ru_utime) + USECS(&lua->ru_stime),
       USECS(&joule->ru_utime) + USECS(&joule->ru_stime));
   pct(USECS(&lua->ru_utime), USECS(&joule->ru_utime));
+  pct(USECS(&lua->ru_stime), USECS(&joule->ru_stime));
   pct(lua->ru_maxrss, joule->ru_maxrss);
-  printf("%8lums", USECS(&joule->ru_utime) / 1000);
+  printf("%8luus", USECS(&joule->ru_utime));
+  printf("%8luus", USECS(&joule->ru_stime));
   printf("\n");
 }
 
@@ -72,8 +75,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  printf("%27s%10s%10s%10s%10s\n", "Test File", "total", "user", "mem",
-         "joule");
+  printf("%27s%10s%10s%10s%10s%10s\n", "Test File", "total", "user",
+         "system", "mem", "joule");
   for (i = 1; i < argc; i++) {
     benchmark(argv[i]);
   }
