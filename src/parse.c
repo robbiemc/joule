@@ -120,7 +120,7 @@ fderr:
 static int luac_skip(int fd, size_t len) {
   // apparently lseek doesn't work on all streams, so read the
   // data into a buffer in chunks
-  char buf[32];
+  static char buf[512];
   while (len > 0) {
     ssize_t rd = read(fd, buf, MIN(sizeof(buf), len));
     if (rd == -1) return -1;
