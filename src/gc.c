@@ -15,6 +15,7 @@ static void *heap;
 static void *heap_secondary;
 static size_t heap_size;
 static size_t heap_next;
+static int initialized = FALSE;
 
 static void gc_mmap(size_t amount, off_t offset);
 
@@ -25,6 +26,7 @@ INIT static void gc_init() {
   heap = HEAP1_ADDR;
   heap_secondary = HEAP2_ADDR;
   gc_mmap(heap_size, 0);
+  initialized = TRUE;
 }
 
 DESTROY static void gc_destroy() {
@@ -51,6 +53,7 @@ void *gc_calloc(size_t nelt, size_t eltsize) {
 }
 
 void *gc_alloc(size_t size) {
+  xassert(initialized == TRUE && "Garbage collector not initialized");
   size = MAX(8, ALIGN8(size));
 
   // check if we need to garbage collect
