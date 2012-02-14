@@ -7,6 +7,7 @@
 #include "debug.h"
 #include "error.h"
 #include "flags.h"
+#include "gc.h"
 #include "lhash.h"
 #include "luav.h"
 #include "meta.h"
@@ -22,13 +23,13 @@
   ({                                                                          \
     assert(&STACK(n) < vm_stack->top);                                        \
     luav _tmp = STACK(n);                                                     \
-    lv_isupvalue(_tmp) ? lv_getupvalue(_tmp)->value : _tmp;     \
+    lv_isupvalue(_tmp) ? *lv_getupvalue(_tmp) : _tmp;                         \
   })
 #define SETREG(n, v)                            \
   ({                                            \
     assert(&STACK(n) < vm_stack->top);          \
-    if (lv_isupvalue(STACK(n))) { \
-      lv_getupvalue(STACK(n))->value = v;       \
+    if (lv_isupvalue(STACK(n))) {               \
+      *lv_getupvalue(STACK(n)) = v;             \
     } else {                                    \
       STACK(n) = v;                             \
     }                                           \
@@ -111,10 +112,7 @@ INIT static void vm_setup() {
   vm_stack = &init_stack;
 }
 
-DESTROY static void vm_destroy() {
-  lhash_free(&lua_globals);
-  lhash_free(&userdata_meta);
-}
+DESTROY static void vm_destroy() {}
 
 /**
  * @brief Initialize a lua stack
@@ -127,6 +125,21 @@ void vm_stack_init(lstack_t *stack, u32 size) {
   stack->limit = size;
   stack->base = xmalloc(sizeof(luav) * size);
   stack->top = stack->base;
+}
+
+/**
+ * @brief Destroys a lua stack
+ *
+ * @param stack pointer to the stack to be destroyed
+ * @return 0 on success, negative error code on failure
+ */
+void vm_stack_destroy(lstack_t *stack) {
+  free(stack->base);
+  // zero things out just be be safe
+  stack->size = 0;
+  stack->limit = 0;
+  stack->base = NULL;
+  stack->top = NULL;
 }
 
 /**
@@ -310,13 +323,13 @@ top:
       /* R[A] = UPVALUES[B], see OP_CLOSURE */
       case OP_GETUPVAL:
         temp = UPVALUE(closure, B(code));
-        SETREG(A(code), lv_getupvalue(temp)->value);
+        SETREG(A(code), *lv_getupvalue(temp));
         break;
 
       /* UPVALUES[B] = R[A], see OP_CLOSURE */
       case OP_SETUPVAL:
         temp = UPVALUE(closure, B(code));
-        lv_getupvalue(temp)->value = REG(A(code));
+        *lv_getupvalue(temp) = REG(A(code));
         break;
 
       /* R[A] = CONST[BX] */
@@ -452,7 +465,7 @@ top:
         bx = BX(code);
         assert(bx < func->num_funcs);
         lfunc_t *function = &func->funcs[bx];
-        lclosure_t *closure2 = xmalloc(CLOSURE_SIZE(function->num_upvalues));
+        lclosure_t *closure2 = gc_alloc(CLOSURE_SIZE(function->num_upvalues));
         closure2->type = LUAF_LUA;
         closure2->function.lua = function;
         closure2->env = closure->env;
@@ -472,9 +485,8 @@ top:
               /* If the stack register is not an upvalue, we need to promote it
                  to an upvalue, thereby scribbling over our stack variable so
                  it's now considered an upvalue */
-              upvalue_t *ptr = xmalloc(sizeof(upvalue_t));
-              ptr->refcnt = 1; /* one for us, one for them added later */
-              ptr->value = temp;
+              luav *ptr = gc_alloc(sizeof(luav));
+              *ptr = temp;
               upvalue = lv_upvalue(ptr);
               STACK(B(pseudo)) = upvalue;
             }
@@ -483,7 +495,6 @@ top:
           }
 
           /* The allocated closure needs a reference to the upvalue */
-          lv_getupvalue(upvalue)->refcnt++;
           closure2->upvalues[i] = upvalue;
         }
 
@@ -586,7 +597,7 @@ top:
       case OP_NEWTABLE: {
         // TODO - We can't currently create a table of a certain size, so we
         //        ignore the size hints. Eventually we should use them.
-        lhash_t *ht = xmalloc(sizeof(lhash_t));
+        lhash_t *ht = gc_alloc(sizeof(lhash_t));
         lhash_init(ht);
         SETREG(A(code), lv_table(ht));
         break;
@@ -698,11 +709,7 @@ static void op_close(u32 upc, luav *upv) {
   u32 i;
   for (i = 0; i < upc; i++) {
     if (lv_isupvalue(upv[i])) {
-      upvalue_t *upvalue = lv_getupvalue(upv[i]);
-      upv[i] = upvalue->value;
-      if (--upvalue->refcnt == 0) {
-        free(upvalue);
-      }
+      upv[i] = *lv_getupvalue(upv[i]);
     }
   }
 }

@@ -7,6 +7,7 @@
 
 #include "config.h"
 #include "error.h"
+#include "gc.h"
 #include "lhash.h"
 #include "lib/coroutine.h"
 #include "lstate.h"
@@ -174,7 +175,7 @@ static u32 lua_tostring(LSTATE) {
       if (meta) {
         luav value = meta->metamethods[META_TOSTRING];
         if (value != LUAV_NIL) {
-          free(str);
+          gc_free(str);
           vm_stack->base[argvi] = v;
           return vm_fun(lv_getfunction(value, 0), vm_running, 1, argvi,
                         retc, retvi);
@@ -326,7 +327,7 @@ static u32 lua_loadstring(LSTATE) {
     return 2;
   }
 
-  lclosure_t *closure = xmalloc(sizeof(lclosure_t));
+  lclosure_t *closure = gc_alloc(sizeof(lclosure_t));
   closure->type = LUAF_LUA;
   closure->function.lua = func;
   closure->env = global_env;

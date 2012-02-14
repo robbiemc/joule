@@ -87,6 +87,7 @@ extern struct lhash *global_env;
 void vm_run(lfunc_t *fun);
 u32 vm_fun(lclosure_t *c, lframe_t *frame, LSTATE);
 void vm_stack_init(lstack_t *stack, u32 size);
+void vm_stack_destroy(lstack_t *stack);
 
 void vm_stack_grow(lstack_t *stack, u32 size);
 u32 vm_stack_alloc(lstack_t *stack, u32 size);

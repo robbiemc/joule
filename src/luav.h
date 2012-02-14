@@ -85,11 +85,6 @@ struct lthread;
 #define LUAV_PACK(typ, data) \
   ((LUAV_NAN_MASK | ((u64)(typ) << 48)) | ((u64)(data) & LUAV_DATA_MASK))
 
-typedef struct upvalue {
-  u32 refcnt;
-  luav value;
-} upvalue_t;
-
 #define lv_hastyp(lv, typ) (((typ) | LUAV_NAN_MASK) == ((lv) & LUAV_TYPE_MASK))
 
 /* A number is either 0x8 or 0x0, so so long as the lower 3 bits of the type
@@ -124,7 +119,7 @@ struct lclosure* lv_getfunction(luav value, u32 argnum);
 struct lthread*  lv_getthread(luav value, u32 argnum);
 #define lv_getbool(v, _) ((v) != LUAV_NIL && (v) != LUAV_FALSE)
 #define lv_getupvalue(v) \
-  ({ assert(lv_isupvalue(v)); (upvalue_t*) LUAV_DATA(v); })
+  ({ assert(lv_isupvalue(v)); (luav*) LUAV_DATA(v); })
 
 int lv_parsenum(struct lstring *str, u32 base, double *value);
 

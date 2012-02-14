@@ -3,6 +3,7 @@
 #include <sys/mman.h>
 
 #include "debug.h"
+#include "gc.h"
 #include "lhash.h"
 #include "lib/coroutine.h"
 #include "panic.h"
@@ -83,9 +84,7 @@ INIT static void lua_coroutine_init() {
   lhash_set(&lua_globals, LSTR("coroutine"), lv_table(&lua_coroutine));
 }
 
-DESTROY static void lua_coroutine_destroy() {
-  lhash_free(&lua_coroutine);
-}
+DESTROY static void lua_coroutine_destroy() {}
 
 void coroutine_changeenv(lthread_t *to) {
   lthread_t *old = cur_thread;
@@ -130,7 +129,7 @@ static u32 lua_co_create(LSTATE) {
   if (function->type != LUAF_LUA) {
     err_str(0, "Lua function expected");
   }
-  lthread_t *thread = xmalloc(sizeof(lthread_t));
+  lthread_t *thread = gc_alloc(sizeof(lthread_t));
   thread->status = CO_NEVER_RUN;
   thread->stack  = mmap(NULL, CO_STACK_SIZE, PROT_WRITE | PROT_READ,
                         MAP_ANON | MAP_PRIVATE, -1, 0);
@@ -214,7 +213,7 @@ static u32 lua_co_wrap(LSTATE) {
   lua_co_create(argc, argvi, 1, idx);
   routine = vm_stack->base[idx];
   vm_stack_dealloc(vm_stack, idx);
-  lclosure_t *closure = xmalloc(CLOSURE_SIZE(1));
+  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(1));
   closure->type = LUAF_C;
   closure->function.c = &co_wrapper_cf;
   /* vm_running is coroutine.wrap(), which has no environment */
@@ -261,13 +260,14 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
   coroutine_swap(thread);
   thread->caller = NULL;
 
-  if (thread->status == CO_DEAD) {
-    xassert(munmap(thread->stack, CO_STACK_SIZE) == 0);
-  }
-
   /* Gather all the return values from yield() */
   for (i = 0; i < retc && i < thread->retc; i++) {
     lstate_return(thread->vm_stack.base[thread->retvi + i], i);
+  }
+
+  if (thread->status == CO_DEAD) {
+    vm_stack_destroy(thread->stack);
+    xassert(munmap(thread->stack, CO_STACK_SIZE) == 0);
   }
 
   return i;

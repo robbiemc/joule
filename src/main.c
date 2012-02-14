@@ -77,7 +77,6 @@ int main(int argc, char **argv) {
 
   register_argv(i, argc, argv);
   vm_run(&func);
-  lhash_free(&lua_arg);
 
   luac_free(&func);
   return 0;

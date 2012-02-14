@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "gc.h"
 #include "lhash.h"
 #include "luav.h"
 #include "meta.h"
@@ -76,29 +77,12 @@ void lhash_init(lhash_t *map) {
   map->metamethods = meta_empty;
   map->flags       = 0;
 
-  map->table = xmalloc(LHASH_INIT_TSIZE * sizeof(map->table[0]));
-  map->array = xmalloc(LHASH_INIT_ASIZE * sizeof(map->array[0]));
+  map->table = gc_alloc(LHASH_INIT_TSIZE * sizeof(map->table[0]));
+  map->array = gc_alloc(LHASH_INIT_ASIZE * sizeof(map->array[0]));
   for (i = 0; i < LHASH_INIT_TSIZE; i++) {
     map->table[i].key = LUAV_NIL;
   }
   lv_nilify(map->array, LHASH_INIT_ASIZE);
-}
-
-/**
- * @brief Free all resources associated with the given hash
- *
- * Any hash initialized with lhash_init() should be deallocated with this
- * function, and this function should not be called more than once for a hash
- * table
- *
- * @param hash the hash to deallocate
- */
-void lhash_free(lhash_t *hash) {
-  if (hash->metamethods != meta_empty) {
-    free(hash->metamethods);
-  }
-  free(hash->array);
-  free(hash->table);
 }
 
 /**
@@ -227,7 +211,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
     if (index < 0) {
       // metatable set
       if (map->metamethods == meta_empty) {
-        map->metamethods = xmalloc(NUM_META_METHODS * sizeof(luav));
+        map->metamethods = gc_alloc(NUM_META_METHODS * sizeof(luav));
         lv_nilify(map->metamethods, NUM_META_METHODS);
       }
       map->metamethods[-index] = value;
@@ -283,7 +267,7 @@ static void lhash_resize(lhash_t *map, int which, int direction) {
       map->tcap = map->tcap / 2 + 1;
     }
     map->tsize = 0;
-    map->table = xmalloc(map->tcap * sizeof(map->table[0]));
+    map->table = gc_alloc(map->tcap * sizeof(map->table[0]));
     /* Make sure all new keys are nil */
     for (i = 0; i < map->tcap; i++) {
       map->table[i].key = LUAV_NIL;
@@ -293,7 +277,6 @@ static void lhash_resize(lhash_t *map, int which, int direction) {
         lhash_set(map, old[i].key, old[i].value);
       }
     }
-    free(old);
     map->flags &= ~LHASH_RESIZING;
     return;
   }
@@ -302,7 +285,7 @@ static void lhash_resize(lhash_t *map, int which, int direction) {
   assert(direction == UPSIZE);
   assert(which == LHASH_ARRAY);
   map->acap *= 2;
-  map->array = xrealloc(map->array, map->acap * sizeof(map->array[0]));
+  map->array = gc_realloc(map->array, map->acap * sizeof(map->array[0]));
 
   lv_nilify(map->array + map->acap / 2, map->acap / 2);
 

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 
+#include "gc.h"
 #include "lstring.h"
 #include "luav.h"
 #include "panic.h"
@@ -44,7 +45,8 @@ lstring_t *lstr_empty() {
 }
 
 lstring_t *lstr_alloc(size_t size) {
-  lstring_t *str = xmalloc(sizeof(lstring_t) + size);
+  lstring_t *str = gc_alloc(sizeof(lstring_t) + size);
+  str->type = LSTR_TYPE_GC;
   str->length = size;
   str->data[0] = 0;
   return str;
@@ -53,7 +55,7 @@ lstring_t *lstr_alloc(size_t size) {
 lstring_t *lstr_realloc(lstring_t *str, size_t size) {
   if (size == 0) size = str->length * 2;
   str->length = size;
-  return xrealloc(str, sizeof(lstring_t) + size);
+  return gc_realloc(str, sizeof(lstring_t) + size);
 }
 
 lstring_t *lstr_add(lstring_t *str) {
@@ -64,7 +66,8 @@ lstring_t *lstr_add(lstring_t *str) {
   // lookup the string in the hashset (see if it's already stored)
   lstring_t *found = smap_lookup(str);
   if (NONEMPTY(found)) {
-    free(str);
+    if (str->type == LSTR_TYPE_MALLOC)
+      free(str);
     return found;
   }
   // now add the new string to the table
@@ -75,6 +78,15 @@ lstring_t *lstr_add(lstring_t *str) {
 lstring_t *lstr_literal(char *cstr) {
   size_t size = strlen(cstr);
   lstring_t *str = lstr_alloc(size);
+  str->length = size;
+  memcpy(str->data, cstr, size+1);
+  return lstr_add(str);
+}
+
+lstring_t *lstr_const(char *cstr) {
+  size_t size = strlen(cstr);
+  lstring_t *str = xmalloc(sizeof(lstring_t) + size);
+  str->type = LSTR_TYPE_MALLOC;
   str->length = size;
   memcpy(str->data, cstr, size+1);
   return lstr_add(str);

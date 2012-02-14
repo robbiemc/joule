@@ -21,6 +21,7 @@ typedef int64_t   i64;
 #define DESTROY    __attribute__((destructor))
 #define MUST_CHECK __attribute__((warn_unused_result))
 
+#define INIT_HEAP_SIZE (2 * 1024 * 1024)
 #define LUAV_INIT_STRING  100
 #define LUA_NUMBER_FMT    "%.14g"
 #define LFIELDS_PER_FLUSH 50

@@ -71,9 +71,7 @@ INIT static void lua_io_init() {
   lhash_set(&lua_globals, LSTR("io"), lv_table(&lua_io));
 }
 
-DESTROY static void lua_io_destroy() {
-  lhash_free(&lua_io);
-}
+DESTROY static void lua_io_destroy() {}
 
 static u32 lua_io_close(LSTATE) {
   FILE *file = default_out;

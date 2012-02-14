@@ -129,9 +129,7 @@ INIT static void lua_string_init() {
   lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
 }
 
-DESTROY static void lua_string_destroy() {
-  lhash_free(&lua_string);
-}
+DESTROY static void lua_string_destroy() {}
 
 static u32 lua_string_format(LSTATE) {
   lstring_t *lfmt = lstate_getstring(0);

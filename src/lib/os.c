@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "gc.h"
 #include "lhash.h"
 #include "lstring.h"
 #include "luav.h"
@@ -65,9 +66,7 @@ INIT static void lua_os_init() {
   lhash_set(&lua_globals, LSTR("os"), lv_table(&lua_os));
 }
 
-DESTROY static void lua_os_destroy() {
-  lhash_free(&lua_os);
-}
+DESTROY static void lua_os_destroy() {}
 
 static u32 lua_os_clock(LSTATE) {
   clock_t c = clock();
@@ -117,7 +116,7 @@ static u32 lua_os_date(LSTATE) {
   xassert(stm != NULL);
 
   if (strcmp("*t", format) == 0) {
-    lhash_t *hash = xmalloc(sizeof(lhash_t));
+    lhash_t *hash = gc_alloc(sizeof(lhash_t));
     lhash_init(hash);
 
     lhash_set(hash, str_sec,    lv_number(stm->tm_sec));
@@ -138,7 +137,7 @@ static u32 lua_os_date(LSTATE) {
 
   while (strftime(str->data, cap - 1, format, stm) == 0) {
     cap *= 2;
-    str = xrealloc(str, cap);
+    str = lstr_realloc(str, cap);
   }
 
   str->length = strlen(str->data);
