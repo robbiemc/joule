@@ -10,6 +10,7 @@
 #define HEAP2_ADDR ((void*) 0x0000700000000000)
 
 #define ALIGN8(n) (((n) + 7) & (~(size_t)7))
+#define ENOUGH_SPACE(size) (heap_next + sizeof(size_t) + (size) < heap_size)
 
 static void *heap;
 static void *heap_secondary;
@@ -17,7 +18,8 @@ static size_t heap_size;
 static size_t heap_next;
 static int initialized = FALSE;
 
-static void gc_mmap(size_t amount, off_t offset);
+static void gc_mmap(size_t amount, size_t offset);
+static void gc_resize(size_t needed);
 
 INIT static void gc_init() {
   // allocate two heaps
@@ -34,7 +36,7 @@ DESTROY static void gc_destroy() {
   xassert(munmap(HEAP2_ADDR, heap_size) == 0);
 }
 
-static void gc_mmap(size_t amount, off_t offset) {
+static void gc_mmap(size_t amount, size_t offset) {
   void *addr1 = HEAP1_ADDR + offset;
   xassert(mmap(addr1, amount, PROT_READ | PROT_WRITE,
                MAP_PRIVATE | MAP_FIXED | MAP_ANON, -1, 0) == addr1);
@@ -57,8 +59,12 @@ void *gc_alloc(size_t size) {
   size = MAX(8, ALIGN8(size));
 
   // check if we need to garbage collect
-  if (heap_next + sizeof(size_t) + size > heap_size) {
-    panic("We can't run garbage collection yet!");
+  if (!ENOUGH_SPACE(size)) {
+    garbage_collect();
+    if (!ENOUGH_SPACE(size)) {
+      // garbage collection didn't help - resize the heap
+      gc_resize(size);
+    }
   }
 
   // allocate the block
@@ -86,8 +92,13 @@ void gc_free(void *addr) {
   addr = addr;
 }
 
-void garbage_collect(luav *start, lstack_t *init_stack, lframe_t *running) {
-  start = start;
-  init_stack = init_stack;
-  running = running;
+static void gc_resize(size_t needed) {
+  static const size_t meg = 1024 * 1024 - 1;
+  size_t size = (needed + meg) & (~meg); // round up to nearest meg
+  size = MAX(size, heap_size);
+  gc_mmap(size, heap_size);
+  heap_size += size;
+}
+
+void garbage_collect() {
 }
