@@ -1,6 +1,6 @@
 CC       = gcc
 CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g -m64 \
-					 -Wno-unused-parameter
+           -Wno-unused-parameter
 OBJDIR   = objs
 SRCDIR   = src
 TESTDIR  = tests
@@ -21,25 +21,25 @@ endif
 # Order matters in this list because object files listed first have their
 # initializers run first, and destructors run last.
 OBJS := lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
-	lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o error.o \
-	lib/coroutine.o lib/co_asm.o lib/table.o
+				lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o error.o  \
+				lib/coroutine.o lib/co_asm.o lib/table.o gc.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
-LUATESTS := tail factorial bool closure multipart bool2 math forint concat \
-	    loop sort func fib select math2 bisect cf printf select smallfun \
-            os strings coroutine2 sieve load pcall metabasic calls coroutine \
-	    noglobals fibfor readonly echo constructs errors events literals \
-	    closure2 closure3 nextvar
+LUATESTS := tail factorial bool closure multipart bool2 math forint concat   \
+						loop sort func fib select math2 bisect cf printf select smallfun \
+						os strings coroutine2 sieve load pcall metabasic calls coroutine \
+						noglobals fibfor readonly echo constructs errors events literals \
+						closure2 closure3 nextvar
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 
-BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2 \
-	      nbody.lua-4 hash fibo matrix nestedloop nsieve.lua-3 \
-              nsievebits prodcons random sieve sieve.lua-2 spectralnorm takfp \
-	      threadring.lua-3 strcat.lua-2 recursive process \
-	      partialsums.lua-3 partialsums.lua-2 message.lua-2 harmonic \
-	      fannkuchredux fasta fannkuch fannkuch.lua-2 chameneos \
-	      binarytrees.lua-3
+BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2         \
+							nbody.lua-4 hash fibo matrix nestedloop nsieve.lua-3            \
+							nsievebits prodcons random sieve sieve.lua-2 spectralnorm takfp \
+							threadring.lua-3 strcat.lua-2 recursive process                 \
+							partialsums.lua-3 partialsums.lua-2 message.lua-2 harmonic      \
+							fannkuchredux fasta fannkuch fannkuch.lua-2 chameneos           \
+							binarytrees.lua-3
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
 CTESTS := hash types
@@ -57,8 +57,8 @@ ctests: $(CTESTS)
 
 # Run all compiled tests (C tests)
 ctest: ctests
-	@for test in $(CTESTS); do \
-		echo $$test; \
+	@for test in $(CTESTS); do       \
+		echo $$test;                   \
 		$$test > $$test.log || exit 1; \
 	done
 	@echo -- All C tests passed --
