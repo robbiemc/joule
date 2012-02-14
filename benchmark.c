@@ -25,6 +25,7 @@ static void summarize(char *file, rusage_t *lua, rusage_t *joule) {
       USECS(&joule->ru_utime) + USECS(&joule->ru_stime));
   pct(USECS(&lua->ru_utime), USECS(&joule->ru_utime));
   pct(lua->ru_maxrss, joule->ru_maxrss);
+  printf("%8lums", USECS(&joule->ru_utime) / 1000);
   printf("\n");
 }
 
@@ -71,7 +72,8 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  printf("%27s%10s%10s%10s\n", "Test File", "total", "user", "mem");
+  printf("%27s%10s%10s%10s%10s\n", "Test File", "total", "user", "mem",
+         "joule");
   for (i = 1; i < argc; i++) {
     benchmark(argv[i]);
   }
