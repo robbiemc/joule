@@ -11,7 +11,7 @@ List = {first = 0, last = -1}
 
 function List:new ()
   local n = {}
-  for k,v in self do n[k] = v end
+  for k,v in pairs(self) do n[k] = v end
   return n
 end
 
@@ -101,7 +101,7 @@ function test ()
   end
 end
 
-N = tonumber((arg and arg[1])) or 1
+N = tonumber((arg and arg[1])) or 10
 for i=1, N do
   result = test()
 end

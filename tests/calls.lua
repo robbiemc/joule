@@ -111,28 +111,28 @@ a = nil
 (function (x) a=x end)(23)
 assert(a == 23 and (function (x) return x*2 end)(20) == 40)
 
--- local x,y,z,a
--- a = {}; lim = 2000
--- for i=1, lim do a[i]=i end
--- assert(select(lim, unpack(a)) == lim and select('#', unpack(a)) == lim)
--- x = unpack(a)
--- assert(x == 1)
--- x = {unpack(a)}
--- assert(table.getn(x) == lim and x[1] == 1 and x[lim] == lim)
--- x = {unpack(a, lim-2)}
--- assert(table.getn(x) == 3 and x[1] == lim-2 and x[3] == lim)
--- x = {unpack(a, 10, 6)}
--- assert(next(x) == nil)   -- no elements
--- x = {unpack(a, 11, 10)}
--- assert(next(x) == nil)   -- no elements
--- x,y = unpack(a, 10, 10)
--- assert(x == 10 and y == nil)
--- x,y,z = unpack(a, 10, 11)
--- assert(x == 10 and y == 11 and z == nil)
--- a,x = unpack{1}
--- assert(a==1 and x==nil)
--- a,x = unpack({1,2}, 1, 1)
--- assert(a==1 and x==nil)
+local x,y,z,a
+a = {}; lim = 2000
+for i=1, lim do a[i]=i end
+assert(select(lim, unpack(a)) == lim and select('#', unpack(a)) == lim)
+x = unpack(a)
+assert(x == 1)
+x = {unpack(a)}
+assert(table.getn(x) == lim and x[1] == 1 and x[lim] == lim)
+x = {unpack(a, lim-2)}
+assert(table.getn(x) == 3 and x[1] == lim-2 and x[3] == lim)
+x = {unpack(a, 10, 6)}
+assert(next(x) == nil)   -- no elements
+x = {unpack(a, 11, 10)}
+assert(next(x) == nil)   -- no elements
+x,y = unpack(a, 10, 10)
+assert(x == 10 and y == nil)
+x,y,z = unpack(a, 10, 11)
+assert(x == 10 and y == 11 and z == nil)
+a,x = unpack{1}
+assert(a==1 and x==nil)
+a,x = unpack({1,2}, 1, 1)
+assert(a==1 and x==nil)
 
 -- testing closures
 
@@ -212,9 +212,9 @@ assert(a[1] == 1 and a[2] == 3 and a[3] == "a" and a[4] == "b")
 
 -- testing calls with 'incorrect' arguments
 rawget({}, "x", 1)
--- rawset({}, "x", 1, 2)
+rawset({}, "x", 1, 2)
 assert(math.sin(1,2) == math.sin(1))
--- table.sort({10,9,8,4,19,23,0,0}, function (a,b) return a<b end, "extra arg")
+table.sort({10,9,8,4,19,23,0,0}, function (a,b) return a<b end, "extra arg")
 
 -- -- test for generic load
 -- x = "-- a comment\0\0\0\n  x = 10 + \n23; \

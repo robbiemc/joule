@@ -86,33 +86,33 @@ for i=1,10 do
   s = s*i
 end
 
--- -- sieve
--- function gen (n)
---   return coroutine.wrap(function ()
---     for i=2,n do coroutine.yield(i) end
---   end)
--- end
---
--- function filter (p, g)
---   return coroutine.wrap(function ()
---     while 1 do
---       local n = g()
---       if n == nil then return end
---       if math.mod(n, p) ~= 0 then coroutine.yield(n) end
---     end
---   end)
--- end
---
--- local x = gen(100)
--- local a = {}
--- while 1 do
---   local n = x()
---   if n == nil then break end
---   table.insert(a, n)
---   x = filter(n, x)
--- end
---
--- assert(table.getn(a) == 25 and a[table.getn(a)] == 97)
+-- sieve
+function gen (n)
+  return coroutine.wrap(function ()
+    for i=2,n do coroutine.yield(i) end
+  end)
+end
+
+function filter (p, g)
+  return coroutine.wrap(function ()
+    while 1 do
+      local n = g()
+      if n == nil then return end
+      if math.mod(n, p) ~= 0 then coroutine.yield(n) end
+    end
+  end)
+end
+
+local x = gen(100)
+local a = {}
+while 1 do
+  local n = x()
+  if n == nil then break end
+  table.insert(a, n)
+  x = filter(n, x)
+end
+
+assert(table.getn(a) == 25 and a[table.getn(a)] == 97)
 
 -- errors in coroutines
 function foo ()
