@@ -500,3 +500,22 @@ luav lhash_remove(lhash_t *map, u32 pos) {
   }
   return ret;
 }
+
+static int cmp_luav(void *data, const void *d1, const void *d2) {
+  lcomparator_t *comp = data;
+  const luav *l1 = d1, *l2 = d2;
+  return comp(*l1, *l2);
+}
+
+/**
+ * @brief Sort the array portion of the table
+ *
+ * With the current implementation, just sorts the array portion of the table
+ * which have integer keys.
+ *
+ * @param map the hash to sort
+ * @param comparator the comparator to use.
+ */
+void lhash_sort(lhash_t *map, lcomparator_t *comparator) {
+  qsort_r(map->array + 1, map->length, sizeof(luav), comparator, cmp_luav);
+}

@@ -35,6 +35,8 @@ typedef struct lhash {
   luav *metamethods;         // metamethods if this is a metatable
 } lhash_t;
 
+typedef int(lcomparator_t)(luav, luav);
+
 void lhash_init(lhash_t *map);
 luav lhash_get(lhash_t *map, luav key);
 void lhash_set(lhash_t *map, luav key, luav value);
@@ -43,5 +45,6 @@ void   lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval);
 double lhash_maxn(lhash_t *map);
 void   lhash_insert(lhash_t *map, u32 pos, luav value);
 luav   lhash_remove(lhash_t *map, u32 pos);
+void   lhash_sort(lhash_t *map, lcomparator_t *comp);
 
 #endif /* _LHASH_H */
