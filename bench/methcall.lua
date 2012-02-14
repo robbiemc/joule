@@ -24,7 +24,6 @@ function Toggle:new (start_state)
   return o
 end
 
-
 --------------------------------------------------------------
 -- NthToggle class
 --------------------------------------------------------------
@@ -47,13 +46,12 @@ function NthToggle:new (start_state, max_counter)
   return o
 end
 
-
 -----------------------------------------------------------
 -- main
 -----------------------------------------------------------
 
 function main ()
-  local N = tonumber((arg and arg[1])) or 1
+  local N = tonumber((arg and arg[1])) or 300000
 
   local val = 1
   local toggle = Toggle:new(val)
@@ -61,7 +59,7 @@ function main ()
     val = toggle:activate():value()
   end
   print(val and "true" or "false")
-    
+
   val = 1
   local ntoggle = NthToggle:new(val, 3)
   for i=1,N do
@@ -71,5 +69,3 @@ function main ()
 end
 
 main()
-
-

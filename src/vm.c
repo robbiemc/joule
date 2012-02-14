@@ -671,12 +671,13 @@ top:
         break;
       }
 
-      case OP_SELF:
-        SETREG(A(code) + 1, REG(B(code)));
-        temp = KREG(C(code));
-        temp = lhash_get(lv_gettable(REG(B(code)), 0), temp);
-        SETREG(A(code), temp);
+      case OP_SELF: {
+        luav bv = REG(B(code));
+        SETREG(A(code) + 1, bv);
+        luav val = meta_lhash_get(bv, KREG(C(code)), &frame);
+        SETREG(A(code), val);
         break;
+      }
 
       case OP_TFORLOOP:
         a = A(code); c = C(code);
