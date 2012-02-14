@@ -42,7 +42,7 @@ function blowup (n)
 end
 
 
-N = (arg and arg[1]) or 1
+N = (arg and arg[1]) or 30000
 for i=1,N do
   some_function(i)
 end
