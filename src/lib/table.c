@@ -121,10 +121,13 @@ static lclosure_t *sorter;
  * @brief Internal helper to invoke a lua function which compares two lua
  *        values
  */
-static int lua_invoke_compare(luav v1, luav v2) {
+static int lua_invoke_compare(luav *v1, luav *v2) {
+  if (sorter == NULL) {
+    return lv_compare(*v1, *v2);
+  }
   u32 idx = vm_stack_alloc(vm_stack, 2);
-  vm_stack->base[idx] = v1;
-  vm_stack->base[idx + 1] = v2;
+  vm_stack->base[idx] = *v1;
+  vm_stack->base[idx + 1] = *v2;
   u32 ret = vm_fun(sorter, vm_running, 2, idx, 1, idx);
   if (ret == 0) {
     err_rawstr("Not enough return values from comparator", TRUE);
@@ -142,12 +145,12 @@ static int lua_invoke_compare(luav v1, luav v2) {
  */
 static u32 lua_table_sort(LSTATE) {
   lhash_t *table = lstate_gettable(0);
-  lcomparator_t *comp = lv_compare;
   if (argc > 1) {
     sorter = lstate_getfunction(1);
-    comp = lua_invoke_compare;
+  } else {
+    sorter = NULL;
   }
 
-  lhash_sort(table, comp);
+  lhash_sort(table, lua_invoke_compare);
   return 0;
 }
