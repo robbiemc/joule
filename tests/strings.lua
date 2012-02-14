@@ -122,24 +122,24 @@ assert(string.len(string.format('%99.99f', -1e308)) >= 100)
 
 assert(loadstring("return 1\n--comentário sem EOL no final")() == 1)
 
--- assert(table.concat{} == "")
--- assert(table.concat({}, 'x') == "")
--- assert(table.concat({'\0', '\0\1', '\0\1\2'}, '.\0.') == "\0.\0.\0\1.\0.\0\1\2")
--- local a = {}; for i=1,3000 do a[i] = "xuxu" end
--- assert(table.concat(a, "123").."123" == string.rep("xuxu123", 3000))
--- assert(table.concat(a, "b", 20, 20) == "xuxu")
--- assert(table.concat(a, "", 20, 21) == "xuxuxuxu")
--- assert(table.concat(a, "", 22, 21) == "")
--- assert(table.concat(a, "3", 2999) == "xuxu3xuxu")
---
--- a = {"a","b","c"}
--- assert(table.concat(a, ",", 1, 0) == "")
--- assert(table.concat(a, ",", 1, 1) == "a")
--- assert(table.concat(a, ",", 1, 2) == "a,b")
--- assert(table.concat(a, ",", 2) == "b,c")
--- assert(table.concat(a, ",", 3) == "c")
--- assert(table.concat(a, ",", 4) == "")
---
+assert(table.concat{} == "")
+assert(table.concat({}, 'x') == "")
+assert(table.concat({'\0', '\0\1', '\0\1\2'}, '.\0.') == "\0.\0.\0\1.\0.\0\1\2")
+local a = {}; for i=1,3000 do a[i] = "xuxu" end
+assert(table.concat(a, "123").."123" == string.rep("xuxu123", 3000))
+assert(table.concat(a, "b", 20, 20) == "xuxu")
+assert(table.concat(a, "", 20, 21) == "xuxuxuxu")
+assert(table.concat(a, "", 22, 21) == "")
+assert(table.concat(a, "3", 2999) == "xuxu3xuxu")
+
+a = {"a","b","c"}
+assert(table.concat(a, ",", 1, 0) == "")
+assert(table.concat(a, ",", 1, 1) == "a")
+assert(table.concat(a, ",", 1, 2) == "a,b")
+assert(table.concat(a, ",", 2) == "b,c")
+assert(table.concat(a, ",", 3) == "c")
+assert(table.concat(a, ",", 4) == "")
+
 -- local locales = { "ptb", "ISO-8859-1", "pt_BR" }
 -- local function trylocale (w)
 --   for _, l in ipairs(locales) do
