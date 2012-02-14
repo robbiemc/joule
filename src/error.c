@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -49,47 +50,49 @@ void err_explain(int err, lframe_t *frame) {
   lfunc_t *func;
   lframe_t *caller_frame = frame;
   while (caller_frame->closure->type != LUAF_LUA) {
-    xassert(caller_frame->caller != NULL);
-    xassert(caller_frame->caller != caller_frame);
+    assert(caller_frame->caller != NULL);
+    assert(caller_frame->caller != caller_frame);
     caller_frame = caller_frame->caller;
   }
   caller = caller_frame->closure;
   func   = caller->function.lua;
 
-  int len;
+  int len = 0;
   u32 pc = GETPC(caller_frame, func) - 1;
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
-  xassert(pc < func->num_lines);
-  len = sprintf(err_desc, "%.25s:%u: ", func->file,
-                func->lines[pc]);
+  assert(pc < func->num_lines);
 
   switch (err) {
     case ERR_MISSING:
-      len += sprintf(err_desc + len,
-                     "bad argument #%d to '%s' (%s expected, got no value)",
-                     err_info[0] + 1, funstr(vm_running->closure),
-                     err_typestr(err_info[1]));
+      len = sprintf(err_desc,
+                    "%.25s:%u: bad argument #%d to '%s' (%s expected, "
+                    "got no value)",
+                    func->file, func->lines[pc],
+                    err_info[0] + 1, funstr(vm_running->closure),
+                    err_typestr(err_info[1]));
       break;
 
     case ERR_BADTYPE:
-      len += sprintf(err_desc + len,
-                     "bad argument #%d to '%s' (%s expected, got %s)",
-                     err_info[0] + 1, funstr(vm_running->closure),
-                     err_typestr(err_info[1]), err_typestr(err_info[2]));
+      len = sprintf(err_desc,
+                    "%.25s:%u: bad argument #%d to '%s' (%s expected, got %s)",
+                    func->file, func->lines[pc],
+                    err_info[0] + 1, funstr(vm_running->closure),
+                    err_typestr(err_info[1]), err_typestr(err_info[2]));
       break;
 
     case ERR_STR:
-      len += sprintf(err_desc + len,
-                     "bad argument #%d to '%s' (%s)",
-                     err_info[0] + 1, funstr(vm_running->closure),
-                     err_custom);
+      len = sprintf(err_desc, "%.25s:%u: bad argument #%d to '%s' (%s)",
+                    func->file, func->lines[pc],
+                    err_info[0] + 1, funstr(vm_running->closure),
+                    err_custom);
       break;
 
     case ERR_RAWSTR:
       if (err_info[0]) {
-        len += sprintf(err_desc + len, "%s", err_custom);
+        len = sprintf(err_desc, "%.25s:%u: %s", func->file, func->lines[pc],
+                      err_custom);
       } else {
         len = sprintf(err_desc, "%s", err_custom);
       }
@@ -97,14 +100,9 @@ void err_explain(int err, lframe_t *frame) {
 
     case ERR_LUAV:
       if (err_catcher) {
-        if (lv_isstring(err_value)) {
-          if (frame->closure->type != LUAF_LUA) {
-            len = sprintf(err_desc, "%s",
-                          lv_caststring(err_value, 0)->data);
-          } else {
-            len += sprintf(err_desc + len, "%s",
-                           lv_caststring(err_value, 0)->data);
-          }
+        if (lv_isstring(err_value) && frame->closure->type == LUAF_LUA) {
+          len = sprintf(err_desc, "%.25s:%u: %s", func->file, func->lines[pc],
+                        lv_caststring(err_value, 0)->data);
           err_desc[len] = 0;
           err_value = lv_string(LSTR(err_desc));
         }
@@ -122,10 +120,10 @@ void err_explain(int err, lframe_t *frame) {
       err_desc[len] = 0;
       err_value = lv_string(LSTR(err_desc));
     }
-    longjmp(*err_catcher, 1);
+    _longjmp(*err_catcher, 1);
   }
 
-  xassert(lua_program != NULL);
+  assert(lua_program != NULL);
   printf("%s: %s\n", lua_program, err_desc);
 
   printf("stack traceback:\n");
@@ -138,7 +136,7 @@ void err_explain(int err, lframe_t *frame) {
     } else {
       lfunc_t *function = closure->function.lua;
       pc = GETPC(frame, function) - 1;
-      xassert(pc < function->num_lines);
+      assert(pc < function->num_lines);
       printf("%s:%d: ", function->file, function->lines[pc]);
       lstring_t *fname = function->name;
 

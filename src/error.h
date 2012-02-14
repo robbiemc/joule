@@ -13,7 +13,7 @@
     jmp_buf *prev = err_catcher;                \
     err_catcher = &onerr;                       \
     struct lthread *env = coroutine_current();  \
-    if (setjmp(onerr) == 0) {                   \
+    if (_setjmp(onerr) == 0) {                  \
       { try }                                   \
       errvar = 0;                               \
     } else {                                    \
