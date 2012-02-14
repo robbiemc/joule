@@ -2,7 +2,7 @@
 -- http://www.bagley.org/~doug/shootout/
 -- with help from Roberto Ierusalimschy
 
-local n = tonumber((arg and arg[1]) or 1)
+local n = tonumber((arg and arg[1]) or 100)
 
 local hash1={}
 for i=0,10000 do
@@ -10,7 +10,7 @@ for i=0,10000 do
 end
 local hash2={}
 for i=1,n do
-    for k,v in hash1 do
+    for k,v in pairs(hash1) do
 	hash2[k] = v + (hash2[k] or 0)
     end
 end
