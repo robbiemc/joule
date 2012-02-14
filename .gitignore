@@ -4,3 +4,4 @@ objs
 joule
 coverage
 gmon.out
+benchmark

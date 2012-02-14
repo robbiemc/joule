@@ -96,6 +96,10 @@ void lhash_init(lhash_t *map) {
 i32 lhash_check_meta(luav key) {
   if (!lv_isstring(key))
     return META_INVALID;
+  lstring_t *str = lv_getptr(key);
+  if (str->data[0] != '_' || str->data[1] != '_') {
+    return META_INVALID;
+  }
 
   i32 i;
   for (i = 0; i < NUM_META_METHODS; i++) {

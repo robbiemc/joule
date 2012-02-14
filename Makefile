@@ -76,6 +76,10 @@ bench: joule
 
 lbench: joule
 	./bench.lua $(BENCHTESTS)
+cbench: benchmark
+	./benchmark $(BENCHTESTS)
+benchmark: benchmark.c
+	$(CC) -Wall -Wextra -Werror -o $@ $<
 
 lmissing:
 	@ruby -e 'puts `ls $(TESTDIR)/*.lua`.split("\n") - ARGV' $(LUATESTS)
@@ -124,4 +128,4 @@ ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
 endif
 
 clean:
-	rm -rf $(OBJDIR) joule coverage
+	rm -rf $(OBJDIR) joule coverage benchmark

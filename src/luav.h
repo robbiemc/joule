@@ -120,6 +120,7 @@ struct lthread*  lv_getthread(luav value, u32 argnum);
 #define lv_getbool(v, _) ((v) != LUAV_NIL && (v) != LUAV_FALSE)
 #define lv_getupvalue(v) \
   ({ assert(lv_isupvalue(v)); (luav*) LUAV_DATA(v); })
+#define lv_getptr(v)  ((void*) ((v) & LUAV_DATA_MASK))
 
 int lv_parsenum(struct lstring *str, u32 base, double *value);
 
