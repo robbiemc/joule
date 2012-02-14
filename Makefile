@@ -39,7 +39,7 @@ BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2         \
 							threadring.lua-3 strcat.lua-2 recursive process                 \
 							partialsums.lua-3 partialsums.lua-2 message.lua-2 harmonic      \
 							fannkuchredux fasta fannkuch fannkuch.lua-2 chameneos           \
-							binarytrees.lua-3 except hash2
+							binarytrees.lua-3 except hash2 methcall
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
 CTESTS := hash types
