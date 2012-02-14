@@ -25,14 +25,15 @@
     luav _tmp = STACK(n);                                                     \
     lv_isupvalue(_tmp) ? *lv_getupvalue(_tmp) : _tmp;                         \
   })
-#define SETREG(n, v)                            \
-  ({                                            \
-    assert(&STACK(n) < vm_stack->top);          \
-    if (lv_isupvalue(STACK(n))) {               \
-      *lv_getupvalue(STACK(n)) = v;             \
-    } else {                                    \
-      STACK(n) = v;                             \
-    }                                           \
+#define SETREG(n, v)                                       \
+  ({                                                       \
+    assert(&STACK(n) < vm_stack->top);                     \
+    luav tmp = STACK(n);                                   \
+    if (lv_isupvalue(tmp)) {                               \
+      *lv_getupvalue(tmp) = v;                             \
+    } else {                                               \
+      STACK(n) = v;                                        \
+    }                                                      \
   })
 #define KREG(n) ((n) >= 256 ? CONST((n) - 256) : REG(n))
 #define UPVALUE(closure, n)                                \
@@ -780,7 +781,7 @@ static luav meta_lhash_get(luav operand, luav key, lframe_t *frame) {
   int istable = lv_istable(operand);
 
   if (istable) {
-    lhash_t *table = lv_gettable(operand, 0);
+    lhash_t *table = lv_getptr(operand);
     luav val = lhash_get(table, key);
     if (val != LUAV_NIL) return val;
   }
@@ -823,7 +824,7 @@ static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame) {
   vm_stack->base[idx] = operand;
   vm_stack->base[idx + 1] = key;
   vm_stack->base[idx + 2] = val;
-  vm_fun(lv_getfunction(method, 0), frame, 3, idx, 0, 0);
+  vm_fun(lv_getptr(method), frame, 3, idx, 0, 0);
   vm_stack_dealloc(vm_stack, idx);
   return;
 
