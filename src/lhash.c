@@ -3,10 +3,7 @@
  *
  * Currently very simple, lots of room for optimization.
  *
- * TODO: optimize
- * TODO: shrink when keys set to nil
  * TODO: iterate over metamethods in lhash_next
- * TODO: fix the len operator
  */
 
 #include <assert.h>
@@ -19,10 +16,18 @@
 #include "luav.h"
 #include "meta.h"
 #include "util.h"
+#include "vm.h"
 
-static void lhash_resize(lhash_t *hash);
+#define LHASH_ARRAY 0
+#define LHASH_TABLE 1
+#define DOWNSIZE    -1
+#define UPSIZE      1
+
+static void lhash_resize(lhash_t *hash, int which, int direction);
+static int  lhash_index(lhash_t *map, luav key, i32 *index);
 
 luav meta_strings[NUM_META_METHODS];
+static luav str__G;
 static luav meta_empty[NUM_META_METHODS];
 
 INIT static void lua_lhash_init() {
@@ -48,6 +53,7 @@ INIT static void lua_lhash_init() {
   meta_strings[META_CALL]      = LSTR("__call");
   meta_strings[META_METATABLE] = LSTR("__metatable");
   meta_strings[META_TOSTRING]  = LSTR("__tostring");
+  str__G = LSTR("_G");
 }
 
 /**
@@ -61,15 +67,21 @@ INIT static void lua_lhash_init() {
 void lhash_init(lhash_t *map) {
   int i;
   assert(map != NULL);
-  map->cap = LHASH_INIT_SIZE;
-  map->size = 0;
-  map->length = 0;
-  map->metatable = NULL;
+  map->tcap        = LHASH_INIT_TSIZE;
+  map->tsize       = 0;
+  map->acap        = LHASH_INIT_ASIZE;
+  map->asize       = 0;
+  map->length      = 0;
+  map->metatable   = NULL;
   map->metamethods = meta_empty;
-  map->hash = xmalloc(LHASH_INIT_SIZE * sizeof(map->hash[0]));
-  for (i = 0; i < LHASH_INIT_SIZE; i++) {
-    map->hash[i].key = LUAV_NIL;
+  map->flags       = 0;
+
+  map->table = xmalloc(LHASH_INIT_TSIZE * sizeof(map->table[0]));
+  map->array = xmalloc(LHASH_INIT_ASIZE * sizeof(map->array[0]));
+  for (i = 0; i < LHASH_INIT_TSIZE; i++) {
+    map->table[i].key = LUAV_NIL;
   }
+  lv_nilify(map->array, LHASH_INIT_ASIZE);
 }
 
 /**
@@ -85,7 +97,8 @@ void lhash_free(lhash_t *hash) {
   if (hash->metamethods != meta_empty) {
     free(hash->metamethods);
   }
-  free(hash->hash);
+  free(hash->array);
+  free(hash->table);
 }
 
 /**
@@ -118,15 +131,31 @@ i32 lhash_check_meta(luav key) {
  *         or NIL if the key is not present in the table.
  */
 luav lhash_get(lhash_t *map, luav key) {
+  i32 index;
   assert(!lv_isupvalue(key));
   if (key == LUAV_NIL) {
     return LUAV_NIL;
+  } else if (map == &lua_globals && key == str__G) {
+    return lv_table(&lua_globals);
   }
 
-  i32 index;
-  int found = lhash_index(map, key, &index);
-  if (!found) return LUAV_NIL;
-  return lhash_rawget(map, index);
+  if (lv_isnumber(key)) {
+    double n = lv_cvt(key);
+    index = (i32) n;
+    if (isnan(n)) {
+      return LUAV_NIL;
+    } else if ((double) index == n && index > 0 && (u32) index < map->acap) {
+      return map->array[index];
+    }
+  }
+
+  if (!lhash_index(map, key, &index)) {
+    return LUAV_NIL;
+  } else if (index < 0) {
+    // metatable get
+    return map->metamethods[-index];
+  }
+  return map->table[index].value;
 }
 
 /**
@@ -141,6 +170,7 @@ luav lhash_get(lhash_t *map, luav key) {
  * @param value the corresponding value for the given key
  */
 void lhash_set(lhash_t *map, luav key, luav value) {
+  i32 index;
   assert(!lv_isupvalue(key));
   assert(!lv_isupvalue(value));
 
@@ -148,9 +178,152 @@ void lhash_set(lhash_t *map, luav key, luav value) {
     err_rawstr("table index is nil", TRUE);
   }
 
-  i32 index;
-  int found = lhash_index(map, key, &index);
-  lhash_rawset(map, index, !found, key, value);
+  if (lv_isnumber(key)) {
+    double n = lv_cvt(key);
+    index = (i32) n;
+    if ((double) index == n && index > 0) {
+      /* Try to put the value in the already-allocated array */
+      if ((u32) index < map->acap) {
+        luav prev = map->array[index];
+        map->array[index] = value;
+        /* Added a new element, increase the length */
+        if (prev == LUAV_NIL && value != LUAV_NIL) {
+          map->asize++;
+          if ((u32) index > map->length) {
+            map->length = (u32) index;
+            assert(map->length <= map->acap);
+          }
+        /* Added a new element, upsize */
+        } else if (prev != LUAV_NIL && value == LUAV_NIL) {
+          map->asize--;
+          /* TODO: this is O(n), bad? */
+          if ((u32) index == map->length) {
+            i32 i;
+            for (i = index - 1; i >= 0; i--) {
+              if (map->array[i] != LUAV_NIL) { break; }
+            }
+            if (i == -1) {
+              map->length = 0;
+            } else {
+              map->length = (u32) i;
+            }
+          }
+        }
+        return;
+
+      /* See if we should resize the array portion */
+      } else if (value != LUAV_NIL && (u32) index < map->acap * 2 &&
+                 map->asize >= map->acap / 2) {
+        lhash_resize(map, LHASH_ARRAY, UPSIZE);
+        assert(map->array[index] == LUAV_NIL);
+        map->array[index] = value;
+        map->length = (u32) index;
+        return;
+      }
+    }
+  }
+
+  if (lhash_index(map, key, &index)) {
+    if (index < 0) {
+      // metatable set
+      if (map->metamethods == meta_empty) {
+        map->metamethods = xmalloc(NUM_META_METHODS * sizeof(luav));
+        lv_nilify(map->metamethods, NUM_META_METHODS);
+      }
+      map->metamethods[-index] = value;
+    } else {
+      map->table[index].value = value;
+      if (value == LUAV_NIL) {
+        map->tsize--;
+      }
+    }
+  } else if (value == LUAV_NIL) {
+    return;
+  } else {
+    assert(index >= 0);
+    map->table[index].key = key;
+    map->table[index].value = value;
+    map->tsize++;
+  }
+  if (map->tsize * 100 / map->tcap > LHASH_MAP_THRESH) {
+    lhash_resize(map, LHASH_TABLE, UPSIZE);
+  } else if (value == LUAV_NIL &&
+             map->tsize * 100 / (map->tcap / 2) < LHASH_MAP_THRESH &&
+             map->tsize > LHASH_INIT_TSIZE) {
+    lhash_resize(map, LHASH_TABLE, DOWNSIZE);
+  }
+}
+
+/**
+ * @brief Internal helper to resize a hash
+ *
+ * Resizes both the array and table portions of the hash, because elements
+ * could possibly shift between the two.
+ *
+ * @param map the hash to resize
+ * @param which which portion of the hash to resize
+ * @param direction direction in which to resize (up or down)
+ * @private
+ */
+static void lhash_resize(lhash_t *map, int which, int direction) {
+  u32 i, tend = map->tcap;
+  struct lh_pair *old = map->table;
+  if (map->flags & LHASH_RESIZING ||
+      (map->flags & LHASH_ITERATING && direction == DOWNSIZE)) {
+    return;
+  }
+  map->flags |= LHASH_RESIZING;
+
+  /* If we're resizing the table portion, there is no reason that we should
+     touch the array portion of the map */
+  if (which == LHASH_TABLE) {
+    if (direction == UPSIZE) {
+      map->tcap = 2 * map->tcap + 1;
+    } else {
+      map->tcap = map->tcap / 2 + 1;
+    }
+    map->tsize = 0;
+    map->table = xmalloc(map->tcap * sizeof(map->table[0]));
+    /* Make sure all new keys are nil */
+    for (i = 0; i < map->tcap; i++) {
+      map->table[i].key = LUAV_NIL;
+    }
+    for (i = 0; i < tend; i++) {
+      if (old[i].key != LUAV_NIL) {
+        lhash_set(map, old[i].key, old[i].value);
+      }
+    }
+    free(old);
+    map->flags &= ~LHASH_RESIZING;
+    return;
+  }
+
+  /* TODO: downsize array portion of the table */
+  assert(direction == UPSIZE);
+  assert(which == LHASH_ARRAY);
+  map->acap *= 2;
+  map->array = xrealloc(map->array, map->acap * sizeof(map->array[0]));
+
+  lv_nilify(map->array + map->acap / 2, map->acap / 2);
+
+  /* Move any integer keys into the array section if we can */
+  for (i = 0; i < tend; i++) {
+    luav key = old[i].key;
+    if (lv_isnumber(key)) {
+      double n = lv_cvt(key);
+      i32 index = (i32) n;
+      if ((double) index == n && index > 0 && (u32) index < map->acap) {
+        map->array[index] = old[i].value;
+        old[i].value = LUAV_NIL;
+        if ((u32) index > map->length) {
+          map->length = (u32) index;
+        }
+        map->asize++;
+        map->tsize--;
+      }
+    }
+  }
+  map->flags &= ~LHASH_RESIZING;
 }
 
 /**
@@ -165,7 +338,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
  * @param index where to store the index
  * @return TRUE if the key was found in the table
  */
-int lhash_index(lhash_t *map, luav key, i32 *index) {
+static int lhash_index(lhash_t *map, luav key, i32 *index) {
   // check if it's a metatable key
   i32 meta_index = lhash_check_meta(key);
   if (meta_index != META_INVALID) {
@@ -173,125 +346,98 @@ int lhash_index(lhash_t *map, luav key, i32 *index) {
     return TRUE;
   }
 
-  i32 h = (i32) (lv_hash(key) % map->cap);
-  i32 step = 1;
+  i32 h = (i32) (lv_hash(key) % map->tcap);
+  i32 step = 0;
+  i32 hole = -1;
   while (1) {
-    struct lh_pair *entry = &map->hash[h];
+    h = (h + step++) % (i32) map->tcap;
+    assert(h >= 0);
+    struct lh_pair *entry = &map->table[h];
     luav cur = entry->key;
     if (cur == key) {
       *index = h;
       return (entry->value != LUAV_NIL);
     } else if (cur == LUAV_NIL) {
-      *index = h;
+      *index = hole == -1 ? h : hole;
+      return FALSE;
+    } else if (hole == -1 && entry->value == LUAV_NIL) {
+      hole = h;
+    } else if ((u32) step > map->tcap) {
+      assert(hole >= 0);
+      *index = hole;
       return FALSE;
     }
-    h = (h + step++) % (i32) map->cap;
   }
 }
 
 /**
- * @brief Gets the value at the given index of the given table
+ * @brief Implementation of the lua next() function
  *
- * The index is not checked - it is assumed it is a valid index.
+ * Given a key, iterates to the next key, returning the next key/value pair.
+ * If the end of the table has been reached, then the returned pair are both
+ * nil.
  *
- * @param map the table to look in
- * @param index the index into the table to return
- * @return the value at the given index - LUAV_NIL if there isn't one
+ * @param map the map to iterate
+ * @param key the previous return value of next(), placeholder key
+ * @param nxtkey pointer to fill in for the next key value
+ * @param nxtval pointer to fill in for the next value
  */
-luav lhash_rawget(lhash_t *map, i32 index) {
-  if (index < 0) {
-    // metatable get
-    return map->metamethods[-index];
-  }
-  return map->hash[index].value;
-}
-
-/**
- * @brief Sets the key/value at the given index of the given table
- *
- * The index is not checked - it is assumed it is a valid index.
- * TODO - if val is nil, we should decrease the size of the hashtable
- *
- * @param map the table to alter
- * @param index the index within the table to set
- * @param isnew TRUE if the key was previously nil
- * @param key the key to assign to map[index]
- * @param value the value to assign to map[index]
- */
-void lhash_rawset(lhash_t *map, i32 index, int isnew, luav key, luav val) {
-  if (index < 0) {
-    // metatable set
-    if (map->metamethods == meta_empty) {
-      map->metamethods = xmalloc(NUM_META_METHODS * sizeof(luav));
-      lv_nilify(map->metamethods, NUM_META_METHODS);
-    }
-    map->metamethods[-index] = val;
-    return;
-  }
-
-  map->hash[index].key = key;
-  map->hash[index].value = val;
-
-  // update the array size
-  if (isnew) {
-    map->size++;
-    if (map->size * 100 / map->cap > LHASH_MAP_THRESH) {
-      lhash_resize(map);
-    }
-    // FIXME - this doesn't always work (but will in this hashtable
-    //         implementation)
-    if (lv_isnumber(key) && val != LUAV_NIL) {
-      double len = lv_cvt(key);
-      if ((u64) len == len && len > map->length) {
-        map->length = (u64) len;
-      }
-    }
-  }
-}
-
-/**
- * @brief Internal helper to resize a table
- * @private
- */
-static void lhash_resize(lhash_t *map) {
-  u32 i, end = map->cap;
-  map->cap *= 2;
-  map->cap += 1;
-  struct lh_pair *old = map->hash;
-  map->hash = xmalloc(map->cap * sizeof(map->hash[0]));
-
-  for (i = 0; i < map->cap; i++) {
-    map->hash[i].key = LUAV_NIL;
-  }
-
-  for (i = 0; i < end; i++) {
-    if (old[i].key != LUAV_NIL) {
-      lhash_set(map, old[i].key, old[i].value);
-    }
-  }
-  free(old);
-}
-
 void lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval) {
   struct lh_pair *entry;
   u32 i, h = 0;
-  if (key != LUAV_NIL) {
-    h = lv_hash(key) % map->cap;
-    do {
-      entry = &map->hash[h];
-      h++;
-    } while (h < map->cap && entry->key != key);
+  map->flags |= LHASH_ITERATING;
+
+  /* We must begin by iterating over the array portion of the table */
+  if (lv_isnumber(key) || key == LUAV_NIL) {
+    double n;
+    i32 index;
+    /* First time? start at one, otherwise, convert to a number */
+    if (key == LUAV_NIL) {
+      n = 1;
+      index = 1;
+    } else {
+      n = lv_cvt(key);
+      index = (i32) n;
+    }
+    /* Only check if our index is an integer within range */
+    if ((double) index == n && index > 0 && (u32) index < map->acap) {
+      /* Skip over what we were just looking at */
+      if (key != LUAV_NIL) { index++; }
+      for (i = (u32) index; i <= map->length; i++) {
+        assert(i < map->acap);
+        if (map->array[i] != LUAV_NIL) {
+          *nxtkey = lv_number(i);
+          *nxtval = map->array[i];
+          return;
+        }
+      }
+      /* Start iterating through the table portion */
+      key = LUAV_NIL;
+    }
   }
-  for (i = h; i < map->cap; i++) {
-    entry = &map->hash[i];
+
+  if (key != LUAV_NIL) {
+    /* Find where our key is (taking collisions into account), then increment
+       the index to move on to the next cell */
+    h = lv_hash(key) % map->tcap;
+    while (map->table[h].key != key) {
+      h = (h + 1) % map->tcap;
+    }
+    h++;
+  }
+
+  for (i = h; i < map->tcap; i++) {
+    entry = &map->table[i];
     if (entry->key != LUAV_NIL && entry->value != LUAV_NIL) {
-      *nxtkey = map->hash[i].key;
-      *nxtval = map->hash[i].value;
+      *nxtkey = map->table[i].key;
+      *nxtval = map->table[i].value;
       return;
     }
   }
+
   *nxtkey = LUAV_NIL;
   *nxtval = LUAV_NIL;
+  map->flags &= ~LHASH_ITERATING;
 }
 
 /**
@@ -305,11 +451,11 @@ void lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval) {
  * @return the maximum index found, or 0 if no index is found
  */
 double lhash_maxn(lhash_t *map) {
-  double maxi = 0;
+  double maxi = (double) map->length; /* maximum in array portion */
   u32 i;
-  for (i = 0; i < map->cap; i++) {
-    if (lv_isnumber(map->hash[i].key) && map->hash[i].value != LUAV_NIL) {
-      double n = lv_cvt(map->hash[i].key);
+  for (i = 0; i < map->tcap; i++) {
+    if (lv_isnumber(map->table[i].key) && map->table[i].value != LUAV_NIL) {
+      double n = lv_cvt(map->table[i].key);
       maxi = MAX(maxi, n);
     }
   }
@@ -327,17 +473,19 @@ double lhash_maxn(lhash_t *map) {
  * @param value the value to insert at the specified position.
  */
 void lhash_insert(lhash_t *map, u32 pos, luav value) {
-  i32 index;
+  if (pos > map->acap) {
+    lhash_set(map, lv_number(pos), value);
+    return;
+  }
+  if (map->length + 1 >= map->acap) {
+    lhash_resize(map, LHASH_ARRAY, UPSIZE);
+  }
+  assert(map->length + 1 < map->acap);
 
-  do {
-    luav key = lv_number(pos);
-    lhash_index(map, key, &index);
-    luav temp = map->hash[index].value;
-    map->hash[index].key   = key;
-    map->hash[index].value = value;
-    value = temp;
-  } while (pos++ <= map->length + 1);
-
+  /* Make some room */
+  memcpy(&map->array[pos + 1], &map->array[pos],
+         (map->length - pos + 1) * sizeof(luav));
+  map->array[pos] = value;
   map->length++;
 }
 
@@ -351,21 +499,17 @@ void lhash_insert(lhash_t *map, u32 pos, luav value) {
  * @param pos the position to remove
  */
 luav lhash_remove(lhash_t *map, u32 pos) {
-  i32 index, prev_idx;
+  assert(map->length < map->acap);
   if (pos > map->length) {
     return LUAV_NIL;
   }
-  lhash_index(map, lv_number(pos++), &index);
-  luav ret = map->hash[index].value;
-  prev_idx = index;
-
-  while (pos <= map->length && lhash_index(map, lv_number(pos), &index)) {
-    map->hash[prev_idx].value = map->hash[index].value;
-    prev_idx = index;
-    pos++;
+  luav ret = map->array[pos];
+  memmove(&map->array[pos], &map->array[pos + 1],
+          (map->length - pos) * sizeof(luav));
+  /* Recalculate the length now */
+  map->length--;
+  while (map->length > 0 && map->array[map->length] == LUAV_NIL) {
+    map->length--;
   }
-
-  map->hash[index].value = LUAV_NIL;
-  map->length = pos - 2;
   return ret;
 }

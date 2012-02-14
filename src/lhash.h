@@ -9,38 +9,40 @@
 #include "luav.h"
 
 #define LHASH_MAP_THRESH 60
-#define LHASH_INIT_SIZE 17
+#define LHASH_INIT_TSIZE 17
+#define LHASH_INIT_ASIZE 10
 
-#ifdef HASH_PROFILE
-void lhash_start_profile();
-void lhash_show_profile();
-#endif
+#define LHASH_RESIZING  (1 << 0)
+#define LHASH_ITERATING (1 << 1)
 
 /* Actual hash implementation, currently just a simple resizing table with
    linear probing to resolve collisions */
 typedef struct lhash {
-  u32 cap;        // capacity of the table
-  u32 size;       // size of the table
-  u64 length;     // max non-empty integer index of the table (for # operator)
+  int flags;       // is the map currently being resized?
+  u32 tcap;        // capacity of the table
+  u32 tsize;       // size of the table
+  u64 length;      // max non-empty integer index of the table (for # operator)
   struct lh_pair {
     luav key;
     luav value;
-  } *hash;        // hash table, array of key/value pairs
+  } *table;        // hash table, array of key/value pairs
+
+  u32  acap;       // array capacity
+  u32  asize;      // array size (# of elements in array)
+  luav *array;     // array part which acts like an array
+
   struct lhash *metatable;   // the metatable for this table
-  luav *metamethods;  // metamethods if this is a metatable
+  luav *metamethods;         // metamethods if this is a metatable
 } lhash_t;
 
 void lhash_init(lhash_t *map);
 void lhash_free(lhash_t *map);
 luav lhash_get(lhash_t *map, luav key);
 void lhash_set(lhash_t *map, luav key, luav value);
-void lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval);
-double lhash_maxn(lhash_t *map);
-void lhash_insert(lhash_t *map, u32 pos, luav value);
-luav lhash_remove(lhash_t *map, u32 pos);
 
-int lhash_index(lhash_t *map, luav key, i32 *index);
-luav lhash_rawget(lhash_t *map, i32 index);
-void lhash_rawset(lhash_t *map, i32 index, int isnew, luav key, luav val);
+void   lhash_next(lhash_t *map, luav key, luav *nxtkey, luav *nxtval);
+double lhash_maxn(lhash_t *map);
+void   lhash_insert(lhash_t *map, u32 pos, luav value);
+luav   lhash_remove(lhash_t *map, u32 pos);
 
 #endif /* _LHASH_H */

@@ -106,7 +106,6 @@ INIT static void vm_setup() {
   lhash_init(&userdata_meta);
   lhash_init(&lua_globals);
   lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
-  lhash_set(&lua_globals, LSTR("_G"), lv_table(&lua_globals));
 
   vm_stack_init(&init_stack, VM_STACK_INIT);
   vm_stack = &init_stack;
