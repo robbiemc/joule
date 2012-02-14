@@ -71,12 +71,9 @@ ltest: $(LUATESTS:=test)
 btest: $(BENCHTESTS:=test)
 	@echo -- All benchmark tests passed --
 
-bench: joule
-	./bench.rb $(BENCHTESTS)
-
 lbench: joule
 	./bench.lua $(BENCHTESTS)
-cbench: benchmark
+bench: benchmark
 	./benchmark $(sort $(BENCHTESTS))
 benchmark: benchmark.c
 	$(CC) -Wall -Wextra -Werror -o $@ $<
