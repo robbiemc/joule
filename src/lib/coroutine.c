@@ -142,7 +142,7 @@ static u32 lua_co_create(LSTATE) {
 
   u64 *stack = (u64*) ((u64) thread->stack + CO_STACK_SIZE);
   /* Bogus return address, and then actual address to return to */
-  *(stack - 1) = 0xdeadd00ddeadd00dULL;
+  *(stack - 1) = 0;
   *(stack - 2) = (u64) coroutine_wrapper;
   thread->curstack = stack - 8; /* 6 callee regs, and two return addresses */
 
