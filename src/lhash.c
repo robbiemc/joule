@@ -282,11 +282,13 @@ static void lhash_resize(lhash_t *map, int which, int direction) {
  * @return TRUE if the key was found in the table
  */
 static int lhash_index(lhash_t *map, luav key, i32 *index) {
-  i32 h = (i32) (lv_hash(key) % map->tcap);
+  i32 cap  = (i32) map->tcap;
+  i32 h    = (i32) (lv_hash(key) % map->tcap);
   i32 step = 0;
   i32 hole = -1;
-  while (1) {
-    h = (h + step++) % (i32) map->tcap;
+
+  while (step < cap) {
+    h = (h + step++) % cap;
     assert(h >= 0);
     struct lh_pair *entry = &map->table[h];
     luav cur = entry->key;
@@ -298,12 +300,12 @@ static int lhash_index(lhash_t *map, luav key, i32 *index) {
       return FALSE;
     } else if (hole == -1 && entry->value == LUAV_NIL) {
       hole = h;
-    } else if ((u32) step > map->tcap) {
-      assert(hole >= 0);
-      *index = hole;
-      return FALSE;
     }
   }
+
+  assert(hole >= 0);
+  *index = hole;
+  return FALSE;
 }
 
 /**
