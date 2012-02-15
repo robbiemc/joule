@@ -45,7 +45,7 @@ extern luav meta_strings[NUM_META_METHODS];
 #define META_METATABLE  meta_strings[META_METATABLE_IDX]
 #define META_TOSTRING   meta_strings[META_TOSTRING_IDX]
 
-#define TBL(x) lv_gettable(x,0)
+#define TBL(x) ((lhash_t*) lv_getptr(x))
 #define getmetatable(v) (lv_istable(v)    ? TBL(v)->metatable :                \
                          lv_isuserdata(v) ? TBL(lhash_get(&userdata_meta, v)) :\
                          NULL)
