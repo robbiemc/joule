@@ -288,7 +288,11 @@ static int lhash_index(lhash_t *map, luav key, i32 *index) {
   i32 hole = -1;
 
   while (step < cap) {
-    h = (h + step++) % cap;
+    h += step++;
+    if (h >= cap) {
+      h -= cap;
+      assert(h < cap);
+    }
     assert(h >= 0);
     struct lh_pair *entry = &map->table[h];
     luav cur = entry->key;
