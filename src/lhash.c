@@ -29,31 +29,25 @@ static int  lhash_index(lhash_t *map, luav key, i32 *index);
 
 luav meta_strings[NUM_META_METHODS];
 static luav str__G;
-static luav meta_empty[NUM_META_METHODS];
 
 INIT static void lua_lhash_init() {
-  // a nil meta table array - this is default
-  size_t i;
-  for (i = 0; i < NUM_META_METHODS; i++)
-    meta_empty[i] = LUAV_NIL;
-
-  meta_strings[META_ADD]       = LSTR("__add");
-  meta_strings[META_SUB]       = LSTR("__sub");
-  meta_strings[META_MUL]       = LSTR("__mul");
-  meta_strings[META_DIV]       = LSTR("__div");
-  meta_strings[META_MOD]       = LSTR("__mod");
-  meta_strings[META_POW]       = LSTR("__pow");
-  meta_strings[META_UNM]       = LSTR("__unm");
-  meta_strings[META_CONCAT]    = LSTR("__concat");
-  meta_strings[META_LEN]       = LSTR("__len");
-  meta_strings[META_EQ]        = LSTR("__eq");
-  meta_strings[META_LT]        = LSTR("__lt");
-  meta_strings[META_LE]        = LSTR("__le");
-  meta_strings[META_INDEX]     = LSTR("__index");
-  meta_strings[META_NEWINDEX]  = LSTR("__newindex");
-  meta_strings[META_CALL]      = LSTR("__call");
-  meta_strings[META_METATABLE] = LSTR("__metatable");
-  meta_strings[META_TOSTRING]  = LSTR("__tostring");
+  meta_strings[META_ADD_IDX]       = LSTR("__add");
+  meta_strings[META_SUB_IDX]       = LSTR("__sub");
+  meta_strings[META_MUL_IDX]       = LSTR("__mul");
+  meta_strings[META_DIV_IDX]       = LSTR("__div");
+  meta_strings[META_MOD_IDX]       = LSTR("__mod");
+  meta_strings[META_POW_IDX]       = LSTR("__pow");
+  meta_strings[META_UNM_IDX]       = LSTR("__unm");
+  meta_strings[META_CONCAT_IDX]    = LSTR("__concat");
+  meta_strings[META_LEN_IDX]       = LSTR("__len");
+  meta_strings[META_EQ_IDX]        = LSTR("__eq");
+  meta_strings[META_LT_IDX]        = LSTR("__lt");
+  meta_strings[META_LE_IDX]        = LSTR("__le");
+  meta_strings[META_INDEX_IDX]     = LSTR("__index");
+  meta_strings[META_NEWINDEX_IDX]  = LSTR("__newindex");
+  meta_strings[META_CALL_IDX]      = LSTR("__call");
+  meta_strings[META_METATABLE_IDX] = LSTR("__metatable");
+  meta_strings[META_TOSTRING_IDX]  = LSTR("__tostring");
   str__G = LSTR("_G");
 }
 
@@ -74,7 +68,6 @@ void lhash_init(lhash_t *map) {
   map->asize       = 0;
   map->length      = 0;
   map->metatable   = NULL;
-  map->metamethods = meta_empty;
   map->flags       = 0;
 
   map->table = gc_alloc(LHASH_INIT_TSIZE * sizeof(map->table[0]));
@@ -83,31 +76,6 @@ void lhash_init(lhash_t *map) {
     map->table[i].key = LUAV_NIL;
   }
   lv_nilify(map->array, LHASH_INIT_ASIZE);
-}
-
-/**
- * @brief Checks whether the given key is a metatable event and if so, returns
- *        its index
- *
- * @param key the key to check
- * @return the metatable index of the given key, or META_INVALID if it is not a
- *         valid event
- */
-i32 lhash_check_meta(luav key) {
-  if (!lv_isstring(key))
-    return META_INVALID;
-  lstring_t *str = lv_getptr(key);
-  if (str->data[0] != '_' || str->data[1] != '_') {
-    return META_INVALID;
-  }
-
-  i32 i;
-  for (i = 0; i < NUM_META_METHODS; i++) {
-    if (meta_strings[i] == key) {
-      return i;
-    }
-  }
-  return META_INVALID;
 }
 
 /**
@@ -139,9 +107,6 @@ luav lhash_get(lhash_t *map, luav key) {
 
   if (!lhash_index(map, key, &index)) {
     return LUAV_NIL;
-  } else if (index < 0) {
-    // metatable get
-    return map->metamethods[-index];
   }
   return map->table[index].value;
 }
@@ -212,18 +177,9 @@ void lhash_set(lhash_t *map, luav key, luav value) {
   }
 
   if (lhash_index(map, key, &index)) {
-    if (index < 0) {
-      // metatable set
-      if (map->metamethods == meta_empty) {
-        map->metamethods = gc_alloc(NUM_META_METHODS * sizeof(luav));
-        lv_nilify(map->metamethods, NUM_META_METHODS);
-      }
-      map->metamethods[-index] = value;
-    } else {
-      map->table[index].value = value;
-      if (value == LUAV_NIL) {
-        map->tsize--;
-      }
+    map->table[index].value = value;
+    if (value == LUAV_NIL) {
+      map->tsize--;
     }
   } else if (value == LUAV_NIL) {
     return;
@@ -326,13 +282,6 @@ static void lhash_resize(lhash_t *map, int which, int direction) {
  * @return TRUE if the key was found in the table
  */
 static int lhash_index(lhash_t *map, luav key, i32 *index) {
-  // check if it's a metatable key
-  i32 meta_index = lhash_check_meta(key);
-  if (meta_index != META_INVALID) {
-    *index = -meta_index;
-    return TRUE;
-  }
-
   i32 h = (i32) (lv_hash(key) % map->tcap);
   i32 step = 0;
   i32 hole = -1;

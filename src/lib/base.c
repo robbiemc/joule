@@ -173,7 +173,7 @@ static u32 lua_tostring(LSTATE) {
     case LTABLE: {
       lhash_t *meta = getmetatable(v);
       if (meta) {
-        luav value = meta->metamethods[META_TOSTRING];
+        luav value = lhash_get(meta, META_TOSTRING);
         if (value != LUAV_NIL) {
           gc_free(str);
           vm_stack->base[argvi] = v;
@@ -287,7 +287,7 @@ static u32 lua_setmetatable(LSTATE) {
   lhash_t *table = lstate_gettable(0);
   // make sure the current metatable isn't protected
   lhash_t *old = table->metatable;
-  if (old != NULL && old->metamethods[META_METATABLE] != LUAV_NIL)
+  if (old != NULL && lhash_get(old, META_METATABLE) != LUAV_NIL)
     err_rawstr("You cannot replace a protected metatable", TRUE);
 
   luav value = lstate_getval(1);
@@ -308,7 +308,7 @@ static u32 lua_getmetatable(LSTATE) {
   if (meta == NULL) {
     lstate_return1(LUAV_NIL);
   }
-  luav meta_field = meta->metamethods[META_METATABLE];
+  luav meta_field = lhash_get(meta, META_METATABLE);
   if (meta_field != LUAV_NIL) {
     lstate_return1(meta_field);
   }

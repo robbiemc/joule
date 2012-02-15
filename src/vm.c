@@ -90,10 +90,10 @@ lstack_t *vm_stack;          //<! current stack, changes on thread switches
 static lstack_t init_stack;  //<! initial stack
 
 static void op_close(u32 upc, luav *upv);
-static int meta_unary(luav operand, u32 op, u32 reti, lframe_t *frame);
-static int meta_binary(luav operand, u32 op, luav lv, luav rv,
+static int meta_unary(luav operand, luav method, u32 reti, lframe_t *frame);
+static int meta_binary(luav operand, luav method, luav lv, luav rv,
                        u32 reti, lframe_t *frame);
-static int meta_eq(luav operand1, luav operand2, u32 op, luav *ret);
+static int meta_eq(luav operand1, luav operand2, luav method, luav *ret);
 static luav meta_lhash_get(luav operand, luav key, lframe_t *frame);
 static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame);
 static u32  meta_call(luav value, u32 argc, u32 argvi, u32 retc, u32 retvi);
@@ -426,7 +426,7 @@ top:
         /* As with CALL, dispatch the __call metamethod */
         if (meta != NULL) {
           /* TODO: bad error message? */
-          closure = lv_getfunction(meta->metamethods[META_CALL], 0);
+          closure = lv_getfunction(lhash_get(meta, META_CALL), 0);
           /* metamethod __call requires one extra argument, the table itself */
           vm_stack_grow(vm_stack, 1);
           memmove(&vm_stack->base[stack_orig + 1], &vm_stack->base[argvi],
@@ -716,10 +716,10 @@ static void op_close(u32 upc, luav *upv) {
   }
 }
 
-static int meta_unary(luav operand, u32 op, u32 reti, lframe_t *frame) {
+static int meta_unary(luav operand, luav name, u32 reti, lframe_t *frame) {
   lhash_t *meta = getmetatable(operand);
   if (meta != NULL) {
-    luav method = meta->metamethods[op];
+    luav method = lhash_get(meta, name);
     if (method != LUAV_NIL) {
       u32 idx = vm_stack_alloc(vm_stack, 1);
       vm_stack->base[idx] = operand;
@@ -733,11 +733,11 @@ static int meta_unary(luav operand, u32 op, u32 reti, lframe_t *frame) {
   return FALSE;
 }
 
-static int meta_binary(luav operand, u32 op, luav lv, luav rv,
+static int meta_binary(luav operand, luav name, luav lv, luav rv,
                        u32 reti, lframe_t *frame) {
   lhash_t *meta = getmetatable(operand);
   if (meta != NULL) {
-    luav method = meta->metamethods[op];
+    luav method = lhash_get(meta, name);
     if (method != LUAV_NIL) {
       u32 idx = vm_stack_alloc(vm_stack, 2);
       vm_stack->base[idx] = lv;
@@ -752,13 +752,13 @@ static int meta_binary(luav operand, u32 op, luav lv, luav rv,
   return FALSE;
 }
 
-static int meta_eq(luav operand1, luav operand2, u32 op, luav *ret) {
+static int meta_eq(luav operand1, luav operand2, luav name, luav *ret) {
   lhash_t *meta1 = getmetatable(operand1);
   lhash_t *meta2 = getmetatable(operand2);
 
   if (meta1 != NULL && meta2 != NULL) {
-    luav meth1 = meta1->metamethods[op];
-    luav meth2 = meta2->metamethods[op];
+    luav meth1 = lhash_get(meta1, name);
+    luav meth2 = lhash_get(meta2, name);
 
     if (meth1 != LUAV_NIL && meth1 == meth2) {
       u32 idx = vm_stack_alloc(vm_stack, 3);
@@ -790,7 +790,7 @@ static luav meta_lhash_get(luav operand, luav key, lframe_t *frame) {
   lhash_t *meta = getmetatable(operand);
   if (meta == NULL) goto notfound;
 
-  luav method = meta->metamethods[META_INDEX];
+  luav method = lhash_get(meta, META_INDEX);
   if (method == LUAV_NIL) goto notfound;
   if (!lv_isfunction(method))
     return meta_lhash_get(method, key, frame);
@@ -816,7 +816,7 @@ static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame) {
   if (lv_istable(operand) && lhash_get(TBL(operand), key) != LUAV_NIL)
     goto normal;
 
-  luav method = meta->metamethods[META_NEWINDEX];
+  luav method = lhash_get(meta, META_NEWINDEX);
   if (method == LUAV_NIL) goto normal;
   if (!lv_isfunction(method))
     return meta_lhash_set(method, key, val, frame);
@@ -835,12 +835,13 @@ normal:
 
 static u32 meta_call(luav value, u32 argc, u32 argvi, u32 retc, u32 retvi) {
   lhash_t *meta = getmetatable(value);
-  if (meta == NULL || meta->metamethods[META_CALL] == LUAV_NIL) {
+  luav method = meta == NULL ? LUAV_NIL : lhash_get(meta, META_CALL);
+  if (method == LUAV_NIL) {
     err_rawstr("metatable.__call not found", TRUE);
   }
   u32 idx = vm_stack_alloc(vm_stack, argc + 1);
   /* TODO: bad error message? */
-  lclosure_t *func = lv_getfunction(meta->metamethods[META_CALL], 0);
+  lclosure_t *func = lv_getfunction(method, 0);
   memcpy(&vm_stack->base[idx + 1], &vm_stack->base[argvi], argc * sizeof(luav));
   vm_stack->base[idx] = value;
   u32 ret = vm_fun(func, vm_running, argc + 1, idx, retc, retvi);
@@ -850,13 +851,15 @@ static u32 meta_call(luav value, u32 argc, u32 argvi, u32 retc, u32 retvi) {
 
 static luav meta_concat(luav v1, luav v2) {
   lhash_t *meta = getmetatable(v1);
-  if (meta == NULL || meta->metamethods[META_CONCAT] == LUAV_NIL) {
+  luav method = meta == NULL ? LUAV_NIL : lhash_get(meta, META_CONCAT);
+  if (meta == NULL || method == LUAV_NIL) {
     meta = getmetatable(v2);
+    method = meta == NULL ? LUAV_NIL : lhash_get(meta, META_CONCAT);
   }
 
-  if (meta != NULL && meta->metamethods[META_CONCAT] != LUAV_NIL) {
+  if (meta != NULL && method != LUAV_NIL) {
     /* TODO: better error message? */
-    lclosure_t *func = lv_getfunction(meta->metamethods[META_CONCAT], 0);
+    lclosure_t *func = lv_getfunction(method, 0);
     u32 idx = vm_stack_alloc(vm_stack, 2);
     vm_stack->base[idx] = v1;
     vm_stack->base[idx + 1] = v2;

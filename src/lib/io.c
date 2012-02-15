@@ -56,9 +56,8 @@ INIT static void lua_io_init() {
   default_in  = stdin;
 
   lhash_init(&fd_meta);
-  lhash_set(&fd_meta, meta_strings[META_METATABLE], LUAV_TRUE);
-  lhash_set(&fd_meta, meta_strings[META_INDEX],
-                      lv_function(&lua_io_meta_index_f));
+  lhash_set(&fd_meta, META_METATABLE, LUAV_TRUE);
+  lhash_set(&fd_meta, META_INDEX, lv_function(&lua_io_meta_index_f));
 
   lhash_init(&lua_io);
   REGISTER(&lua_io, "close",  &lua_io_close_f);

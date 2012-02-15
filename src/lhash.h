@@ -32,7 +32,6 @@ typedef struct lhash {
   luav *array;     // array part which acts like an array
 
   struct lhash *metatable;   // the metatable for this table
-  luav *metamethods;         // metamethods if this is a metatable
 } lhash_t;
 
 typedef int(lcomparator_t)(luav*, luav*);
