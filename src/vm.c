@@ -783,6 +783,9 @@ static luav meta_lhash_get(luav operand, luav key, lframe_t *frame) {
 
   if (istable) {
     lhash_t *table = lv_getptr(operand);
+    if (table->metatable == NULL) {
+      return lhash_get(table, key);
+    }
     luav val = lhash_get(table, key);
     if (val != LUAV_NIL) return val;
   }
