@@ -124,7 +124,7 @@ struct lthread*  lv_getthread(luav value, u32 argnum);
 
 int lv_parsenum(struct lstring *str, u32 base, double *value);
 
-#define lv_hash(lv) ((u32) ((lv) ^ ((lv) >> 32) ^ 0xfc83d6a5))
+#define lv_hash(lv) (((u32) (lv) ^ (u32) ((lv) >> 32) ^ 0xfc83d6a5))
 #define lv_nilify(mem, count) memset((mem), 0xff, (count) * sizeof(luav))
 
 u8   lv_gettype(luav value);
