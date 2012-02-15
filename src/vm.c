@@ -89,7 +89,7 @@ lframe_t *vm_running = NULL; //<! currently running function's frame
 lstack_t *vm_stack;          //<! current stack, changes on thread switches
 static lstack_t init_stack;  //<! initial stack
 
-static void op_close(u32 upc, luav *upv);
+static u32 op_close(u32 upc, luav *upv);
 static int meta_unary(luav operand, luav method, u32 reti, lframe_t *frame);
 static int meta_binary(luav operand, luav method, luav lv, luav rv,
                        u32 reti, lframe_t *frame);
@@ -248,6 +248,7 @@ top:
 
   u32 i, a, b, c, bx, limit;
   u32 last_ret = 0;
+  u32 upvalues = 0;
   lfunc_t *func = closure->function.lua;
   u32 *instrs = func->instrs;
   frame.pc = &instrs;
@@ -393,7 +394,9 @@ top:
            received a glob of parameters and kept track of what it got */
         limit = b == 0 ? last_ret - a : b - 1;
         /* the RETURN opcode implicitly performs a CLOSE operation */
-        op_close(vm_stack->size - stack, vm_stack->base + stack);
+        if (upvalues > 0) {
+          upvalues -= op_close(vm_stack->size - stack, vm_stack->base + stack);
+        }
         /* TODO: does this need to grow the stack? */
         for (i = 0; i < limit && i < retc; i++) {
           vm_stack->base[retvi + i] = REG(a + i);
@@ -491,6 +494,7 @@ top:
               upvalue = lv_upvalue(ptr);
               STACK(B(pseudo)) = upvalue;
             }
+            upvalues++;
           } else {
             upvalue = UPVALUE(closure, B(pseudo));
           }
@@ -505,7 +509,7 @@ top:
 
       case OP_CLOSE:
         a = A(code);
-        op_close(vm_stack->size - stack - a, &STACK(a));
+        upvalues -= op_close(vm_stack->size - stack - a, &STACK(a));
         break;
 
       case OP_JMP:
@@ -707,13 +711,15 @@ top:
   }
 }
 
-static void op_close(u32 upc, luav *upv) {
-  u32 i;
+static u32 op_close(u32 upc, luav *upv) {
+  u32 i, r = 0;
   for (i = 0; i < upc; i++) {
     if (lv_isupvalue(upv[i])) {
       upv[i] = *lv_getupvalue(upv[i]);
+      r++;
     }
   }
+  return r;
 }
 
 static int meta_unary(luav operand, luav name, u32 reti, lframe_t *frame) {
