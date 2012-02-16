@@ -126,6 +126,7 @@ int lv_parsenum(struct lstring *str, u32 base, double *value);
 
 #define lv_hash(lv) (((u32) (lv) ^ (u32) ((lv) >> 32) ^ 0xfc83d6a5))
 #define lv_nilify(mem, count) memset((mem), 0xff, (count) * sizeof(luav))
+#define lv_sametyp(v1, v2) (((v1) & LUAV_TYPE_MASK) == ((v2) & LUAV_TYPE_MASK))
 
 u8   lv_gettype(luav value);
 int  lv_compare(luav v1, luav v2);

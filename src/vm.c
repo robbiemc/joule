@@ -70,7 +70,10 @@
 #define META_COMPARE(op, idx) {                                           \
           u32 lt; luav res;                                               \
           luav bv = KREG(B(code)); luav cv = KREG(C(code));               \
-          if (meta_eq(bv, cv, idx, &res)) {                               \
+          if (lv_sametyp(bv, cv) &&                                       \
+              (lv_isnumber(bv) || lv_isstring(bv))) {                     \
+            lt = op(lv_compare(bv, cv), 0);                               \
+          } else if (meta_eq(bv, cv, idx, &res)) {                        \
             lt = lv_getbool(res, 0);                                      \
           } else if (idx == META_LE && meta_eq(cv, bv, META_LT, &res)) {  \
             lt = !lv_getbool(res, 0);                                     \
