@@ -56,9 +56,8 @@
           a = A(code);                                              \
           luav bv = KREG(B(code));                                  \
           luav cv = KREG(C(code));                                  \
-          double res = op(lv_cvt(bv), lv_cvt(cv));\
-          if (!isnan(res) || (lv_isnumber(bv) && lv_isnumber(cv))) {                 \
-            SETREG(a, lv_number(res));       \
+          if (lv_isnumber(bv) && lv_isnumber(cv)) {                 \
+            SETREG(a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));       \
             break;                                                  \
           }                                                         \
           if (meta_binary(bv, idx, bv, cv, STACKI(a), &frame) ||    \
