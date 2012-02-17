@@ -22,19 +22,21 @@
 #define CO_STACK_SIZE (16 * 1024)
 
 typedef struct lthread {
-  int status;
-  void *stack;
+  int status;  //<! Are we alive/dead/suspended?
+  void *stack; //<! Base of the mmap'ed stack region for the C-stack
 
+  /* Argument passing to/from the thread, argvi and retvi point to locations on
+     this thread's stack */
   u32 argc;
   u32 argvi;
   u32 retc;
   u32 retvi;
 
-  struct lthread *caller;
-  lclosure_t *closure;
-  void *curstack;
-  lhash_t *env;
-  lstack_t vm_stack;
+  struct lthread *caller; //<! Who yielded to us? Whom to resume to
+  lclosure_t *closure;    //<! Closure which thread runs upon starting
+  void *curstack;         //<! If not running, %rsp of paused execution state
+  lhash_t *env;           //<! Per-thread global environment
+  lstack_t vm_stack;      //<! Local lua stack to put values on
 } lthread_t;
 
 static lhash_t    lua_coroutine;
