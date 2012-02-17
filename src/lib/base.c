@@ -175,7 +175,6 @@ static u32 lua_tostring(LSTATE) {
       if (meta) {
         luav value = lhash_get(meta, META_TOSTRING);
         if (value != LUAV_NIL) {
-          gc_free(str);
           vm_stack->base[argvi] = v;
           return vm_fun(lv_getfunction(value, 0), vm_running, 1, argvi,
                         retc, retvi);

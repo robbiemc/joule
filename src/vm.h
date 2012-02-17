@@ -82,6 +82,7 @@ extern struct lhash userdata_meta;
 extern struct lhash lua_globals;
 extern lframe_t *vm_running;
 extern lstack_t *vm_stack;
+extern lstack_t init_stack;
 extern struct lhash *global_env;
 
 void vm_run(lfunc_t *fun);

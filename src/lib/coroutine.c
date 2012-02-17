@@ -4,10 +4,8 @@
 
 #include "debug.h"
 #include "gc.h"
-#include "lhash.h"
 #include "lib/coroutine.h"
 #include "panic.h"
-#include "vm.h"
 
 #ifndef __x86_64
 #error Coroutines do not work an archs other than x86-64 yet.
@@ -20,22 +18,6 @@
 #define CO_NEVER_RUN  4
 
 #define CO_STACK_SIZE (16 * 1024)
-
-typedef struct lthread {
-  int status;
-  void *stack;
-
-  u32 argc;
-  u32 argvi;
-  u32 retc;
-  u32 retvi;
-
-  struct lthread *caller;
-  lclosure_t *closure;
-  void *curstack;
-  lhash_t *env;
-  lstack_t vm_stack;
-} lthread_t;
 
 static lhash_t    lua_coroutine;
 static lthread_t  main_thread;

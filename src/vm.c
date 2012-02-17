@@ -88,7 +88,7 @@ lhash_t lua_globals;         //<! default global environment
 lhash_t *global_env = NULL;  //<! current global environment
 lframe_t *vm_running = NULL; //<! currently running function's frame
 lstack_t *vm_stack;          //<! current stack, changes on thread switches
-static lstack_t init_stack;  //<! initial stack
+lstack_t init_stack;         //<! initial stack
 
 static u32 op_close(u32 upc, luav *upv);
 static int meta_unary(luav operand, luav method, u32 reti, lframe_t *frame);

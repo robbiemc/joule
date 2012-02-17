@@ -198,6 +198,8 @@ luav lv_concat(luav v1, luav v2) {
   lstring_t *s1 = lv_caststring(v1, 0);
   lstring_t *s2 = lv_caststring(v2, 0);
   lstring_t *sn = lstr_alloc(s1->length + s2->length);
+  printf("memcpy(%p, %p, ...)\n", sn, s1);
+//  printf("memcpy(%p, %p, %zu\n", sn->data, s1->data, s1->length);
   memcpy(sn->data, s1->data, s1->length);
   memcpy(sn->data + s1->length, s2->data, s2->length);
   sn->data[s1->length + s2->length] = 0;
