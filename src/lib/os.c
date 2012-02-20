@@ -1,7 +1,15 @@
+/**
+ * @file lib/os.c
+ * @brief Implementation of the OS table in lua
+ */
+
+#include <errno.h>
 #include <locale.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "gc.h"
 #include "lhash.h"
@@ -32,12 +40,18 @@ static u32 lua_os_execute(LSTATE);
 static u32 lua_os_getenv(LSTATE);
 static u32 lua_os_date(LSTATE);
 static u32 lua_os_setlocale(LSTATE);
+static u32 lua_os_tmpname(LSTATE);
+static u32 lua_os_remove(LSTATE);
+static u32 lua_os_rename(LSTATE);
 static LUAF(lua_os_clock);
 static LUAF(lua_os_exit);
 static LUAF(lua_os_execute);
 static LUAF(lua_os_getenv);
 static LUAF(lua_os_date);
 static LUAF(lua_os_setlocale);
+static LUAF(lua_os_tmpname);
+static LUAF(lua_os_remove);
+static LUAF(lua_os_rename);
 
 INIT static void lua_os_init() {
   str_sec      = LSTR("sec");
@@ -62,6 +76,9 @@ INIT static void lua_os_init() {
   REGISTER(&lua_os, "getenv",    &lua_os_getenv_f);
   REGISTER(&lua_os, "date",      &lua_os_date_f);
   REGISTER(&lua_os, "setlocale", &lua_os_setlocale_f);
+  REGISTER(&lua_os, "tmpname",   &lua_os_tmpname_f);
+  REGISTER(&lua_os, "remove",    &lua_os_remove_f);
+  REGISTER(&lua_os, "rename",    &lua_os_rename_f);
 
   lhash_set(&lua_globals, LSTR("os"), lv_table(&lua_os));
 }
@@ -168,4 +185,49 @@ static u32 lua_os_setlocale(LSTATE) {
     lstate_return1(LUAV_NIL);
   }
   lstate_return1(LSTR(ret));
+}
+
+/**
+ * @brief Generates a name for a temporary file
+ */
+static u32 lua_os_tmpname(LSTATE) {
+  char buf[L_tmpnam];
+  strncpy(buf, "/tmp/joule.XXXXXXXX", sizeof(buf));
+  int fd = mkstemp(buf);
+  if (fd == -1) {
+    lstate_return1(LUAV_NIL);
+  }
+  close(fd);
+  lstate_return1(lv_string(lstr_literal(buf)));
+}
+
+/**
+ * @brief Removes a file or directory (if it's empty)
+ */
+static u32 lua_os_remove(LSTATE) {
+  lstring_t *fname = lstate_getstring(0);
+  if (remove(fname->data) == 0) {
+    lstate_return1(LUAV_TRUE);
+  }
+  int err = errno;
+
+  lstate_return(LUAV_NIL, 0);
+  lstate_return(lv_string(lstr_literal(strerror(err))), 1);
+  return 2;
+}
+
+/**
+ * @brief Removes a file or directory (if it's empty)
+ */
+static u32 lua_os_rename(LSTATE) {
+  lstring_t *f1 = lstate_getstring(0);
+  lstring_t *f2 = lstate_getstring(1);
+  if (rename(f1->data, f2->data) == 0) {
+    lstate_return1(LUAV_TRUE);
+  }
+  int err = errno;
+
+  lstate_return(LUAV_NIL, 0);
+  lstate_return(lv_string(lstr_literal(strerror(err))), 1);
+  return 2;
 }

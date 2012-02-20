@@ -50,6 +50,7 @@ static u32  lua_dofile(LSTATE);
 static u32  lua_getfenv(LSTATE);
 static u32  lua_setfenv(LSTATE);
 static u32  lua_rawequal(LSTATE);
+static u32  lua_loadfile(LSTATE);
 
 static LUAF(lua_assert);
 static LUAF(lua_type);
@@ -74,6 +75,7 @@ static LUAF(lua_dofile);
 static LUAF(lua_getfenv);
 static LUAF(lua_setfenv);
 static LUAF(lua_rawequal);
+static LUAF(lua_loadfile);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -109,6 +111,7 @@ INIT static void lua_utils_init() {
   REGISTER(&lua_globals, "getfenv",       &lua_getfenv_f);
   REGISTER(&lua_globals, "setfenv",       &lua_setfenv_f);
   REGISTER(&lua_globals, "rawequal",      &lua_rawequal_f);
+  REGISTER(&lua_globals, "loadfile",      &lua_loadfile_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -523,4 +526,26 @@ static u32 lua_setfenv(LSTATE) {
 
 static u32 lua_rawequal(LSTATE) {
   lstate_return1(lv_bool(lstate_getval(0) == lstate_getval(1)));
+}
+
+/**
+ * @brief Read a file (or stdin), and return a function to execute it
+ */
+static u32 lua_loadfile(LSTATE) {
+  lstring_t *fname = lstate_getstring(0);
+
+  lfunc_t *func = xmalloc(sizeof(lfunc_t));
+  if (luac_parse_file(func, fname->data) < 0) {
+    free(func);
+    lstate_return(LUAV_NIL, 0);
+    lstate_return(LSTR("Bad file"), 1);
+    return 2;
+  }
+
+  lclosure_t *closure = gc_alloc(sizeof(lclosure_t));
+  closure->type = LUAF_LUA;
+  closure->function.lua = func;
+  closure->env = global_env;
+
+  lstate_return1(lv_function(closure));
 }
