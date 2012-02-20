@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "error.h"
+#include "gc.h"
 #include "lhash.h"
 #include "lstate.h"
 #include "lstring.h"
@@ -163,9 +164,48 @@ static u32 lua_io_input(LSTATE) {
   lstate_return1(lv_userdata(default_in));
 }
 
+static u32 lua_io_lines_iterator(LSTATE) {
+  FILE *f = lv_getuserdata(vm_running->closure->upvalues[0], 0);
+  if (f == NULL) {
+    err_rawstr("No more lines to read", TRUE);
+  }
+  size_t len = 0;
+  lstring_t *str = lstr_alloc(1024);
+
+  while (fgets(str->data + len, (int) (str->length - len), f) != NULL) {
+    len += strlen(str->data + len);
+    if (str->data[len] == '\n') {
+      break;
+    }
+    lstr_realloc(str, 0);
+  }
+  if (len == 0) {
+    vm_running->closure->upvalues[0] = lv_userdata(NULL);
+    lstate_return1(LUAV_NIL);
+  }
+  lstate_return1(lv_string(str));
+}
+static cfunc_t io_iterator = {.f = lua_io_lines_iterator, .name = "nope"};
+
 static u32 lua_io_lines(LSTATE) {
-  /* TODO: implement */
-  return 0;
+  FILE *f = default_in;
+  if (argc > 0) {
+    luav value = lstate_getval(0);
+    if (lv_isuserdata(value)) {
+      f = lv_getptr(value);
+    } else {
+      f = fopen(lv_caststring(value, 0)->data, "r");
+      if (f == NULL) {
+        err_rawstr("Error opening file in io.lines", TRUE);
+      }
+    }
+  }
+  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(1));
+  closure->type = LUAF_C;
+  closure->function.c = &io_iterator;
+  closure->env = vm_running->caller->closure->env;
+  closure->upvalues[0] = lv_userdata(f);
+  lstate_return1(lv_function(closure));
 }
 
 /**
@@ -272,7 +312,7 @@ static u32 lua_io_seek(LSTATE) {
  * @brief Seeks a file to a specified position
  */
 static u32 lua_io_read(LSTATE) {
-  panic("not implemented");
+  err_rawstr("not implemented", TRUE);
 }
 
 /**
