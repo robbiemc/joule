@@ -1,15 +1,15 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#include "arch.h"
 #include "config.h"
 #include "lib/coroutine.h"
 #include "luav.h"
 #include "panic.h"
 #include "gc.h"
 
-#define HEAP1_ADDR ((void*) 0x0000600000000000)
-#define HEAP2_ADDR ((void*) 0x0000700000000000)
-#define HEAP2_END  ((void*) 0x0000800000000000)
+#define HEAP1_ADDR ((void*) 0x0000500000000000)
+#define HEAP2_ADDR ((void*) 0x0000600000000000)
 
 #define ALIGN8(n) (((n) + 7) & (~(size_t)7))
 #define ENOUGH_SPACE(size) (heap_next + sizeof(size_t) + (size) < heap_size)
@@ -20,8 +20,7 @@
     *(ptr - 1) |= 1;                   \
     *ptr = (size_t) (newp);            \
   } while (0)
-#define IN_HEAP(p) ((void*)(p) > HEAP1_ADDR && (void*)(p) < HEAP2_END)
-#define get_rsp() ({ void* rsp; asm ("mov %%rsp, %0" : "=g" (rsp)); rsp; })
+#define IN_HEAP(p, h) ((void*)(p) > (h) && (void*)(p) < ((h) + heap_size))
 
 #define GCH_MAGIC_TAG  ((size_t) 0x93a7)
 #define GCH_SIZE(quad) ((quad) & 0xffffffffff)
@@ -36,6 +35,7 @@ static size_t heap_size;
 static size_t heap_next;
 static int initialized = FALSE;
 static void *stack_bottom;
+static void *stack_top;
 
 static void gc_mmap(void *heap, size_t amount, size_t offset);
 static void gc_resize(size_t needed);
@@ -58,7 +58,7 @@ DESTROY static void gc_destroy() {
 }
 
 void gc_set_bottom() {
-  stack_bottom = get_rsp();
+  stack_bottom = get_sp();
 }
 
 static void gc_mmap(void *heap, size_t amount, size_t offset) {
@@ -82,6 +82,7 @@ void *gc_alloc(size_t size, int type) {
 
   // check if we need to garbage collect
   if (!ENOUGH_SPACE(size)) {
+    stack_top = get_sp();
     garbage_collect();
     if (!ENOUGH_SPACE(size)) {
       // garbage collection didn't help - resize the heap
@@ -113,15 +114,9 @@ static void gc_resize(size_t needed) {
 }
 
 void garbage_collect() {
-  /*
-    extern struct lhash userdata_meta;
-    extern struct lhash lua_globals;
-    extern struct lhash *global_env;
-    extern lframe_t *vm_running;
-    extern lstack_t *vm_stack;
-    extern lstack_t init_stack;
-   */
-
+  static int in_gc = 0;
+  xassert(!in_gc);
+  in_gc = 1;
   size_t old_size = heap_next;
   // make another heap
   void *old = heap;
@@ -133,22 +128,21 @@ void garbage_collect() {
   if (vm_stack != &init_stack)
     gc_traverse_stack(vm_stack);
 
-  gc_traverse(lv_table(&userdata_meta));
-  gc_traverse(lv_table(&lua_globals));
-  global_env = lv_gettable(gc_traverse(lv_table(global_env)), 0);
+  gc_traverse_pointer(&userdata_meta, LTABLE);
+  gc_traverse_pointer(&lua_globals, LTABLE);
+  global_env = gc_traverse_pointer(global_env, LTABLE);
 
   lframe_t *frame;
   for (frame = vm_running; frame != NULL; frame = frame->caller) {
-    frame->closure = lv_getfunction(gc_traverse(lv_function(frame->closure)),0);
+    frame->closure = gc_traverse_pointer(frame->closure, LFUNCTION);
   }
 
   traverse_the_stack_oh_god(old, (char*) old + old_size);
 
   lstr_gc();
 
-  printf("Garbage Collected: %zu -> %zu\n", old_size, heap_next);
-
   munmap(old, heap_size);
+  in_gc = 0;
 }
 
 static luav gc_traverse(luav val) {
@@ -176,98 +170,118 @@ static luav gc_traverse(luav val) {
  * @return the new location of the pointer, possibly the same value
  */
 static void *gc_traverse_pointer(void *_ptr, int type) {
+  if (_ptr == NULL) return NULL;
   /* If a pointer is in our heap, and it's been moved, we can quickly return
      where it's been moved to */
   size_t *bsize = ((size_t*) _ptr) - 1;
-  if (IN_HEAP(_ptr) && GC_MOVED(*bsize)) {
-    return *((void**) _ptr);
+  void *old = heap == HEAP1_ADDR ? HEAP2_ADDR : HEAP1_ADDR;
+  if (IN_HEAP(_ptr, old) && GC_MOVED(*bsize)) {
+    void *other = *((void**) _ptr);
+    return other;
   }
+  xassert(!IN_HEAP(_ptr, heap));
 
   switch (type) {
     case LSTRING: {
       lstring_t *str = _ptr;
-      if (!IN_HEAP(_ptr))
+      if (!IN_HEAP(_ptr, old)) {
+        xassert(str->type == LSTR_TYPE_MALLOC);
         return _ptr;
+      }
+      xassert(str->type != LSTR_TYPE_MALLOC);
 
       lstring_t *str2 = lstr_alloc(str->length);
       memcpy(str2->data, str->data, str->length + 1);
+      str2->length = str->length;
+      str2->hash = str->hash;
       GC_SETMOVED(_ptr, str2);
       return str2;
     }
 
     case LTABLE: {
       lhash_t *hash = _ptr;
-      lhash_t *other = hash;
       /* Heap-allocated hashes need to be moved */
-      if (IN_HEAP(hash)) {
-        other = gc_alloc(sizeof(lhash_t), LTABLE);
-        memcpy(other, hash, sizeof(lhash_t));
-        GC_SETMOVED(_ptr, other);
+      if (IN_HEAP(_ptr, old)) {
+        hash = gc_alloc(sizeof(lhash_t), LTABLE);
+        memcpy(hash, _ptr, sizeof(lhash_t));
+        GC_SETMOVED(_ptr, hash);
       /* Statically allocated hashes whose arrays have been moved have already
          been traversed */
-      } else if (IN_HEAP(hash->array)) {
+      } else if (!IN_HEAP(hash->array, old)) {
+        xassert(IN_HEAP(hash->array, heap));
+        xassert(IN_HEAP(hash->table, heap));
         return hash;
       }
 
       size_t i;
-      other->metatable = gc_traverse_pointer(other->metatable, LTABLE);
-      // copy over the array
-      luav *array = gc_alloc(other->acap * sizeof(luav), LANY);
-      for (i = 0; i < other->acap; i++) {
-        array[i] = gc_traverse(other->array[i]);
+      hash->metatable = gc_traverse_pointer(hash->metatable, LTABLE);
+      /* copy over the array */
+      if (hash->array != NULL) {
+        luav *array = gc_alloc(hash->acap * sizeof(luav), LANY);
+        for (i = 0; i < hash->acap; i++) {
+          array[i] = gc_traverse(hash->array[i]);
+        }
+        GC_SETMOVED(hash->array, array);
+        hash->array = array;
       }
-      GC_SETMOVED(other->array, array);
-      other->array = array;
-      // reinsert things into the hashtable
-      u32 cap = other->tcap;
-      struct lh_pair *table = hash->table;
-      other->table = gc_alloc(other->tcap * sizeof(struct lh_pair), LANY);
-      for (i = 0; i < cap; i++) {
-        other->table[i].key = gc_traverse(table[i].key);
-        other->table[i].value = gc_traverse(table[i].value);
+      /* reinsert hash into the hashtable */
+      if (hash->table != NULL) {
+        struct lh_pair *table = hash->table;
+        hash->table = gc_alloc(hash->tcap * sizeof(struct lh_pair), LANY);
+        for (i = 0; i < hash->tcap; i++) {
+          hash->table[i].key = hash->table[i].value = LUAV_NIL;
+        }
+        hash->tsize = 0;
+        /* Flag changes necessary? */
+        /* TODO: put this in lhash.c */
+        hash->flags |= LHASH_RESIZING;
+        for (i = 0; i < hash->tcap; i++) {
+          if (table[i].key != LUAV_NIL && table[i].value != LUAV_NIL) {
+            lhash_set(hash, gc_traverse(table[i].key),
+                      gc_traverse(table[i].value));
+          }
+        }
+        hash->flags &= ~LHASH_RESIZING;
+        GC_SETMOVED(table, hash->table);
       }
-      return other;
+      return hash;
     }
 
     /* Functions have upvalues, environments, and lfunc_ts possibly */
     case LFUNCTION: {
-      size_t size = sizeof(lclosure_t);
       size_t upvalues = 0;
       lclosure_t *func = _ptr;
-      lclosure_t *other = func;
       /* Move things if they're in the heap */
-      if (IN_HEAP(func)) {
-        size = GCH_SIZE(*bsize);
+      if (IN_HEAP(_ptr, old)) {
+        size_t size = GCH_SIZE(*bsize);
         upvalues = (size - sizeof(lclosure_t)) / sizeof(luav);
-        other = gc_alloc(CLOSURE_SIZE(upvalues), LFUNCTION);
-        memcpy(other, func, size);
-        GC_SETMOVED(_ptr, other);
-      } else {
-        printf("%p %p\n", other, other->function.c);
+        xassert(CLOSURE_SIZE(upvalues) == size);
+        func = gc_alloc(size, LFUNCTION);
+        memcpy(func, _ptr, size);
+        GC_SETMOVED(_ptr, func);
       }
 
-      other->env = gc_traverse_pointer(func->env, LTABLE);
+      func->env = gc_traverse_pointer(func->env, LTABLE);
       size_t i;
       for (i = 0; i < upvalues; i++) {
-        other->upvalues[i] = gc_traverse(other->upvalues[i]);
+        func->upvalues[i] = gc_traverse(func->upvalues[i]);
       }
 
-      if (other->type == LUAF_LUA) {
-        other->function.lua = gc_traverse_pointer(other->function.lua, LFUNC);
+      if (func->type == LUAF_LUA) {
+        func->function.lua = gc_traverse_pointer(func->function.lua, LFUNC);
       }
 
-      return other;
+      return func;
     }
 
     /* A thread just needs to copy its metadata over to the new object */
     case LTHREAD: {
-      lthread_t *thread = _ptr;
       lthread_t *other = gc_alloc(sizeof(lthread_t), LTHREAD);
-      memcpy(other, thread, sizeof(lthread_t));
+      memcpy(other, _ptr, sizeof(lthread_t));
       GC_SETMOVED(_ptr, other);
-      other->caller  = gc_traverse_pointer(thread->caller, LTHREAD);
-      other->closure = gc_traverse_pointer(thread->closure, LFUNCTION);
-      other->env     = gc_traverse_pointer(thread->env, LTABLE);
+      other->caller  = gc_traverse_pointer(other->caller, LTHREAD);
+      other->closure = gc_traverse_pointer(other->closure, LFUNCTION);
+      other->env     = gc_traverse_pointer(other->env, LTABLE);
       gc_traverse_stack(&other->vm_stack);
       return other;
     }
@@ -286,36 +300,40 @@ static void *gc_traverse_pointer(void *_ptr, int type) {
        and a few need to be recursed into */
     case LFUNC: {
       u32 i;
-      lfunc_t *func = _ptr;
       lfunc_t *other = gc_alloc(sizeof(lfunc_t), LFUNC);
-      memcpy(other, func, sizeof(lfunc_t));
-      other->name = gc_traverse_pointer(func->name, LSTRING);
+      memcpy(other, _ptr, sizeof(lfunc_t));
+      GC_SETMOVED(_ptr, other);
+      other->name = gc_traverse_pointer(other->name, LSTRING);
       /* Instructions */
-      u64 size = sizeof(u32) * func->num_instrs;
-      other->instrs = gc_alloc(size, LANY);
-      memcpy(other->instrs, func->instrs, size);
-      GC_SETMOVED(func->instrs, other->instrs);
+      u64 size = sizeof(u32) * other->num_instrs;
+      u32 *instrs = gc_alloc(size, LANY);
+      memcpy(instrs, other->instrs, size);
+      GC_SETMOVED(other->instrs, instrs);
+      other->instrs = instrs;
       /* Constants */
-      size = sizeof(luav) * func->num_consts;
-      other->consts = gc_alloc(size, LANY);
-      for (i = 0; i < func->num_consts; i++) {
-        other->consts[i] = gc_traverse(func->consts[i]);
+      size = sizeof(luav) * other->num_consts;
+      luav *consts = gc_alloc(size, LANY);
+      for (i = 0; i < other->num_consts; i++) {
+        consts[i] = gc_traverse(other->consts[i]);
       }
-      GC_SETMOVED(func->consts, other->consts);
+      GC_SETMOVED(other->consts, consts);
+      other->consts = consts;
       /* Functions */
-      size = sizeof(lfunc_t) * func->num_funcs;
-      if (func->funcs != NULL) {
-        other->funcs = gc_alloc(size, LANY);
-        for (i = 0; i < func->num_consts; i++) {
-          other->funcs[i] = gc_traverse_pointer(func->funcs[i], LFUNC);
+      size = sizeof(lfunc_t) * other->num_funcs;
+      if (other->funcs != NULL) {
+        lfunc_t **funcs = gc_alloc(size, LANY);
+        for (i = 0; i < other->num_consts; i++) {
+          funcs[i] = gc_traverse_pointer(other->funcs[i], LFUNC);
         }
-        GC_SETMOVED(func->funcs, other->funcs);
+        GC_SETMOVED(other->funcs, funcs);
+        other->funcs = funcs;
       }
       /* Lines */
-      size = sizeof(u32) * func->num_lines;
-      other->lines = gc_alloc(size, LANY);
-      memcpy(other->lines, func->lines, size);
-      GC_SETMOVED(func->lines, other->lines);
+      size = sizeof(u32) * other->num_lines;
+      u32 *lines = gc_alloc(size, LANY);
+      memcpy(lines, other->lines, size);
+      GC_SETMOVED(other->lines, lines);
+      other->lines = lines;
       return other;
     }
 
@@ -324,6 +342,7 @@ static void *gc_traverse_pointer(void *_ptr, int type) {
     case LNIL:
     case LUSERDATA:
     default:
+      panic("invalid call");
       return _ptr;
   }
   panic("Shouldn't be here");
@@ -348,34 +367,38 @@ static void think_about_a_pointer(size_t *loc, size_t _ptr, int is_luav) {
       object--;
     } while (GCH_TAG(*(object - 1)) != GCH_MAGIC_TAG);
     header = *(object - 1);
+    if (GCH_TYPE(header) != LANY) return;
+    if (_ptr >= (size_t) object + GCH_SIZE(header)) return;
+    if (!GC_MOVED(header)) return;
     xassert(GCH_TYPE(header) == LANY);
-    xassert(_ptr < (size_t) object + GCH_SIZE(header));
+    xassert(_ptr <= (size_t) object + GCH_SIZE(header));
     xassert(GC_MOVED(header));
     size_t diff = *object - (size_t) object;
     *loc += diff;
-    printf("mismatch %p %zx => %zx\n", loc, _ptr, *loc);
     return;
   }
 
-  printf("rewrote %p : %zx => ", loc, *loc);
-
   switch (GCH_TYPE(header)) {
-    case LUPVALUE:  *loc = gc_traverse(lv_upvalue(ptr)); break;
-    case LTHREAD:   *loc = gc_traverse(lv_thread(ptr)); break;
+    case LUPVALUE:  *loc = gc_traverse(lv_upvalue(ptr));  break;
+    case LTHREAD:   *loc = gc_traverse(lv_thread(ptr));   break;
     case LFUNCTION: *loc = gc_traverse(lv_function(ptr)); break;
-    case LSTRING:   *loc = gc_traverse(lv_string(ptr)); break;
-    case LTABLE:    *loc = gc_traverse(lv_table(ptr)); break;
+    case LSTRING:   *loc = gc_traverse(lv_string(ptr));   break;
+    case LTABLE:    *loc = gc_traverse(lv_table(ptr));    break;
     case LFUNC:
       xassert(!is_luav);
       *loc = (size_t) gc_traverse_pointer(ptr, LFUNC);
       break;
     default:
+      if (GC_MOVED(header)) {
+        xassert(!is_luav);
+        *loc = *ptr;
+        break;
+      }
       panic("what do we do now?!");
   }
   if (!is_luav) {
     *loc = (size_t) lv_getptr(*loc);
   }
-  printf("to: %zx\n", *loc);
 }
 
 static void traverse_the_stack_oh_god(void *old_bot, void *old_top) {
@@ -383,7 +406,7 @@ static void traverse_the_stack_oh_god(void *old_bot, void *old_top) {
   size_t heap_top = (size_t) old_top;
   size_t heap_bot = (size_t) old_bot;
 
-  for (stack = get_rsp(); stack < (size_t*) stack_bottom; stack++) {
+  for (stack = stack_top; stack < (size_t*) stack_bottom; stack++) {
     size_t tmp = *stack;
     if (tmp < heap_bot + sizeof(size_t) || tmp > heap_top) {
       switch (lv_gettype(tmp)) {
@@ -401,6 +424,14 @@ static void traverse_the_stack_oh_god(void *old_bot, void *old_top) {
     }
     think_about_a_pointer(stack, tmp, FALSE);
   }
+
+  // u32 i;
+  // for (i = 0; i < CALLEE_REGS; i++) {
+  //   if (callee[i] >= heap_bot + sizeof(size_t) && callee[i] < heap_top) {
+  //     think_about_a_pointer(&callee[i], callee[i], FALSE);
+  //   }
+  // }
+  // assume_callee_regs(callee);
 }
 
 /**
@@ -409,6 +440,10 @@ static void traverse_the_stack_oh_god(void *old_bot, void *old_top) {
  *        memory is deallocated
  */
 void *gc_relocate(void *_addr) {
+  void *old = heap == HEAP1_ADDR ? HEAP2_ADDR : HEAP1_ADDR;
+  if (!IN_HEAP(_addr, old)) {
+    return _addr;
+  }
   size_t *addr = (size_t*) _addr;
   size_t header = *(addr - 1);
   if (GC_MOVED(header))

@@ -7,6 +7,26 @@
 #define ENTRY(n) .globl CONCAT1(__USER_LABEL_PREFIX__, n);\
                  CONCAT1(__USER_LABEL_PREFIX__, n) ##:
 
+/* %rdi = where to save regs */
+ENTRY(save_callee_regs)
+  movq %rbp, (%rdi)
+  movq %rbx, 8(%rdi)
+  movq %r12, 16(%rdi)
+  movq %r13, 24(%rdi)
+  movq %r14, 32(%rdi)
+  movq %r15, 40(%rdi)
+  ret
+
+/* %rdi = where to restore regs from */
+ENTRY(assume_callee_regs)
+  movq (%rdi), %rbp
+  movq 8(%rdi), %rbx
+  movq 16(%rdi), %r12
+  movq 24(%rdi), %r13
+  movq 32(%rdi), %r14
+  movq 40(%rdi), %r15
+  ret
+
 /* %rdi = where to save %rsp, %rsi = new %rsp */
 ENTRY(coroutine_swap_asm)
   /* Save callee-saved registers */

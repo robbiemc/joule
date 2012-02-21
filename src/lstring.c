@@ -32,8 +32,9 @@ INIT static void lstr_init() {
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
   initialized = 1;
 
-  empty.length = 0;
+  empty.length  = 0;
   empty.data[0] = 0;
+  empty.type    = LSTR_TYPE_MALLOC;
   lstr_add(&empty);
 }
 

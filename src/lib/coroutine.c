@@ -2,14 +2,11 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#include "arch.h"
 #include "debug.h"
 #include "gc.h"
 #include "lib/coroutine.h"
 #include "panic.h"
-
-#ifndef __x86_64
-#error Coroutines do not work an archs other than x86-64 yet.
-#endif
 
 #define CO_RUNNING    0
 #define CO_SUSPENDED  1
@@ -29,7 +26,6 @@ static luav str_suspended;
 static luav str_normal;
 static luav str_dead;
 
-extern void coroutine_swap_asm(void **stacksave, void *newstack);
 static u32 lua_co_create(LSTATE);
 static u32 lua_co_running(LSTATE);
 static u32 lua_co_resume(LSTATE);

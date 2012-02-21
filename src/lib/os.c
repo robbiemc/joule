@@ -141,7 +141,7 @@ static u32 lua_os_date(LSTATE) {
   }
 
   str->length = strlen(str->data);
-  lstate_return1(lv_string(str));
+  lstate_return1(lv_string(lstr_add(str)));
 }
 
 static u32 lua_os_setlocale(LSTATE) {
