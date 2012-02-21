@@ -70,6 +70,7 @@ struct lthread;
 #define LNUMBER   8ULL
 #define LNIL      15ULL
 #define LANY      16ULL
+#define LFUNC     100  /* Used for garbage collection, not in types */
 
 /* Macros for dealing with u64 bits for luav */
 #define LUAV_DATA_SIZE 48

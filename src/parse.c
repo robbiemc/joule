@@ -1,13 +1,11 @@
 #include <assert.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <unistd.h>
 
 #include "config.h"
+#include "gc.h"
 #include "luav.h"
 #include "panic.h"
 #include "parse.h"
@@ -166,12 +164,12 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
   // instructions
   func->num_instrs = xread4(fd);
   size = func->num_instrs * sizeof(u32);
-  func->instrs = xmalloc(size);
+  func->instrs = gc_alloc(size, LANY);
   xread(fd, func->instrs, size);
 
   // constants :(
   func->num_consts = xread4(fd);
-  func->consts = xcalloc(func->num_consts, sizeof(luav));
+  func->consts = gc_calloc(func->num_consts, sizeof(luav), LANY);
   luav *c = func->consts;
   for (i = 0; i < func->num_consts; i++) {
     switch (xread1(fd)) {
@@ -197,9 +195,11 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
   if (func->num_funcs == 0) {
     func->funcs = NULL;
   } else {
-    func->funcs = xcalloc(func->num_funcs, sizeof(lfunc_t));
+    func->funcs = gc_calloc(func->num_funcs, sizeof(lfunc_t*), LANY);
     for (i = 0; i < func->num_funcs; i++) {
-      int ret = luac_parse_func(&(func->funcs[i]), fd, filename);
+      lfunc_t *f = gc_alloc(sizeof(lfunc_t), LFUNC);
+      int ret = luac_parse_func(f, fd, filename);
+      func->funcs[i] = f;
       if (ret < 0) goto fderr;
     }
   }
@@ -207,7 +207,7 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
   // source lines
   func->num_lines = xread4(fd);
   size = func->num_lines * sizeof(u32);
-  func->lines = xmalloc(size);
+  func->lines = gc_alloc(size, LANY);
   xread(fd, func->lines, size);
 
   // skip locals debug data
@@ -224,16 +224,4 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
   return 0;
 fderr:
   return -1;
-}
-
-// TODO - actually free stuff
-void luac_free(lfunc_t *func) {
-  free(func->consts);
-  u32 i;
-  for (i = 0; i < func->num_funcs; i++) {
-    luac_free(&func->funcs[i]);
-  }
-  if (func->num_funcs > 0) {
-    free(func->funcs);
-  }
 }

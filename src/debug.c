@@ -57,7 +57,7 @@ static void dbg_dump_func(FILE *out, lfunc_t *func, int level) {
 
   __pr("  Nested Functions: %zu\n", func->num_funcs);
   iloop(num_funcs) {
-    dbg_dump_func(out, &(func->funcs[i]), level+1);
+    dbg_dump_func(out, func->funcs[i], level+1);
   }
 }
 

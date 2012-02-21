@@ -6,6 +6,7 @@
 #include "debug.h"
 #include "error.h"
 #include "flags.h"
+#include "gc.h"
 #include "lhash.h"
 #include "lstring.h"
 #include "panic.h"
@@ -47,7 +48,7 @@ static void register_argv(int bias, int argc, char **argv) {
 
 int main(int argc, char **argv) {
   int ret;
-  lfunc_t func;
+  lfunc_t *func = gc_alloc(sizeof(lfunc_t), LFUNC);
 
   memset(&flags, 0, sizeof(lflags_t));
   int i = parse_args(argc, argv);
@@ -57,12 +58,12 @@ int main(int argc, char **argv) {
   if (flags.compiled) {
     int fd = open(argv[i], O_RDONLY);
     xassert(fd != -1);
-    ret = luac_parse_bytecode(&func, fd, argv[i]);
+    ret = luac_parse_bytecode(func, fd, argv[i]);
     close(fd);
   } else if (flags.string) {
-    ret = luac_parse_string(&func, argv[i], strlen(argv[i]), "(command line)");
+    ret = luac_parse_string(func, argv[i], strlen(argv[i]), "(command line)");
   } else {
-    ret = luac_parse_file(&func, argv[i]);
+    ret = luac_parse_file(func, argv[i]);
   }
 
   if (ret < 0) {
@@ -71,14 +72,13 @@ int main(int argc, char **argv) {
   }
 
   if (flags.dump) {
-    dbg_dump_function(stdout, &func);
+    dbg_dump_function(stdout, func);
     return 0;
   }
 
   register_argv(i, argc, argv);
-  vm_run(&func);
+  vm_run(func);
 
-  luac_free(&func);
   return 0;
 
 usage:

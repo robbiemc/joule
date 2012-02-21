@@ -470,7 +470,7 @@ top:
       case OP_CLOSURE: {
         bx = BX(code);
         assert(bx < func->num_funcs);
-        lfunc_t *function = &func->funcs[bx];
+        lfunc_t *function = func->funcs[bx];
         lclosure_t *closure2 = gc_alloc(CLOSURE_SIZE(function->num_upvalues),
                                         LFUNCTION);
         closure2->type = LUAF_LUA;
@@ -638,7 +638,6 @@ top:
         luav value = REG(b);
 
         for (i = b + 1; i <= c; i++) {
-          printf("OP_CONCAT: %p\n", &REG(i));
           value = meta_concat(value, REG(i));
         }
 

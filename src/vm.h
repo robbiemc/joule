@@ -28,7 +28,7 @@ typedef struct lfunc {
   size_t        num_consts;
   luav          *consts;
   size_t        num_funcs;
-  struct lfunc  *funcs;
+  struct lfunc  **funcs;
 
   // debug information
   u32           num_lines;
