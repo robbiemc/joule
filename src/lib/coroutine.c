@@ -111,7 +111,7 @@ static u32 lua_co_create(LSTATE) {
   if (function->type != LUAF_LUA) {
     err_str(0, "Lua function expected");
   }
-  lthread_t *thread = gc_alloc(sizeof(lthread_t));
+  lthread_t *thread = gc_alloc(sizeof(lthread_t), LTHREAD);
   thread->status = CO_NEVER_RUN;
   thread->stack  = mmap(NULL, CO_STACK_SIZE, PROT_WRITE | PROT_READ,
                         MAP_ANON | MAP_PRIVATE, -1, 0);
@@ -195,7 +195,7 @@ static u32 lua_co_wrap(LSTATE) {
   lua_co_create(argc, argvi, 1, idx);
   routine = vm_stack->base[idx];
   vm_stack_dealloc(vm_stack, idx);
-  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(1));
+  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(1), LFUNCTION);
   closure->type = LUAF_C;
   closure->function.c = &co_wrapper_cf;
   /* vm_running is coroutine.wrap(), which has no environment */

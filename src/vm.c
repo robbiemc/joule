@@ -205,6 +205,7 @@ void vm_run(lfunc_t *func) {
   closure.env  = &lua_globals;
   global_env   = &lua_globals;
   assert(func->num_upvalues == 0);
+  gc_set_bottom();
 
   vm_fun(&closure, NULL, 0, 0, 0, 0);
 }
@@ -470,7 +471,8 @@ top:
         bx = BX(code);
         assert(bx < func->num_funcs);
         lfunc_t *function = &func->funcs[bx];
-        lclosure_t *closure2 = gc_alloc(CLOSURE_SIZE(function->num_upvalues));
+        lclosure_t *closure2 = gc_alloc(CLOSURE_SIZE(function->num_upvalues),
+                                        LFUNCTION);
         closure2->type = LUAF_LUA;
         closure2->function.lua = function;
         closure2->env = closure->env;
@@ -490,7 +492,7 @@ top:
               /* If the stack register is not an upvalue, we need to promote it
                  to an upvalue, thereby scribbling over our stack variable so
                  it's now considered an upvalue */
-              luav *ptr = gc_alloc(sizeof(luav));
+              luav *ptr = gc_alloc(sizeof(luav), LUPVALUE);
               *ptr = temp;
               upvalue = lv_upvalue(ptr);
               STACK(B(pseudo)) = upvalue;
@@ -603,7 +605,7 @@ top:
       case OP_NEWTABLE: {
         // TODO - We can't currently create a table of a certain size, so we
         //        ignore the size hints. Eventually we should use them.
-        lhash_t *ht = gc_alloc(sizeof(lhash_t));
+        lhash_t *ht = gc_alloc(sizeof(lhash_t), LTABLE);
         lhash_init(ht);
         SETREG(A(code), lv_table(ht));
         break;
@@ -636,6 +638,7 @@ top:
         luav value = REG(b);
 
         for (i = b + 1; i <= c; i++) {
+          printf("OP_CONCAT: %p\n", &REG(i));
           value = meta_concat(value, REG(i));
         }
 

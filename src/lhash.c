@@ -70,8 +70,8 @@ void lhash_init(lhash_t *map) {
   map->metatable   = NULL;
   map->flags       = 0;
 
-  map->table = gc_alloc(LHASH_INIT_TSIZE * sizeof(map->table[0]));
-  map->array = gc_alloc(LHASH_INIT_ASIZE * sizeof(map->array[0]));
+  map->table = gc_alloc(LHASH_INIT_TSIZE * sizeof(map->table[0]), LANY);
+  map->array = gc_alloc(LHASH_INIT_ASIZE * sizeof(map->array[0]), LANY);
   for (i = 0; i < LHASH_INIT_TSIZE; i++) {
     map->table[i].key = LUAV_NIL;
   }
@@ -227,7 +227,7 @@ static void lhash_resize(lhash_t *map, int which, int direction) {
       map->tcap = map->tcap / 2 + 1;
     }
     map->tsize = 0;
-    map->table = gc_alloc(map->tcap * sizeof(map->table[0]));
+    map->table = gc_alloc(map->tcap * sizeof(map->table[0]), LANY);
     /* Make sure all new keys are nil */
     for (i = 0; i < map->tcap; i++) {
       map->table[i].key = LUAV_NIL;
