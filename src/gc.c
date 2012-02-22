@@ -322,7 +322,7 @@ static void *gc_traverse_pointer(void *_ptr, int type) {
       size = sizeof(lfunc_t) * other->num_funcs;
       if (other->funcs != NULL) {
         lfunc_t **funcs = gc_alloc(size, LANY);
-        for (i = 0; i < other->num_consts; i++) {
+        for (i = 0; i < other->num_funcs; i++) {
           funcs[i] = gc_traverse_pointer(other->funcs[i], LFUNC);
         }
         GC_SETMOVED(other->funcs, funcs);
