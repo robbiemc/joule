@@ -359,10 +359,9 @@ static void gc_traverse_stack(lstack_t *stack) {
 
 static void think_about_a_pointer(size_t *loc, size_t _ptr, int is_luav) {
   size_t *ptr = (size_t*) _ptr;
-  if ((_ptr & 0x7)) return;
   size_t header = *(ptr - 1);
   if (GCH_TAG(header) != GCH_MAGIC_TAG || GCH_TYPE(header) == LANY) {
-    size_t *object = ptr;
+    size_t *object = (size_t*) ((size_t)ptr & ~(size_t)7);
     while (GCH_TAG(*(object - 1)) != GCH_MAGIC_TAG) {
       object--;
     }
@@ -378,6 +377,7 @@ static void think_about_a_pointer(size_t *loc, size_t _ptr, int is_luav) {
     return;
   }
 
+  if ((_ptr & 0x7)) return;
   switch (GCH_TYPE(header)) {
     case LUPVALUE:  *loc = gc_traverse(lv_upvalue(ptr));  break;
     case LTHREAD:   *loc = gc_traverse(lv_thread(ptr));   break;
