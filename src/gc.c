@@ -361,11 +361,11 @@ static void think_about_a_pointer(size_t *loc, size_t _ptr, int is_luav) {
   size_t *ptr = (size_t*) _ptr;
   if ((_ptr & 0x7)) return;
   size_t header = *(ptr - 1);
-  if (GCH_TAG(header) != GCH_MAGIC_TAG) {
+  if (GCH_TAG(header) != GCH_MAGIC_TAG || GCH_TYPE(header) == LANY) {
     size_t *object = ptr;
-    do {
+    while (GCH_TAG(*(object - 1)) != GCH_MAGIC_TAG) {
       object--;
-    } while (GCH_TAG(*(object - 1)) != GCH_MAGIC_TAG);
+    }
     header = *(object - 1);
     if (GCH_TYPE(header) != LANY) return;
     if (_ptr >= (size_t) object + GCH_SIZE(header)) return;
