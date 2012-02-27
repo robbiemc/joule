@@ -15,7 +15,7 @@ else
 CFLAGS += -O3 -DNDEBUG
 endif
 else
-CFLAGS += -O0
+CFLAGS += -O1
 endif
 
 # Order matters in this list because object files listed first have their
