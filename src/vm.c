@@ -375,7 +375,7 @@ top:
         } else {
           lclosure_t *closure2 = lv_getfunction(REG(a), 0);
           got = vm_fun(closure2, &frame, num_args, STACKI(a + 1),
-                                             want_ret, STACKI(a));
+                                         want_ret, STACKI(a));
         }
         /* If we didn't get all the return values we wanted, then we need to
            make sure we set all extra values to nil */
