@@ -112,7 +112,7 @@ $(OBJDIR)/%: $(OBJS) %.c
 	$(CC) $(CFLAGS) -o $@ $^ -lm
 
 # Running a lua test
-%.luatest:
+%.luatest: joule
 	@mkdir -p $(OBJDIR)/$(@D)
 	@echo $(@:.luatest=.lua)
 	@lua $(@:.luatest=.lua) > $(OBJDIR)/$(@:.luatest=.out)
