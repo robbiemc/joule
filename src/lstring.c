@@ -9,7 +9,7 @@
 
 #define LOAD_FACTOR 60
 #define STRING_HASHMAP_CAP 251
-#define NONEMPTY(p) ((u64)(p) > 1)
+#define NONEMPTY(p) ((size_t)(p) > 1)
 
 typedef struct {
   lstring_t **table;
@@ -151,7 +151,7 @@ static u32 smap_hash(u8 *str, size_t size) {
   // figure out a step value
   size_t step = (size >> 5) + 1;
   // compute the hash
-  u32 hash = lv_hash(size);
+  u32 hash = lv_hash((luav) size);
   u8 *end = str + size;
   while (str < end) {
     hash = hash ^ ((hash << 5) + (hash >> 2) + *str);

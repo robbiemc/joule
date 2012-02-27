@@ -273,7 +273,7 @@ top:
   lv_nilify(&STACK(argc), vm_stack->size - argc - stack);
 
   /* Aligned memory accesses are much better */
-  assert((((u64) instrs) & 3) == 0);
+  assert((((size_t) instrs) & 3) == 0);
 
   /* Core VM loop, also really slow VM loop... */
   while (1) {
@@ -282,7 +282,7 @@ top:
 
 #ifndef NDEBUG
     if (flags.print) {
-      u64 idx = ((u64)instrs - (u64)func->instrs) / sizeof(u32);
+      size_t idx = ((size_t) instrs - (size_t) func->instrs) / sizeof(u32);
       printf("[%d] ", func->lines[idx]);
       opcode_dump(stdout, code);
       printf("\n");
@@ -592,7 +592,7 @@ top:
             break;
           }
           case LTABLE: {
-            size_t len = lv_gettable(bv, 0)->length;
+            u64 len = lv_gettable(bv, 0)->length;
             SETREG(A(code), lv_number((double) len));
             break;
           }

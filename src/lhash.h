@@ -21,7 +21,7 @@ typedef struct lhash {
   int flags;       // is the map currently being resized?
   u32 tcap;        // capacity of the table
   u32 tsize;       // size of the table
-  u64 length;      // max non-empty integer index of the table (for # operator)
+  size_t length;   // max non-empty integer index of the table (for # operator)
   struct lh_pair {
     luav key;
     luav value;

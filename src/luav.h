@@ -101,13 +101,13 @@ struct lthread;
 
 /* Boxing a luav */
 #define lv_number(n)      lv_bits(n)
-#define lv_table(hash)    LUAV_PACK(LTABLE, (u64) (hash))
+#define lv_table(hash)    LUAV_PACK(LTABLE, (size_t) (hash))
 #define lv_bool(v)        LUAV_PACK(LBOOLEAN, !!(v))
-#define lv_userdata(data) LUAV_PACK(LUSERDATA, (u64) (data))
-#define lv_string(idx)    LUAV_PACK(LSTRING, (u64) (idx))
-#define lv_function(fun)  LUAV_PACK(LFUNCTION, (u64) (fun))
-#define lv_upvalue(up)    LUAV_PACK(LUPVALUE, (u64) (up))
-#define lv_thread(thread) LUAV_PACK(LTHREAD, (u64) thread)
+#define lv_userdata(data) LUAV_PACK(LUSERDATA, (size_t) (data))
+#define lv_string(idx)    LUAV_PACK(LSTRING, (size_t) (idx))
+#define lv_function(fun)  LUAV_PACK(LFUNCTION, (size_t) (fun))
+#define lv_upvalue(up)    LUAV_PACK(LUPVALUE, (size_t) (up))
+#define lv_thread(thread) LUAV_PACK(LTHREAD, (size_t) thread)
 
 /* Unboxing a luav */
 double           lv_castnumberb(luav value, u32 base, u32 argnum);
@@ -119,8 +119,9 @@ struct lclosure* lv_getfunction(luav value, u32 argnum);
 struct lthread*  lv_getthread(luav value, u32 argnum);
 #define lv_getbool(v, _) ((v) != LUAV_NIL && (v) != LUAV_FALSE)
 #define lv_getupvalue(v) \
-  ({ assert(lv_isupvalue(v)); (luav*) LUAV_DATA(v); })
-#define lv_getptr(v)  ((void*) ((v) & LUAV_DATA_MASK))
+  ({ assert(lv_isupvalue(v)); (luav*) (size_t) LUAV_DATA(v); })
+
+#define lv_getptr(v)  ((void*) (size_t) ((v) & LUAV_DATA_MASK))
 
 int lv_parsenum(struct lstring *str, u32 base, double *value);
 

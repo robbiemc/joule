@@ -9,10 +9,6 @@
 #include "panic.h"
 #include "vm.h"
 
-#ifndef __x86_64
-#error Coroutines do not work an archs other than x86-64 yet.
-#endif
-
 #define CO_RUNNING    0
 #define CO_SUSPENDED  1
 #define CO_NORMAL     2
@@ -142,10 +138,10 @@ static u32 lua_co_create(LSTATE) {
   thread->env     = cur_thread->env;
   vm_stack_init(&thread->vm_stack, 20);
 
-  u64 *stack = (u64*) ((u64) thread->stack + CO_STACK_SIZE);
+  size_t *stack = (size_t*) ((size_t) thread->stack + CO_STACK_SIZE);
   /* Bogus return address, and then actual address to return to */
   *(stack - 1) = 0;
-  *(stack - 2) = (u64) coroutine_wrapper;
+  *(stack - 2) = (size_t) coroutine_wrapper;
   thread->curstack = stack - 8; /* 6 callee regs, and two return addresses */
 
   lstate_return1(lv_thread(thread));

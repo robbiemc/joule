@@ -29,7 +29,7 @@
  */
 lhash_t* lv_gettable(luav value, u32 argnum) {
   if (!lv_istable(value)) { err_badtype(argnum, LTABLE, lv_gettype(value)); }
-  return (lhash_t*) LUAV_DATA(value);
+  return (lhash_t*) lv_getptr(value);
 }
 
 /**
@@ -45,7 +45,7 @@ void* lv_getuserdata(luav value, u32 argnum) {
   if (!lv_isuserdata(value)) {
     err_badtype(argnum, LUSERDATA, lv_gettype(value));
   }
-  return (void*) LUAV_DATA(value);
+  return (void*) lv_getptr(value);
 }
 
 /**
@@ -61,7 +61,7 @@ lclosure_t* lv_getfunction(luav value, u32 argnum) {
   if (!lv_isfunction(value)) {
     err_badtype(argnum, LFUNCTION, lv_gettype(value));
   }
-  return (lclosure_t*) LUAV_DATA(value);
+  return (lclosure_t*) lv_getptr(value);
 }
 
 /**
@@ -77,7 +77,7 @@ struct lthread* lv_getthread(luav value, u32 argnum) {
   if (!lv_isthread(value)) {
     err_badtype(argnum, LTHREAD, lv_gettype(value));
   }
-  return (struct lthread*) LUAV_DATA(value);
+  return (struct lthread*) lv_getptr(value);
 }
 
 /**
@@ -118,8 +118,8 @@ int lv_compare(luav v1, luav v2) {
   if (v1 == v2) return 0;
 
   if (lv_isstring(v1) && lv_isstring(v2)) {
-    lstring_t *s1 = (lstring_t*) LUAV_DATA(v1);
-    lstring_t *s2 = (lstring_t*) LUAV_DATA(v2);
+    lstring_t *s1 = (lstring_t*) lv_getptr(v1);
+    lstring_t *s2 = (lstring_t*) lv_getptr(v2);
     size_t minlen = MIN(s1->length, s2->length);
     int cmp = memcmp(s1->data, s2->data, minlen);
     if (cmp != 0) return cmp;
@@ -150,7 +150,7 @@ double lv_castnumberb(luav number, u32 base, u32 argnum) {
     err_badtype(argnum, LNUMBER, lv_gettype(number));
   }
 
-  lstring_t *str = (lstring_t*) LUAV_DATA(number);
+  lstring_t *str = (lstring_t*) lv_getptr(number);
   double num;
   if (lv_parsenum(str, base, &num) < 0) {
     err_badtype(argnum, LNUMBER, LSTRING);
@@ -174,7 +174,7 @@ int lv_parsenum(lstring_t *str, u32 base, double *value) {
 
 lstring_t* lv_caststring(luav number, u32 argnum) {
   if (lv_isstring(number)) {
-    return (lstring_t*) LUAV_DATA(number);
+    return (lstring_t*) lv_getptr(number);
   } else if (!lv_isnumber(number)) {
     err_badtype(argnum, LSTRING, lv_gettype(number));
   }
