@@ -70,6 +70,7 @@ DESTROY static void lua_coroutine_destroy() {}
 static void coroutine_gc() {
   if (cur_thread != &main_thread) {
     cur_thread = gc_traverse_pointer(cur_thread, LTHREAD);
+    vm_stack   = &cur_thread->vm_stack;
   }
   gc_traverse_pointer(&lua_coroutine, LTABLE);
 }
