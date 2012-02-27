@@ -28,7 +28,7 @@ typedef struct lfunc {
   size_t        num_consts;
   luav          *consts;
   size_t        num_funcs;
-  struct lfunc  *funcs;
+  struct lfunc  **funcs;
 
   // debug information
   u32           num_lines;
@@ -78,7 +78,6 @@ typedef struct lstack {
     (fun)->function.c->name = str;                \
   }
 
-extern struct lhash userdata_meta;
 extern struct lhash lua_globals;
 extern lframe_t *vm_running;
 extern lstack_t *vm_stack;

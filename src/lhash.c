@@ -62,19 +62,15 @@ INIT static void lua_lhash_init() {
 void lhash_init(lhash_t *map) {
   int i;
   assert(map != NULL);
-  map->tcap        = LHASH_INIT_TSIZE;
-  map->tsize       = 0;
-  map->acap        = LHASH_INIT_ASIZE;
-  map->asize       = 0;
-  map->length      = 0;
-  map->metatable   = NULL;
-  map->flags       = 0;
+  memset(map, 0, sizeof(lhash_t));
+  map->tcap      = LHASH_INIT_TSIZE;
+  map->acap      = LHASH_INIT_ASIZE;
 
-  map->table = gc_alloc(LHASH_INIT_TSIZE * sizeof(map->table[0]));
-  map->array = gc_alloc(LHASH_INIT_ASIZE * sizeof(map->array[0]));
+  map->table = gc_alloc(LHASH_INIT_TSIZE * sizeof(map->table[0]), LANY);
   for (i = 0; i < LHASH_INIT_TSIZE; i++) {
     map->table[i].key = LUAV_NIL;
   }
+  map->array = gc_alloc(LHASH_INIT_ASIZE * sizeof(map->array[0]), LANY);
   lv_nilify(map->array, LHASH_INIT_ASIZE);
 }
 
@@ -221,13 +217,16 @@ static void lhash_resize(lhash_t *map, int which, int direction) {
   /* If we're resizing the table portion, there is no reason that we should
      touch the array portion of the map */
   if (which == LHASH_TABLE) {
+    /* Can't set map->table before gc_alloc because of garbage collection */
+    u32 newsize;
     if (direction == UPSIZE) {
-      map->tcap = 2 * map->tcap + 1;
+      newsize = 2 * map->tcap + 1;
     } else {
-      map->tcap = map->tcap / 2 + 1;
+      newsize = map->tcap / 2 + 1;
     }
+    map->table = gc_alloc(newsize * sizeof(map->table[0]), LANY);
+    map->tcap  = newsize;
     map->tsize = 0;
-    map->table = gc_alloc(map->tcap * sizeof(map->table[0]));
     /* Make sure all new keys are nil */
     for (i = 0; i < map->tcap; i++) {
       map->table[i].key = LUAV_NIL;

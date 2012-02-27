@@ -200,7 +200,7 @@ static u32 lua_io_lines(LSTATE) {
       }
     }
   }
-  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(1));
+  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(1), LFUNCTION);
   closure->type = LUAF_C;
   closure->function.c = &io_iterator;
   closure->env = vm_running->caller->closure->env;

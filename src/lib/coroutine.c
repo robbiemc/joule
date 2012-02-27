@@ -2,12 +2,11 @@
 #include <string.h>
 #include <sys/mman.h>
 
+#include "arch.h"
 #include "debug.h"
 #include "gc.h"
-#include "lhash.h"
 #include "lib/coroutine.h"
 #include "panic.h"
-#include "vm.h"
 
 #define CO_RUNNING    0
 #define CO_SUSPENDED  1
@@ -17,35 +16,17 @@
 
 #define CO_STACK_SIZE (16 * 1024)
 
-typedef struct lthread {
-  int status;  //<! Are we alive/dead/suspended?
-  void *stack; //<! Base of the mmap'ed stack region for the C-stack
-
-  /* Argument passing to/from the thread, argvi and retvi point to locations on
-     this thread's stack */
-  u32 argc;
-  u32 argvi;
-  u32 retc;
-  u32 retvi;
-
-  struct lthread *caller; //<! Who yielded to us? Whom to resume to
-  lclosure_t *closure;    //<! Closure which thread runs upon starting
-  void *curstack;         //<! If not running, %rsp of paused execution state
-  lhash_t *env;           //<! Per-thread global environment
-  lstack_t vm_stack;      //<! Local lua stack to put values on
-} lthread_t;
-
 static lhash_t    lua_coroutine;
 static lthread_t  main_thread;
 static lstack_t  *main_stack;
 static lthread_t *cur_thread;
+static void      *saved_gc_bottom;
 
 static luav str_running;
 static luav str_suspended;
 static luav str_normal;
 static luav str_dead;
 
-extern void coroutine_swap_asm(void **stacksave, void *newstack);
 static u32 lua_co_create(LSTATE);
 static u32 lua_co_running(LSTATE);
 static u32 lua_co_resume(LSTATE);
@@ -61,15 +42,16 @@ static LUAF(lua_co_status);
 static LUAF(lua_co_wrap);
 static LUAF(lua_co_yield);
 static cfunc_t co_wrapper_cf = {.f = co_wrap_trampoline, .name = "do not see"};
+static void coroutine_gc();
 
 INIT static void lua_coroutine_init() {
-  str_running   = LSTR("running");
-  str_suspended = LSTR("suspended");
-  str_normal    = LSTR("normal");
-  str_dead      = LSTR("dead");
-  cur_thread = &main_thread;
+  str_running     = LSTR("running");
+  str_suspended   = LSTR("suspended");
+  str_normal      = LSTR("normal");
+  str_dead        = LSTR("dead");
+  cur_thread      = &main_thread;
   main_thread.env = &lua_globals;
-  main_stack = vm_stack;
+  main_stack      = vm_stack;
 
   lhash_init(&lua_coroutine);
   REGISTER(&lua_coroutine, "create",  &lua_co_create_f);
@@ -80,9 +62,18 @@ INIT static void lua_coroutine_init() {
   REGISTER(&lua_coroutine, "yield",   &lua_co_yield_f);
 
   lhash_set(&lua_globals, LSTR("coroutine"), lv_table(&lua_coroutine));
+  gc_add_hook(coroutine_gc);
 }
 
 DESTROY static void lua_coroutine_destroy() {}
+
+static void coroutine_gc() {
+  if (cur_thread != &main_thread) {
+    cur_thread = gc_traverse_pointer(cur_thread, LTHREAD);
+    vm_stack   = &cur_thread->vm_stack;
+  }
+  gc_traverse_pointer(&lua_coroutine, LTABLE);
+}
 
 void coroutine_changeenv(lthread_t *to) {
   lthread_t *old = cur_thread;
@@ -96,15 +87,20 @@ void coroutine_changeenv(lthread_t *to) {
   global_env = to->env;
   if (to == &main_thread) {
     vm_stack = main_stack;
+    gc_set_bottom(saved_gc_bottom);
   } else {
     vm_stack = &to->vm_stack;
+    if (old == &main_thread) {
+      saved_gc_bottom = gc_get_bottom();
+    }
+    gc_set_bottom(to->stack + CO_STACK_SIZE);
   }
 }
 
 static void coroutine_swap(lthread_t *to) {
   lthread_t *old = cur_thread;
   coroutine_changeenv(to);
-  coroutine_swap_asm(&old->curstack, to->curstack);
+  arch_coroutine_swap(&old->curstack, to->curstack);
 }
 
 /**
@@ -127,7 +123,7 @@ static u32 lua_co_create(LSTATE) {
   if (function->type != LUAF_LUA) {
     err_str(0, "Lua function expected");
   }
-  lthread_t *thread = gc_alloc(sizeof(lthread_t));
+  lthread_t *thread = gc_alloc(sizeof(lthread_t), LTHREAD);
   thread->status = CO_NEVER_RUN;
   thread->stack  = mmap(NULL, CO_STACK_SIZE, PROT_WRITE | PROT_READ,
                         MAP_ANON | MAP_PRIVATE, -1, 0);
@@ -211,7 +207,7 @@ static u32 lua_co_wrap(LSTATE) {
   lua_co_create(argc, argvi, 1, idx);
   routine = vm_stack->base[idx];
   vm_stack_dealloc(vm_stack, idx);
-  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(1));
+  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(1), LFUNCTION);
   closure->type = LUAF_C;
   closure->function.c = &co_wrapper_cf;
   /* vm_running is coroutine.wrap(), which has no environment */

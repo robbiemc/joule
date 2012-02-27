@@ -178,7 +178,6 @@ static u32 lua_tostring(LSTATE) {
       if (meta) {
         luav value = lhash_get(meta, META_TOSTRING);
         if (value != LUAV_NIL) {
-          gc_free(str);
           vm_stack->base[argvi] = v;
           return vm_fun(lv_getfunction(value, 0), vm_running, 1, argvi,
                         retc, retvi);
@@ -322,15 +321,14 @@ static u32 lua_loadstring(LSTATE) {
   lstring_t *str = lstate_getstring(0);
   lstring_t *name = (argc > 1) ? lstate_getstring(1) : str;
 
-  lfunc_t *func = xmalloc(sizeof(lfunc_t));
+  lfunc_t *func = gc_alloc(sizeof(lfunc_t), LFUNC);
   if (luac_parse_string(func, str->data, str->length, name->data) < 0) {
-    free(func);
     lstate_return(LUAV_NIL, 0);
     lstate_return(LSTR("Bad lua string"), 1);
     return 2;
   }
 
-  lclosure_t *closure = gc_alloc(sizeof(lclosure_t));
+  lclosure_t *closure = gc_alloc(sizeof(lclosure_t), LFUNCTION);
   closure->type = LUAF_LUA;
   closure->function.lua = func;
   closure->env = global_env;
@@ -542,7 +540,7 @@ static u32 lua_loadfile(LSTATE) {
     return 2;
   }
 
-  lclosure_t *closure = gc_alloc(sizeof(lclosure_t));
+  lclosure_t *closure = gc_alloc(sizeof(lclosure_t), LFUNCTION);
   closure->type = LUAF_LUA;
   closure->function.lua = func;
   closure->env = global_env;

@@ -10,6 +10,7 @@
 #define LOAD_FACTOR 60
 #define STRING_HASHMAP_CAP 251
 #define NONEMPTY(p) ((size_t)(p) > 1)
+#define LSTR_EMPTY ((lstring_t*) 1)
 
 typedef struct {
   lstring_t **table;
@@ -31,8 +32,9 @@ INIT static void lstr_init() {
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
   initialized = 1;
 
-  empty.length = 0;
+  empty.length  = 0;
   empty.data[0] = 0;
+  empty.type    = LSTR_TYPE_MALLOC;
   lstr_add(&empty);
 }
 
@@ -45,7 +47,7 @@ lstring_t *lstr_empty() {
 }
 
 lstring_t *lstr_alloc(size_t size) {
-  lstring_t *str = gc_alloc(sizeof(lstring_t) + size);
+  lstring_t *str = gc_alloc(sizeof(lstring_t) + size, LSTRING);
   str->type = LSTR_TYPE_GC;
   str->length = size;
   str->data[0] = 0;
@@ -158,4 +160,17 @@ static u32 smap_hash(u8 *str, size_t size) {
     str += step;
   }
   return hash;
+}
+
+void lstr_gc() {
+  size_t i;
+  for (i = 0; i < smap.capacity; i++) {
+    if (!NONEMPTY(smap.table[i]))
+      continue;
+    void *new_loc = gc_relocate(smap.table[i]);
+    if (new_loc != NULL)
+      smap.table[i] = new_loc;
+    else
+      smap.table[i] = LSTR_EMPTY;
+  }
 }

@@ -101,6 +101,7 @@ static luav meta_lhash_get(luav operand, luav key, lframe_t *frame);
 static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame);
 static u32  meta_call(luav value, u32 argc, u32 argvi, u32 retc, u32 retvi);
 static luav meta_concat(luav v1, luav v2);
+static void vm_gc();
 
 /**
  * @brief Initializes all global structures
@@ -114,9 +115,24 @@ INIT static void vm_setup() {
 
   vm_stack_init(&init_stack, VM_STACK_INIT);
   vm_stack = &init_stack;
+  gc_add_hook(vm_gc);
 }
 
 DESTROY static void vm_destroy() {}
+
+static void vm_gc() {
+  /* Traverse all our globals */
+  gc_traverse_stack(&init_stack);
+  gc_traverse_pointer(&lua_globals, LTABLE);
+  gc_traverse_pointer(&userdata_meta, LTABLE);
+  global_env = gc_traverse_pointer(global_env, LTABLE);
+
+  /* Keep the call stack around */
+  lframe_t *frame;
+  for (frame = vm_running; frame != NULL; frame = frame->caller) {
+    frame->closure = gc_traverse_pointer(frame->closure, LFUNCTION);
+  }
+}
 
 /**
  * @brief Initialize a lua stack
@@ -207,6 +223,7 @@ void vm_run(lfunc_t *func) {
   closure.env  = &lua_globals;
   global_env   = &lua_globals;
   assert(func->num_upvalues == 0);
+  gc_set_bottom(NULL);
 
   vm_fun(&closure, NULL, 0, 0, 0, 0);
 }
@@ -376,7 +393,7 @@ top:
         } else {
           lclosure_t *closure2 = lv_getfunction(REG(a), 0);
           got = vm_fun(closure2, &frame, num_args, STACKI(a + 1),
-                                             want_ret, STACKI(a));
+                                         want_ret, STACKI(a));
         }
         /* If we didn't get all the return values we wanted, then we need to
            make sure we set all extra values to nil */
@@ -471,8 +488,9 @@ top:
       case OP_CLOSURE: {
         bx = BX(code);
         assert(bx < func->num_funcs);
-        lfunc_t *function = &func->funcs[bx];
-        lclosure_t *closure2 = gc_alloc(CLOSURE_SIZE(function->num_upvalues));
+        lfunc_t *function = func->funcs[bx];
+        lclosure_t *closure2 = gc_alloc(CLOSURE_SIZE(function->num_upvalues),
+                                        LFUNCTION);
         closure2->type = LUAF_LUA;
         closure2->function.lua = function;
         closure2->env = closure->env;
@@ -492,7 +510,7 @@ top:
               /* If the stack register is not an upvalue, we need to promote it
                  to an upvalue, thereby scribbling over our stack variable so
                  it's now considered an upvalue */
-              luav *ptr = gc_alloc(sizeof(luav));
+              luav *ptr = gc_alloc(sizeof(luav), LUPVALUE);
               *ptr = temp;
               upvalue = lv_upvalue(ptr);
               STACK(B(pseudo)) = upvalue;
@@ -605,7 +623,7 @@ top:
       case OP_NEWTABLE: {
         // TODO - We can't currently create a table of a certain size, so we
         //        ignore the size hints. Eventually we should use them.
-        lhash_t *ht = gc_alloc(sizeof(lhash_t));
+        lhash_t *ht = gc_alloc(sizeof(lhash_t), LTABLE);
         lhash_init(ht);
         SETREG(A(code), lv_table(ht));
         break;

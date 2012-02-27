@@ -358,7 +358,7 @@ static u32 lua_string_byte(LSTATE) {
     /* All bytes are considered unsigned, so we need to cast from char to u8 */
     lstate_return(lv_number((u8) str->data[i + k]), k);
   }
-  return k;
+  return (u32) k;
 }
 
 static u32 lua_string_char(LSTATE) {

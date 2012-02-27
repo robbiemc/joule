@@ -26,4 +26,6 @@ lstring_t *lstr_const(char *cstr);
 
 lstring_t *lstr_empty();
 
+void lstr_gc();
+
 #endif /* _LSTRING_H_ */
