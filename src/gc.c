@@ -89,7 +89,7 @@ void *gc_alloc(size_t size, int type) {
       gc_resize(size);
     }
   }
-
+  xassert(ENOUGH_SPACE(size));
   // allocate the block
   size_t *block = (size_t*) (heap + heap_next);
   heap_next += sizeof(size_t) + size;
