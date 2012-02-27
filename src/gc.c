@@ -30,6 +30,9 @@
   ((size_t) ((size) & 0xffffffffff) | (((size_t) (type)) << 56) | \
    (GCH_MAGIC_TAG << 40))
 
+#define GC_HOOKS 50
+
+/* Heap metadata */
 static void *heap;
 static size_t heap_size;
 static size_t heap_next;
@@ -37,13 +40,18 @@ static int initialized = FALSE;
 static void *stack_bottom;
 static void *stack_top;
 
+/* Static functions */
 static void gc_mmap(void *heap, size_t amount, size_t offset);
 static void gc_resize(size_t needed);
-static luav gc_traverse(luav val);
-static void *gc_traverse_pointer(void *_ptr, int type);
-static void gc_traverse_stack(lstack_t *stack);
 static void traverse_the_stack_oh_god(void *old_bottom, void *old_top);
 
+/* Hook stuff */
+static gchook_t* gc_hooks[GC_HOOKS];
+static int num_hooks = 0;
+
+/**
+ * @brief Initialize the heap, bringing it into existence
+ */
 INIT static void gc_init() {
   // allocate two heaps
   heap_size = INIT_HEAP_SIZE;
@@ -53,12 +61,37 @@ INIT static void gc_init() {
   initialized = TRUE;
 }
 
+/**
+ * @brief Ultimately garbage collect by blowing away the entire heap
+ */
 DESTROY static void gc_destroy() {
   xassert(munmap(heap, heap_size) == 0);
 }
 
-void gc_set_bottom() {
-  stack_bottom = get_sp();
+/**
+ * @brief Add a hook to be run at the garbage collection time
+ *
+ * This is meant to be used to update things like static or global variables
+ * which would otherwise require pairs of setters/getters to update all over the
+ * place. This way, it's a burden on each module to maintain its global
+ * variables, and less work for the garbage collector.
+ *
+ * GC functions are provided in the header, namely gc_traverse() and
+ * gc_traverse_pointer()
+ *
+ * @param hook the function to run at GC-time
+ */
+void gc_add_hook(gchook_t *hook) {
+  xassert(num_hooks + 1 < GC_HOOKS);
+  gc_hooks[num_hooks++] = hook;
+}
+
+void gc_set_bottom(void *bottom) {
+  stack_bottom = bottom == NULL ? get_sp() : bottom;
+}
+
+void* gc_get_bottom() {
+  return stack_bottom;
 }
 
 static void gc_mmap(void *heap, size_t amount, size_t offset) {
@@ -113,39 +146,46 @@ static void gc_resize(size_t needed) {
   heap_size += size;
 }
 
+/**
+ * @brief Actually run garbage collection
+ *
+ * TODO: currently has the assumption that stack_top is set before this function
+ *       is ever called...
+ */
 void garbage_collect() {
+  /* Sanity check to make sure we don't GC in GC */
   static int in_gc = 0;
   xassert(!in_gc);
   in_gc = 1;
+
+  /* Bring another heap into existence */
   size_t old_size = heap_next;
-  // make another heap
   void *old = heap;
   heap = (heap == HEAP1_ADDR ? HEAP2_ADDR : HEAP1_ADDR);
   gc_mmap(heap, heap_size, 0);
   heap_next = 0;
 
-  gc_traverse_stack(&init_stack);
-  if (vm_stack != &init_stack)
-    gc_traverse_stack(vm_stack);
-
-  gc_traverse_pointer(&userdata_meta, LTABLE);
-  gc_traverse_pointer(&lua_globals, LTABLE);
-  global_env = gc_traverse_pointer(global_env, LTABLE);
-
-  lframe_t *frame;
-  for (frame = vm_running; frame != NULL; frame = frame->caller) {
-    frame->closure = gc_traverse_pointer(frame->closure, LFUNCTION);
+  /* Run all hooks, rewrite our stack (...), and clean up the lstr hash */
+  int i;
+  for (i = 0; i < num_hooks; i++) {
+    gc_hooks[i]();
   }
-
   traverse_the_stack_oh_god(old, (char*) old + old_size);
-
   lstr_gc();
 
+  /* Done with GC, old heap can be blown away */
   munmap(old, heap_size);
   in_gc = 0;
 }
 
-static luav gc_traverse(luav val) {
+/**
+ * @brief Traverse a lua value during garbage collection, updating all pointers
+ *        as necessary
+ *
+ * @param val the value to traverse
+ * @return the new value that replaces the given one
+ */
+luav gc_traverse(luav val) {
   switch (lv_gettype(val)) {
     case LSTRING:
       return lv_string(gc_traverse_pointer(lv_getptr(val), LSTRING));
@@ -169,7 +209,7 @@ static luav gc_traverse(luav val) {
  * @param type the type of the pointer
  * @return the new location of the pointer, possibly the same value
  */
-static void *gc_traverse_pointer(void *_ptr, int type) {
+void *gc_traverse_pointer(void *_ptr, int type) {
   if (_ptr == NULL) return NULL;
   /* If a pointer is in our heap, and it's been moved, we can quickly return
      where it's been moved to */
@@ -348,13 +388,14 @@ static void *gc_traverse_pointer(void *_ptr, int type) {
   panic("Shouldn't be here");
 }
 
-static void gc_traverse_stack(lstack_t *stack) {
+void gc_traverse_stack(lstack_t *stack) {
   // the stack itself doesn't get copied - it's either statically allocated or
   // part of an lthread_t
 
   luav *val;
-  for (val = stack->base; val != stack->top; val++)
+  for (val = stack->base; val != stack->top; val++) {
     *val = gc_traverse(*val);
+  }
 }
 
 static void think_about_a_pointer(size_t *loc, size_t _ptr, int is_luav) {

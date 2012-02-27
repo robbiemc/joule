@@ -22,7 +22,7 @@ typedef struct lthread {
   lstack_t vm_stack;      //<! Lua stack
 } lthread_t;
 
-struct lthread* coroutine_current(void);
-void            coroutine_changeenv(struct lthread *to);
+lthread_t* coroutine_current(void);
+void       coroutine_changeenv(lthread_t *to);
 
 #endif /* _LIB_COROUTINE_H */

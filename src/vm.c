@@ -88,7 +88,7 @@ lhash_t lua_globals;         //<! default global environment
 lhash_t *global_env = NULL;  //<! current global environment
 lframe_t *vm_running = NULL; //<! currently running function's frame
 lstack_t *vm_stack;          //<! current stack, changes on thread switches
-lstack_t init_stack;         //<! initial stack
+static lstack_t init_stack;  //<! initial stack
 
 static u32 op_close(u32 upc, luav *upv);
 static int meta_unary(luav operand, luav method, u32 reti, lframe_t *frame);
@@ -99,6 +99,7 @@ static luav meta_lhash_get(luav operand, luav key, lframe_t *frame);
 static void meta_lhash_set(luav operand, luav key, luav val, lframe_t *frame);
 static u32  meta_call(luav value, u32 argc, u32 argvi, u32 retc, u32 retvi);
 static luav meta_concat(luav v1, luav v2);
+static void vm_gc();
 
 /**
  * @brief Initializes all global structures
@@ -112,9 +113,24 @@ INIT static void vm_setup() {
 
   vm_stack_init(&init_stack, VM_STACK_INIT);
   vm_stack = &init_stack;
+  gc_add_hook(vm_gc);
 }
 
 DESTROY static void vm_destroy() {}
+
+static void vm_gc() {
+  /* Traverse all our globals */
+  gc_traverse_stack(&init_stack);
+  gc_traverse_pointer(&lua_globals, LTABLE);
+  gc_traverse_pointer(&userdata_meta, LTABLE);
+  global_env = gc_traverse_pointer(global_env, LTABLE);
+
+  /* Keep the call stack around */
+  lframe_t *frame;
+  for (frame = vm_running; frame != NULL; frame = frame->caller) {
+    frame->closure = gc_traverse_pointer(frame->closure, LFUNCTION);
+  }
+}
 
 /**
  * @brief Initialize a lua stack
@@ -205,7 +221,7 @@ void vm_run(lfunc_t *func) {
   closure.env  = &lua_globals;
   global_env   = &lua_globals;
   assert(func->num_upvalues == 0);
-  gc_set_bottom();
+  gc_set_bottom(NULL);
 
   vm_fun(&closure, NULL, 0, 0, 0, 0);
 }
