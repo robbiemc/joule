@@ -39,7 +39,6 @@ static size_t heap_size;
 static size_t heap_next;
 static int initialized = FALSE;
 static void *stack_bottom;
-static void *stack_top;
 
 /* Static functions */
 static void gc_mmap(void *heap, size_t amount, size_t offset);
@@ -116,7 +115,6 @@ void *gc_alloc(size_t size, int type) {
 
   // check if we need to garbage collect
   if (!ENOUGH_SPACE(size)) {
-    stack_top = get_sp();
     garbage_collect();
     if (!ENOUGH_SPACE(size)) {
       // garbage collection didn't help - resize the heap
@@ -153,14 +151,10 @@ static void gc_resize(size_t needed) {
  * TODO: currently has the assumption that stack_top is set before this function
  *       is ever called...
  */
-void garbage_collect() {
-  caller_regs_t regs;
+void gc_internal(void *stack_top) {
   /* Sanity check to make sure we don't GC in GC */
   static int in_gc = 0;
   xassert(!in_gc);
-  if (arch_save_callee(&regs) != 0) {
-    return;
-  }
   in_gc = 1;
 
   /* Bring another heap into existence */
@@ -175,14 +169,12 @@ void garbage_collect() {
     gc_hooks[i]();
   }
   traverse_cstack(stack_bottom, stack_top, old);
-  traverse_cstack(&regs[CALLER_REGS], &regs[0], old);
 
   lstr_gc();
 
   /* Done with GC, old heap can be blown away */
   munmap(old, heap_size);
   in_gc = 0;
-  arch_assume_callee(&regs);
 }
 
 /**
