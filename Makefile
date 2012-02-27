@@ -52,19 +52,8 @@ all: joule
 joule: $(OBJS) $(OBJDIR)/main.o
 	$(CC) $(CFLAGS) -o joule $^ -lm
 
-test: ctest ltest btest
-ctests: $(CTESTS)
-
-# Run all compiled tests (C tests)
-ctest: ctests
-	@for test in $(CTESTS); do       \
-		echo $$test;                   \
-		$$test > $$test.log || exit 1; \
-	done
-	@echo -- All C tests passed --
-
 # Run all lua tests
-ltest: $(LUATESTS:=test)
+test: $(LUATESTS:=test)
 	@echo -- All lua tests passed --
 
 # Run all benchmark tests
