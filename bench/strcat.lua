@@ -2,7 +2,7 @@
 -- http://shootout.alioth.debian.org
 -- contributed by Roberto Ierusalimschy
 
-local n = tonumber((arg and arg[1]) or 10000)
+local n = tonumber((arg and arg[1]) or 1000000)
 local buff = {}
 for i=1,n do
   table.insert(buff, "hello\n")
