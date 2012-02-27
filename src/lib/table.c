@@ -7,6 +7,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #include "config.h"
 #include "lhash.h"
@@ -168,22 +169,34 @@ static u32 lua_table_sort(LSTATE) {
  */
 static u32 lua_table_concat(LSTATE) {
   lhash_t *table = lstate_gettable(0);
-  luav sep = argc > 1 ? lstate_getval(1) : LSTR("");
+  lstring_t *sep = argc > 1 ? lv_caststring(lstate_getval(1), 0) : lstr_empty();
   u32 i = argc > 2 ? (u32) lstate_getnumber(2) : 1;
   u32 j = argc > 3 ? (u32) lstate_getnumber(3) : (u32) table->length;
   u32 k;
 
   if (i > j) {
-    lstate_return1(LSTR(""));
+    lstate_return1(lv_string(lstr_empty()));
   }
 
-  luav ret = LSTR("");
+  size_t str_size = 0;
   for (k = i; k <= j && k <= table->length; k++) {
-    if (k > i) {
-      ret = lv_concat(ret, sep);
+    lstring_t *str = lv_caststring(table->array[k], 0);
+    str_size += str->length + sep->length;
+  }
+  str_size -= sep->length;
+
+  lstring_t *ret = lstr_alloc(str_size);
+  char *str_data = ret->data;
+  for (k = i; k <= j && k <= table->length; k++) {
+    lstring_t *str = lv_caststring(table->array[k], 0);
+    memcpy(str_data, str->data, str->length);
+    str_data += str->length;
+    if (k != j && k < table->length) {
+      memcpy(str_data, sep->data, sep->length);
+      str_data += sep->length;
     }
-    ret = lv_concat(ret, table->array[k]);
   }
 
-  lstate_return1(ret);
+  ret = lstr_add(ret);
+  lstate_return1(lv_string(ret));
 }
