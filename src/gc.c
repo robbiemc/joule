@@ -416,7 +416,7 @@ static void traverse_the_stack_oh_god(void *old_bot, void *old_top) {
         case LFUNCTION:
         case LTABLE:
           tmp = (size_t) lv_getptr(tmp);
-          if (tmp >= heap_bot && tmp <= heap_top) {
+          if (tmp >= heap_bot + sizeof(size_t) && tmp <= heap_top) {
             think_about_a_pointer(stack, tmp, TRUE);
           }
       }
