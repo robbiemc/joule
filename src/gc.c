@@ -20,7 +20,8 @@
     *(ptr - 1) |= 1;                   \
     *ptr = (size_t) (newp);            \
   } while (0)
-#define IN_HEAP(p, h) ((void*)(p) > (h) && (void*)(p) < ((h) + heap_size))
+#define IN_HEAP(p, h) ((size_t)(p) >= (size_t)(h) + sizeof(size_t) && \
+                       (void*)(p) < ((h) + heap_size))
 
 #define GCH_MAGIC_TAG  ((size_t) 0x93a7)
 #define GCH_SIZE(quad) ((quad) & 0xffffffffff)
@@ -43,7 +44,7 @@ static void *stack_top;
 /* Static functions */
 static void gc_mmap(void *heap, size_t amount, size_t offset);
 static void gc_resize(size_t needed);
-static void traverse_the_stack_oh_god(void *old_bottom, void *old_top);
+static void traverse_cstack(size_t *base, size_t *top, void *old_heap);
 
 /* Hook stuff */
 static gchook_t* gc_hooks[GC_HOOKS];
@@ -153,13 +154,16 @@ static void gc_resize(size_t needed) {
  *       is ever called...
  */
 void garbage_collect() {
+  caller_regs_t regs;
   /* Sanity check to make sure we don't GC in GC */
   static int in_gc = 0;
   xassert(!in_gc);
+  if (arch_save_callee(&regs) != 0) {
+    return;
+  }
   in_gc = 1;
 
   /* Bring another heap into existence */
-  size_t old_size = heap_next;
   void *old = heap;
   heap = (heap == HEAP1_ADDR ? HEAP2_ADDR : HEAP1_ADDR);
   gc_mmap(heap, heap_size, 0);
@@ -170,12 +174,15 @@ void garbage_collect() {
   for (i = 0; i < num_hooks; i++) {
     gc_hooks[i]();
   }
-  traverse_the_stack_oh_god(old, (char*) old + old_size);
+  traverse_cstack(stack_bottom, stack_top, old);
+  traverse_cstack(&regs[CALLER_REGS], &regs[0], old);
+
   lstr_gc();
 
   /* Done with GC, old heap can be blown away */
   munmap(old, heap_size);
   in_gc = 0;
+  arch_assume_callee(&regs);
 }
 
 /**
@@ -442,28 +449,26 @@ static void think_about_a_pointer(size_t *loc, size_t _ptr, int is_luav) {
   }
 }
 
-static void traverse_the_stack_oh_god(void *old_bot, void *old_top) {
+static void traverse_cstack(size_t *bottom, size_t *top, void *old) {
   size_t *stack;
-  size_t heap_top = (size_t) old_top;
-  size_t heap_bot = (size_t) old_bot;
 
-  for (stack = stack_top; stack < (size_t*) stack_bottom; stack++) {
+  for (stack = top; stack < (size_t*) bottom; stack++) {
     size_t tmp = *stack;
-    if (tmp < heap_bot + sizeof(size_t) || tmp > heap_top) {
-      switch (lv_gettype(tmp)) {
-        case LUPVALUE:
-        case LTHREAD:
-        case LSTRING:
-        case LFUNCTION:
-        case LTABLE:
-          tmp = (size_t) lv_getptr(tmp);
-          if (tmp >= heap_bot + sizeof(size_t) && tmp <= heap_top) {
-            think_about_a_pointer(stack, tmp, TRUE);
-          }
-      }
+    if (IN_HEAP(tmp, old)) {
+      think_about_a_pointer(stack, tmp, FALSE);
       continue;
     }
-    think_about_a_pointer(stack, tmp, FALSE);
+    switch (lv_gettype(tmp)) {
+      case LUPVALUE:
+      case LTHREAD:
+      case LSTRING:
+      case LFUNCTION:
+      case LTABLE:
+        tmp = (size_t) lv_getptr(tmp);
+        if (IN_HEAP(tmp, old)) {
+          think_about_a_pointer(stack, tmp, TRUE);
+        }
+    }
   }
 }
 

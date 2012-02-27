@@ -99,7 +99,7 @@ void coroutine_changeenv(lthread_t *to) {
 static void coroutine_swap(lthread_t *to) {
   lthread_t *old = cur_thread;
   coroutine_changeenv(to);
-  coroutine_swap_asm(&old->curstack, to->curstack);
+  arch_coroutine_swap(&old->curstack, to->curstack);
 }
 
 /**
