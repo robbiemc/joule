@@ -424,14 +424,6 @@ static void traverse_the_stack_oh_god(void *old_bot, void *old_top) {
     }
     think_about_a_pointer(stack, tmp, FALSE);
   }
-
-  // u32 i;
-  // for (i = 0; i < CALLEE_REGS; i++) {
-  //   if (callee[i] >= heap_bot + sizeof(size_t) && callee[i] < heap_top) {
-  //     think_about_a_pointer(&callee[i], callee[i], FALSE);
-  //   }
-  // }
-  // assume_callee_regs(callee);
 }
 
 /**
