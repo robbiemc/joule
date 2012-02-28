@@ -114,7 +114,7 @@ void *gc_realloc(void *_addr, size_t newsize) {
 void garbage_collect() {
   /* Sanity check to make sure we don't GC in GC */
   static int in_gc = 0;
-  assert(!in_gc);
+  xassert(!in_gc);
   in_gc = 1;
 
   /* Run all hooks */
