@@ -15,8 +15,6 @@ void* gc_alloc(size_t size, int type);
 void* gc_calloc(size_t nelt, size_t eltsize, int type);
 void* gc_realloc(void *addr, size_t newsize);
 
-void gc_pause(void);
-void gc_unpause(void);
 void garbage_collect(void);
 
 /* Traversal functions */

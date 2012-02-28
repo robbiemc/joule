@@ -26,7 +26,6 @@
 static size_t heap_limit = INIT_HEAP_SIZE;
 static size_t heap_size  = 0;
 static size_t heap_last  = 0;
-static int    gc_paused  = FALSE;
 static u64   *gc_head    = NULL;
 
 /* Hook stuff */
@@ -59,14 +58,6 @@ void gc_add_hook(gchook_t *hook) {
   gc_hooks[num_hooks++] = hook;
 }
 
-void gc_pause() {
-  gc_paused = 1;
-}
-
-void gc_unpause() {
-  gc_paused = 0;
-}
-
 void *gc_calloc(size_t nelt, size_t eltsize, int type) {
   size_t size = nelt * eltsize;
   void *addr = gc_alloc(size, type);
@@ -78,13 +69,14 @@ void *gc_alloc(size_t size, int type) {
   size += sizeof(u64);
 
   /* check if we need to garbage collect */
-  if (!gc_paused && heap_size + size >= heap_limit) {
+  if (heap_size + size >= heap_limit) {
     garbage_collect();
     heap_last = heap_size;
     /* Adjust the heap limit as necessary */
     if (heap_size + size >= heap_limit) {
-      heap_limit *= 2;
-    } else if ((heap_size + size) * 2 < heap_limit) {
+      heap_limit += MAX(heap_limit, heap_size + size - heap_limit + 1024);
+    } else if ((heap_size + size) * 2 < heap_limit &&
+               heap_limit > INIT_HEAP_SIZE) {
       heap_limit /= 2;
     }
   }

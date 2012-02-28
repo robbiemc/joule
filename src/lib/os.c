@@ -133,10 +133,8 @@ static u32 lua_os_date(LSTATE) {
   xassert(stm != NULL);
 
   if (strcmp("*t", format) == 0) {
-    gc_pause();
     lhash_t *hash = gc_alloc(sizeof(lhash_t), LTABLE);
     lhash_init(hash);
-    gc_unpause();
 
     lhash_set(hash, str_sec,    lv_number(stm->tm_sec));
     lhash_set(hash, str_min,    lv_number(stm->tm_min));
