@@ -143,11 +143,13 @@ void garbage_collect() {
 
   while (to_finalize != NULL) {
     u64 header = *to_finalize;
-    int type = GC_TYPE(header);
-    if (type == LSTRING) {
-      lstr_remove((lstring_t*) (to_finalize + 1));
-    } else if (type == LTHREAD) {
-      coroutine_free((lthread_t*) (to_finalize + 1));
+    switch (GC_TYPE(header)) {
+      case LSTRING:
+        lstr_remove((lstring_t*) (to_finalize + 1));
+        break;
+      case LTHREAD:
+        coroutine_free((lthread_t*) (to_finalize + 1));
+        break;
     }
     free(to_finalize);
     to_finalize = GC_NEXT(header);
