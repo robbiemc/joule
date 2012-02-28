@@ -190,7 +190,7 @@ void lstr_remove(lstring_t *str) {
     return;
   }
   ssize_t idx = smap_lookup(str);
-  if (idx >= 0) {
+  if (idx >= 0 && smap.table[idx] == str) {
     smap.table[idx] = LSTR_EMPTY;
   }
 }
