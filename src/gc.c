@@ -265,6 +265,13 @@ void gc_traverse_pointer(void *_ptr, int type) {
     /* Make sure we keep around all constants and nested functions */
     case LFUNC: {
       lfunc_t *func = _ptr;
+      gc_traverse_pointer(func->name, LSTRING);
+      GC_SETBLACK(func->instrs);
+      GC_SETBLACK(func->consts);
+      if (func->funcs != NULL) {
+        GC_SETBLACK(func->funcs);
+      }
+      GC_SETBLACK(func->lines);
       u32 i;
       for (i = 0; i < func->num_consts; i++) {
         gc_traverse(func->consts[i]);
