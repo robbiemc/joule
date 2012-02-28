@@ -25,7 +25,6 @@ static lstring_t empty;     //<! Unique empty string
 static void smap_insert(lstring_t *str);
 static void smap_ins(smap_t *map, lstring_t *str);
 static ssize_t smap_lookup(lstring_t *str);
-static int smap_equal(lstring_t *str1, lstring_t *str2);
 static u32 smap_hash(u8 *str, size_t size);
 
 EARLY(0) static void lstr_init() {
@@ -39,6 +38,7 @@ EARLY(0) static void lstr_init() {
 
 DESTROY static void lstr_destroy() {
   free(smap.table);
+  smap.table = NULL;
 }
 
 /**
@@ -153,19 +153,15 @@ static ssize_t smap_lookup(lstring_t *str) {
   size_t cap = smap.capacity;
   size_t idx = str->hash % cap;
   size_t step = 1;
-  while (NONEMPTY(s = smap.table[idx])) {
-    if (smap_equal(str, s))
+  while ((s = smap.table[idx]) != NULL) {
+    if (s != LSTR_EMPTY &&
+        str->length == s->length &&
+        memcmp(str->data, s->data, str->length) == 0)
       return (ssize_t) idx;
     idx = (idx + step) % cap;
     step++;
   }
   return -1;
-}
-
-static int smap_equal(lstring_t *str1, lstring_t *str2) {
-  if (str1->length != str2->length)
-    return 0;
-  return !memcmp(str1->data, str2->data, str1->length);
 }
 
 static u32 smap_hash(u8 *str, size_t size) {
@@ -190,8 +186,11 @@ static u32 smap_hash(u8 *str, size_t size) {
  * @param str the string to remove.
  */
 void lstr_remove(lstring_t *str) {
+  if (smap.table == NULL) {
+    return;
+  }
   ssize_t idx = smap_lookup(str);
-  if (index >= 0) {
+  if (idx >= 0) {
     smap.table[idx] = LSTR_EMPTY;
   }
 }
