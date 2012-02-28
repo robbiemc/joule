@@ -68,10 +68,8 @@ INIT static void lua_coroutine_init() {
 DESTROY static void lua_coroutine_destroy() {}
 
 static void coroutine_gc() {
-  if (cur_thread != &main_thread) {
-    gc_traverse_pointer(cur_thread, LTHREAD);
-  }
-  gc_traverse_pointer(&lua_coroutine, LTABLE);
+  gc_traverse_pointer(cur_thread, LTHREAD);
+  gc_traverse_pointer(&main_thread, LTHREAD);
 }
 
 void coroutine_changeenv(lthread_t *to) {
@@ -266,9 +264,9 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
 static u32 lua_co_yield(LSTATE) {
   /* Tell coroutine.resume() where to find its return values, and where to put
      further arguments to this thread */
-  cur_thread->retc = argc;
+  cur_thread->retc  = argc;
   cur_thread->retvi = argvi;
-  cur_thread->argc = retc;
+  cur_thread->argc  = retc;
   cur_thread->argvi = retvi;
 
   if (cur_thread->status != CO_DEAD) {

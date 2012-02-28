@@ -143,10 +143,10 @@ static void vm_gc() {
  * @param size the initial size of the stack
  */
 void vm_stack_init(lstack_t *stack, u32 size) {
-  stack->size = 0;
+  stack->size  = 0;
   stack->limit = size;
-  stack->base = xmalloc(sizeof(luav) * size);
-  stack->top = stack->base;
+  stack->base  = xmalloc(sizeof(luav) * size);
+  stack->top   = stack->base;
 }
 
 /**
@@ -158,10 +158,10 @@ void vm_stack_init(lstack_t *stack, u32 size) {
 void vm_stack_destroy(lstack_t *stack) {
   free(stack->base);
   // zero things out just be be safe
-  stack->size = 0;
+  stack->size  = 0;
   stack->limit = 0;
-  stack->base = NULL;
-  stack->top = NULL;
+  stack->base  = NULL;
+  stack->top   = NULL;
 }
 
 /**
