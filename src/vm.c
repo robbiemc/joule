@@ -108,7 +108,7 @@ static void vm_gc();
  *
  * Requres that the strings have been initialized
  */
-INIT static void vm_setup() {
+EARLY(100) static void vm_setup() {
   lhash_init(&userdata_meta);
   lhash_init(&lua_globals);
   lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
@@ -118,7 +118,9 @@ INIT static void vm_setup() {
   gc_add_hook(vm_gc);
 }
 
-DESTROY static void vm_destroy() {}
+DESTROY static void vm_destroy() {
+  vm_stack_destroy(&init_stack);
+}
 
 static void vm_gc() {
   /* Traverse all our globals */

@@ -126,10 +126,13 @@ static u32 lua_co_create(LSTATE) {
   thread->caller  = NULL;
   thread->closure = function;
   thread->env     = cur_thread->env;
+  thread->argvi = 0;
+  thread->argc = 0;
   vm_stack_init(&thread->vm_stack, 20);
 
   size_t *stack = (size_t*) ((size_t) thread->stack + CO_STACK_SIZE);
   /* Bogus return address, and then actual address to return to */
+  memset(stack - 8, 0, sizeof(size_t) * 8);
   *(stack - 1) = 0;
   *(stack - 2) = (size_t) coroutine_wrapper;
   thread->curstack = stack - 8; /* 6 callee regs, and two return addresses */
@@ -254,8 +257,7 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
   }
 
   if (thread->status == CO_DEAD) {
-    vm_stack_destroy(thread->stack);
-    xassert(munmap(thread->stack, CO_STACK_SIZE) == 0);
+    coroutine_free(thread);
   }
 
   return i;
@@ -274,4 +276,20 @@ static u32 lua_co_yield(LSTATE) {
   }
   coroutine_swap(cur_thread->caller);
   return cur_thread->argc;
+}
+
+/**
+ * @brief Free resources associated with a coroutine.
+ *
+ * Doesn't deallocate the coroutine itself, but just the internals of the
+ * thread.
+ *
+ * @param thread the thread to deallocate resources from
+ */
+void coroutine_free(lthread_t *thread) {
+  if (thread->stack != NULL) {
+    vm_stack_destroy(&thread->vm_stack);
+    xassert(munmap(thread->stack, CO_STACK_SIZE) == 0);
+    thread->stack = NULL;
+  }
 }

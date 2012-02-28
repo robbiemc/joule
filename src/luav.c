@@ -212,5 +212,6 @@ luav lv_concat(luav v1, luav v2) {
   memcpy(sn->data, s1->data, s1->length);
   memcpy(sn->data + s1->length, s2->data, s2->length);
   sn->data[s1->length + s2->length] = 0;
+  global_s1 = global_s2 = NULL;
   return lv_string(lstr_add(sn));
 }

@@ -28,7 +28,7 @@ static lstring_t *smap_lookup(lstring_t *str);
 static int smap_equal(lstring_t *str1, lstring_t *str2);
 static u32 smap_hash(u8 *str, size_t size);
 
-INIT static void lstr_init() {
+EARLY(0) static void lstr_init() {
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
   initialized = 1;
 
@@ -159,18 +159,5 @@ static u32 smap_hash(u8 *str, size_t size) {
  * @param str the string to remove.
  */
 void lstr_remove(lstring_t *str) {
-
+  /* TODO: fill in */
 }
-
-// void lstr_gc() {
-//   size_t i;
-//   for (i = 0; i < smap.capacity; i++) {
-//     if (!NONEMPTY(smap.table[i]))
-//       continue;
-//     void *new_loc = gc_relocate(smap.table[i]);
-//     if (new_loc != NULL)
-//       smap.table[i] = new_loc;
-//     else
-//       smap.table[i] = LSTR_EMPTY;
-//   }
-// }

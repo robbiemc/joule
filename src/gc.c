@@ -161,6 +161,8 @@ void garbage_collect() {
     int type = GC_TYPE(header);
     if (type == LSTRING) {
       lstr_remove((lstring_t*) (to_finalize + 1));
+    } else if (type == LTHREAD) {
+      coroutine_free((lthread_t*) (to_finalize + 1));
     }
     free(to_finalize);
     to_finalize = GC_NEXT(header);
@@ -228,8 +230,10 @@ void gc_traverse_pointer(void *_ptr, int type) {
       /* reinsert hash into the hashtable */
       if (hash->table != NULL) {
         for (i = 0; i < hash->tcap; i++) {
-          gc_traverse(hash->table[i].key);
-          gc_traverse(hash->table[i].value);
+          if (hash->table[i].key != LUAV_NIL) {
+            gc_traverse(hash->table[i].key);
+            gc_traverse(hash->table[i].value);
+          }
         }
       }
       break;

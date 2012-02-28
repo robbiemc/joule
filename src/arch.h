@@ -12,9 +12,9 @@
 # define exec_end()   ((void*) get_end())
 #else
 extern char etext, edata, end;
-# define exec_etext() &etext
-# define exec_edata() &edata
-# define exec_end()   &end
+# define exec_etext() ((void*) &etext)
+# define exec_edata() ((void*) &edata)
+# define exec_end()   ((void*) &end)
 #endif
 
 void arch_coroutine_swap(void **stacksave, void *newstack);
