@@ -328,10 +328,10 @@ static u32 lua_loadstring(LSTATE) {
     return 2;
   }
 
-  lclosure_t *closure = gc_alloc(sizeof(lclosure_t), LFUNCTION);
-  closure->type = LUAF_LUA;
+  lclosure_t *closure   = gc_alloc(sizeof(lclosure_t), LFUNCTION);
+  closure->type         = LUAF_LUA;
   closure->function.lua = func;
-  closure->env = global_env;
+  closure->env          = global_env;
 
   lstate_return1(lv_function(closure));
 }

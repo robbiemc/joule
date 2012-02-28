@@ -20,7 +20,6 @@ static lhash_t    lua_coroutine;
 static lthread_t  main_thread;
 static lstack_t  *main_stack;
 static lthread_t *cur_thread;
-static void      *saved_gc_bottom;
 
 static luav str_running;
 static luav str_suspended;
@@ -41,7 +40,8 @@ static LUAF(lua_co_running);
 static LUAF(lua_co_status);
 static LUAF(lua_co_wrap);
 static LUAF(lua_co_yield);
-static cfunc_t co_wrapper_cf = {.f = co_wrap_trampoline, .name = "do not see"};
+static cfunc_t co_wrapper_cf = {.f = co_wrap_trampoline, .name = "do not see",
+                                .upvalues = 0};
 static void coroutine_gc();
 
 INIT static void lua_coroutine_init() {
@@ -69,8 +69,7 @@ DESTROY static void lua_coroutine_destroy() {}
 
 static void coroutine_gc() {
   if (cur_thread != &main_thread) {
-    cur_thread = gc_traverse_pointer(cur_thread, LTHREAD);
-    vm_stack   = &cur_thread->vm_stack;
+    gc_traverse_pointer(cur_thread, LTHREAD);
   }
   gc_traverse_pointer(&lua_coroutine, LTABLE);
 }
@@ -87,13 +86,8 @@ void coroutine_changeenv(lthread_t *to) {
   global_env = to->env;
   if (to == &main_thread) {
     vm_stack = main_stack;
-    gc_set_bottom(saved_gc_bottom);
   } else {
     vm_stack = &to->vm_stack;
-    if (old == &main_thread) {
-      saved_gc_bottom = gc_get_bottom();
-    }
-    gc_set_bottom(to->stack + CO_STACK_SIZE);
   }
 }
 

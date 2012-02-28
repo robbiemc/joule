@@ -5,7 +5,17 @@
 #error Nothing works on archs other than x86-64 yet.
 #endif
 
-#define get_sp() ({ void* rsp; asm ("mov %%rsp, %0" : "=g" (rsp)); rsp; })
+#ifdef __APPLE__
+# include <mach-o/getsect.h>
+# define exec_etext() ((void*) get_etext())
+# define exec_edata() ((void*) get_edata())
+# define exec_end()   ((void*) get_end())
+#else
+extern char etext, edata, end;
+# define exec_etext() &etext
+# define exec_edata() &edata
+# define exec_end()   &end
+#endif
 
 void arch_coroutine_swap(void **stacksave, void *newstack);
 

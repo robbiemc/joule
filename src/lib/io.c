@@ -185,7 +185,9 @@ static u32 lua_io_lines_iterator(LSTATE) {
   }
   lstate_return1(lv_string(str));
 }
-static cfunc_t io_iterator = {.f = lua_io_lines_iterator, .name = "nope"};
+
+static cfunc_t io_iterator = {.f = lua_io_lines_iterator, .name = "nope",
+                              .upvalues = 1};
 
 static u32 lua_io_lines(LSTATE) {
   FILE *f = default_in;

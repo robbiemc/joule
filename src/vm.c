@@ -125,12 +125,12 @@ static void vm_gc() {
   gc_traverse_stack(&init_stack);
   gc_traverse_pointer(&lua_globals, LTABLE);
   gc_traverse_pointer(&userdata_meta, LTABLE);
-  global_env = gc_traverse_pointer(global_env, LTABLE);
+  gc_traverse_pointer(global_env, LTABLE);
 
   /* Keep the call stack around */
   lframe_t *frame;
   for (frame = vm_running; frame != NULL; frame = frame->caller) {
-    frame->closure = gc_traverse_pointer(frame->closure, LFUNCTION);
+    gc_traverse_pointer(frame->closure, LFUNCTION);
   }
 }
 
@@ -223,7 +223,6 @@ void vm_run(lfunc_t *func) {
   closure.env  = &lua_globals;
   global_env   = &lua_globals;
   assert(func->num_upvalues == 0);
-  gc_set_bottom(NULL);
 
   vm_fun(&closure, NULL, 0, 0, 0, 0);
 }
@@ -623,8 +622,10 @@ top:
       case OP_NEWTABLE: {
         // TODO - We can't currently create a table of a certain size, so we
         //        ignore the size hints. Eventually we should use them.
+        gc_pause();
         lhash_t *ht = gc_alloc(sizeof(lhash_t), LTABLE);
         lhash_init(ht);
+        gc_unpause();
         SETREG(A(code), lv_table(ht));
         break;
       }

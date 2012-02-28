@@ -34,7 +34,6 @@ INIT static void lstr_init() {
 
   empty.length  = 0;
   empty.data[0] = 0;
-  empty.type    = LSTR_TYPE_MALLOC;
   lstr_add(&empty);
 }
 
@@ -48,7 +47,6 @@ lstring_t *lstr_empty() {
 
 lstring_t *lstr_alloc(size_t size) {
   lstring_t *str = gc_alloc(sizeof(lstring_t) + size, LSTRING);
-  str->type = LSTR_TYPE_GC;
   str->length = size;
   str->data[0] = 0;
   return str;
@@ -68,8 +66,7 @@ lstring_t *lstr_add(lstring_t *str) {
   // lookup the string in the hashset (see if it's already stored)
   lstring_t *found = smap_lookup(str);
   if (NONEMPTY(found)) {
-    if (str->type == LSTR_TYPE_MALLOC)
-      free(str);
+    /* TODO: gc free, or let GC take care of it on the next round? */
     return found;
   }
   // now add the new string to the table
@@ -81,16 +78,7 @@ lstring_t *lstr_literal(char *cstr) {
   size_t size = strlen(cstr);
   lstring_t *str = lstr_alloc(size);
   str->length = size;
-  memcpy(str->data, cstr, size+1);
-  return lstr_add(str);
-}
-
-lstring_t *lstr_const(char *cstr) {
-  size_t size = strlen(cstr);
-  lstring_t *str = xmalloc(sizeof(lstring_t) + size);
-  str->type = LSTR_TYPE_MALLOC;
-  str->length = size;
-  memcpy(str->data, cstr, size+1);
+  memcpy(str->data, cstr, size + 1);
   return lstr_add(str);
 }
 
@@ -162,15 +150,27 @@ static u32 smap_hash(u8 *str, size_t size) {
   return hash;
 }
 
-void lstr_gc() {
-  size_t i;
-  for (i = 0; i < smap.capacity; i++) {
-    if (!NONEMPTY(smap.table[i]))
-      continue;
-    void *new_loc = gc_relocate(smap.table[i]);
-    if (new_loc != NULL)
-      smap.table[i] = new_loc;
-    else
-      smap.table[i] = LSTR_EMPTY;
-  }
+/**
+ * @brief Remove a string from the global hash table
+ *
+ * This should only be called when there are no references left to the provided
+ * string, such as during garbage collection. The string's data is not freed.
+ *
+ * @param str the string to remove.
+ */
+void lstr_remove(lstring_t *str) {
+
 }
+
+// void lstr_gc() {
+//   size_t i;
+//   for (i = 0; i < smap.capacity; i++) {
+//     if (!NONEMPTY(smap.table[i]))
+//       continue;
+//     void *new_loc = gc_relocate(smap.table[i]);
+//     if (new_loc != NULL)
+//       smap.table[i] = new_loc;
+//     else
+//       smap.table[i] = LSTR_EMPTY;
+//   }
+// }

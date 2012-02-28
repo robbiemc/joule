@@ -38,6 +38,7 @@ typedef struct lfunc {
 typedef struct cfunc {
   cfunction_t *f;
   char *name;
+  int upvalues;
 } cfunc_t;
 
 typedef struct lclosure {
@@ -69,7 +70,7 @@ typedef struct lstack {
   (sizeof(lclosure_t) + (num_upvalues) * sizeof(luav))
 
 #define LUAF(fun) \
-  cfunc_t fun ## _cf = {.f = fun}; \
+  cfunc_t fun ## _cf = {.f = fun, .upvalues = 0}; \
   lclosure_t fun ## _f = {.type = LUAF_C, .function.c = &fun##_cf, \
                           .env = &lua_globals}
 
