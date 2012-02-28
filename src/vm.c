@@ -220,14 +220,14 @@ void vm_stack_dealloc(lstack_t *stack, u32 base) {
  */
 void vm_run(lfunc_t *func) {
   /* set up the initial closure, then hit go */
-  lclosure_t closure;
-  closure.function.lua = func;
-  closure.type = LUAF_LUA;
-  closure.env  = &lua_globals;
+  lclosure_t *closure = gc_alloc(sizeof(lclosure_t), LFUNCTION);
+  closure->function.lua = func;
+  closure->type = LUAF_LUA;
+  closure->env  = &lua_globals;
   global_env   = &lua_globals;
   assert(func->num_upvalues == 0);
 
-  vm_fun(&closure, NULL, 0, 0, 0, 0);
+  vm_fun(closure, NULL, 0, 0, 0, 0);
 }
 
 /**
