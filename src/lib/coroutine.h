@@ -24,5 +24,6 @@ typedef struct lthread {
 
 lthread_t* coroutine_current(void);
 void       coroutine_changeenv(lthread_t *to);
+void       coroutine_free(lthread_t *thread);
 
 #endif /* _LIB_COROUTINE_H */

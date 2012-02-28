@@ -17,11 +17,13 @@ typedef int64_t   i64;
 
 #define PACKED     __attribute__((packed))
 #define NORETURN   __attribute__((noreturn))
-#define INIT       __attribute__((constructor))
-#define DESTROY    __attribute__((destructor))
+#define EARLY(n)   __attribute__((constructor(200+n)))
+#define INIT       __attribute__((constructor(500)))
+#define DESTROY    __attribute__((destructor(500)))
+#define LATE(n)    __attribute__((destructor(200+n)))
 #define MUST_CHECK __attribute__((warn_unused_result))
 
-#define INIT_HEAP_SIZE (2 * 1024 * 1024)
+#define INIT_HEAP_SIZE    (2 * 1024 * 1024)
 #define LUAV_INIT_STRING  100
 #define LUA_NUMBER_FMT    "%.14g"
 #define LFIELDS_PER_FLUSH 50

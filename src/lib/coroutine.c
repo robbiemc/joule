@@ -20,7 +20,6 @@ static lhash_t    lua_coroutine;
 static lthread_t  main_thread;
 static lstack_t  *main_stack;
 static lthread_t *cur_thread;
-static void      *saved_gc_bottom;
 
 static luav str_running;
 static luav str_suspended;
@@ -41,7 +40,8 @@ static LUAF(lua_co_running);
 static LUAF(lua_co_status);
 static LUAF(lua_co_wrap);
 static LUAF(lua_co_yield);
-static cfunc_t co_wrapper_cf = {.f = co_wrap_trampoline, .name = "do not see"};
+static cfunc_t co_wrapper_cf = {.f = co_wrap_trampoline, .name = "do not see",
+                                .upvalues = 0};
 static void coroutine_gc();
 
 INIT static void lua_coroutine_init() {
@@ -68,11 +68,8 @@ INIT static void lua_coroutine_init() {
 DESTROY static void lua_coroutine_destroy() {}
 
 static void coroutine_gc() {
-  if (cur_thread != &main_thread) {
-    cur_thread = gc_traverse_pointer(cur_thread, LTHREAD);
-    vm_stack   = &cur_thread->vm_stack;
-  }
-  gc_traverse_pointer(&lua_coroutine, LTABLE);
+  gc_traverse_pointer(cur_thread, LTHREAD);
+  gc_traverse_pointer(&main_thread, LTHREAD);
 }
 
 void coroutine_changeenv(lthread_t *to) {
@@ -87,13 +84,8 @@ void coroutine_changeenv(lthread_t *to) {
   global_env = to->env;
   if (to == &main_thread) {
     vm_stack = main_stack;
-    gc_set_bottom(saved_gc_bottom);
   } else {
     vm_stack = &to->vm_stack;
-    if (old == &main_thread) {
-      saved_gc_bottom = gc_get_bottom();
-    }
-    gc_set_bottom(to->stack + CO_STACK_SIZE);
   }
 }
 
@@ -132,10 +124,13 @@ static u32 lua_co_create(LSTATE) {
   thread->caller  = NULL;
   thread->closure = function;
   thread->env     = cur_thread->env;
+  thread->argvi = 0;
+  thread->argc = 0;
   vm_stack_init(&thread->vm_stack, 20);
 
   size_t *stack = (size_t*) ((size_t) thread->stack + CO_STACK_SIZE);
   /* Bogus return address, and then actual address to return to */
+  memset(stack - 8, 0, sizeof(size_t) * 8);
   *(stack - 1) = 0;
   *(stack - 2) = (size_t) coroutine_wrapper;
   thread->curstack = stack - 8; /* 6 callee regs, and two return addresses */
@@ -260,8 +255,7 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
   }
 
   if (thread->status == CO_DEAD) {
-    vm_stack_destroy(thread->stack);
-    xassert(munmap(thread->stack, CO_STACK_SIZE) == 0);
+    coroutine_free(thread);
   }
 
   return i;
@@ -270,9 +264,9 @@ static u32 co_wrap_helper(lthread_t *thread, LSTATE) {
 static u32 lua_co_yield(LSTATE) {
   /* Tell coroutine.resume() where to find its return values, and where to put
      further arguments to this thread */
-  cur_thread->retc = argc;
+  cur_thread->retc  = argc;
   cur_thread->retvi = argvi;
-  cur_thread->argc = retc;
+  cur_thread->argc  = retc;
   cur_thread->argvi = retvi;
 
   if (cur_thread->status != CO_DEAD) {
@@ -280,4 +274,20 @@ static u32 lua_co_yield(LSTATE) {
   }
   coroutine_swap(cur_thread->caller);
   return cur_thread->argc;
+}
+
+/**
+ * @brief Free resources associated with a coroutine.
+ *
+ * Doesn't deallocate the coroutine itself, but just the internals of the
+ * thread.
+ *
+ * @param thread the thread to deallocate resources from
+ */
+void coroutine_free(lthread_t *thread) {
+  if (thread->stack != NULL) {
+    vm_stack_destroy(&thread->vm_stack);
+    xassert(munmap(thread->stack, CO_STACK_SIZE) == 0);
+    thread->stack = NULL;
+  }
 }

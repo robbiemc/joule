@@ -108,7 +108,7 @@ static void vm_gc();
  *
  * Requres that the strings have been initialized
  */
-INIT static void vm_setup() {
+EARLY(100) static void vm_setup() {
   lhash_init(&userdata_meta);
   lhash_init(&lua_globals);
   lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
@@ -118,19 +118,21 @@ INIT static void vm_setup() {
   gc_add_hook(vm_gc);
 }
 
-DESTROY static void vm_destroy() {}
+DESTROY static void vm_destroy() {
+  vm_stack_destroy(&init_stack);
+}
 
 static void vm_gc() {
   /* Traverse all our globals */
   gc_traverse_stack(&init_stack);
   gc_traverse_pointer(&lua_globals, LTABLE);
   gc_traverse_pointer(&userdata_meta, LTABLE);
-  global_env = gc_traverse_pointer(global_env, LTABLE);
+  gc_traverse_pointer(global_env, LTABLE);
 
   /* Keep the call stack around */
   lframe_t *frame;
   for (frame = vm_running; frame != NULL; frame = frame->caller) {
-    frame->closure = gc_traverse_pointer(frame->closure, LFUNCTION);
+    gc_traverse_pointer(frame->closure, LFUNCTION);
   }
 }
 
@@ -141,10 +143,10 @@ static void vm_gc() {
  * @param size the initial size of the stack
  */
 void vm_stack_init(lstack_t *stack, u32 size) {
-  stack->size = 0;
+  stack->size  = 0;
   stack->limit = size;
-  stack->base = xmalloc(sizeof(luav) * size);
-  stack->top = stack->base;
+  stack->base  = xmalloc(sizeof(luav) * size);
+  stack->top   = stack->base;
 }
 
 /**
@@ -156,10 +158,10 @@ void vm_stack_init(lstack_t *stack, u32 size) {
 void vm_stack_destroy(lstack_t *stack) {
   free(stack->base);
   // zero things out just be be safe
-  stack->size = 0;
+  stack->size  = 0;
   stack->limit = 0;
-  stack->base = NULL;
-  stack->top = NULL;
+  stack->base  = NULL;
+  stack->top   = NULL;
 }
 
 /**
@@ -178,6 +180,7 @@ void vm_stack_grow(lstack_t *stack, u32 amt) {
     stack->base = xrealloc(stack->base, stack->limit * sizeof(luav));
   }
   stack->top = stack->base + stack->size;
+  lv_nilify(&stack->base[stack->size - amt], amt);
 }
 
 /**
@@ -223,7 +226,6 @@ void vm_run(lfunc_t *func) {
   closure.env  = &lua_globals;
   global_env   = &lua_globals;
   assert(func->num_upvalues == 0);
-  gc_set_bottom(NULL);
 
   vm_fun(&closure, NULL, 0, 0, 0, 0);
 }

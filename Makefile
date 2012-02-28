@@ -55,13 +55,9 @@ joule: $(OBJS) $(OBJDIR)/main.o
 # Run all lua tests
 test: $(LUATESTS:=test)
 	@echo -- All lua tests passed --
+leaks: $(BENCHTESTS:=leak)
+	@echo -- All leak tests passed --
 
-# Run all benchmark tests
-btest: $(BENCHTESTS:=test)
-	@echo -- All benchmark tests passed --
-
-lbench: joule
-	./bench.lua $(BENCHTESTS)
 bench: benchmark
 	./benchmark $(sort $(BENCHTESTS))
 benchmark: benchmark.c
@@ -78,9 +74,6 @@ coverage: clean test
 	lcov --directory $(OBJDIR) --capture --output-file coverage/app.info -b .
 	genhtml --output-directory coverage coverage/app.info
 	@rm -f *.gcda *.gcno
-
-profile: CFLAGS += -pg -DHASH_PROFILE
-profile: clean joule ctests
 
 # Generic targets
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
@@ -107,6 +100,11 @@ $(OBJDIR)/%: $(OBJS) %.c
 	@lua $(@:.luatest=.lua) > $(OBJDIR)/$(@:.luatest=.out)
 	@./joule $(@:.luatest=.lua) > $(OBJDIR)/$(@:.luatest=.log)
 	@diff -u $(OBJDIR)/$(@:.luatest=.out) $(OBJDIR)/$(@:.luatest=.log)
+
+%.lualeak: joule
+	@echo $(@:.lualeak=.lua)
+	@grep -q coroutine $(@:.lualeak=.lua) || valgrind --error-exitcode=1 ./joule \
+				$(@:.lualeak=.lua)
 
 # If we're cleaning, no need to regenerate all .dep files
 ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))

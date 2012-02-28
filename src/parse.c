@@ -169,7 +169,7 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
 
   // constants :(
   func->num_consts = xread4(fd);
-  func->consts = gc_calloc(func->num_consts, sizeof(luav), LANY);
+  func->consts = gc_alloc(func->num_consts * sizeof(luav), LANY);
   luav *c = func->consts;
   for (i = 0; i < func->num_consts; i++) {
     switch (xread1(fd)) {
@@ -195,7 +195,7 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
   if (func->num_funcs == 0) {
     func->funcs = NULL;
   } else {
-    func->funcs = gc_calloc(func->num_funcs, sizeof(lfunc_t*), LANY);
+    func->funcs = gc_alloc(func->num_funcs * sizeof(lfunc_t*), LANY);
     for (i = 0; i < func->num_funcs; i++) {
       lfunc_t *f = gc_alloc(sizeof(lfunc_t), LFUNC);
       int ret = luac_parse_func(f, fd, filename);
