@@ -55,6 +55,8 @@ joule: $(OBJS) $(OBJDIR)/main.o
 # Run all lua tests
 test: $(LUATESTS:=test)
 	@echo -- All lua tests passed --
+leaks: $(LUATESTS:=leak)
+	@echo -- All leak tests passed --
 
 # Run all benchmark tests
 btest: $(BENCHTESTS:=test)
@@ -107,6 +109,11 @@ $(OBJDIR)/%: $(OBJS) %.c
 	@lua $(@:.luatest=.lua) > $(OBJDIR)/$(@:.luatest=.out)
 	@./joule $(@:.luatest=.lua) > $(OBJDIR)/$(@:.luatest=.log)
 	@diff -u $(OBJDIR)/$(@:.luatest=.out) $(OBJDIR)/$(@:.luatest=.log)
+
+%.lualeak: joule
+	@mkdir -p $(OBJDIR)/$(@D)
+	@echo $(@:.lualeak=.lua)
+	@valgrind --error-exitcode=1 ./joule $(@:.lualeak=.lua) > $(OBJDIR)/$(@:.lualeak=.vlog)
 
 # If we're cleaning, no need to regenerate all .dep files
 ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
