@@ -113,7 +113,7 @@ $(OBJDIR)/%: $(OBJS) %.c
 %.lualeak: joule
 	@mkdir -p $(OBJDIR)/$(@D)
 	@echo $(@:.lualeak=.lua)
-	@valgrind --error-exitcode=1 ./joule $(@:.lualeak=.lua) > $(OBJDIR)/$(@:.lualeak=.vlog)
+	@grep -q coroutine $(@:.lualeak=.lua) || valgrind --error-exitcode=1 ./joule $(@:.lualeak=.lua) > $(OBJDIR)/$(@:.lualeak=.vlog)
 
 # If we're cleaning, no need to regenerate all .dep files
 ifeq (0,$(words $(filter %clean,$(MAKECMDGOALS))))
