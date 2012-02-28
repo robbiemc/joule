@@ -204,23 +204,23 @@ void gc_traverse_pointer(void *_ptr, int type) {
 
     case LTABLE: {
       lhash_t *hash = _ptr;
-      if (GC_ISBLACK(hash->array)) {
-        assert(GC_ISBLACK(hash->table));
+      if ((hash->array != NULL && GC_ISBLACK(hash->array)) ||
+          (hash->table != NULL && GC_ISBLACK(hash->table))) {
         break;
       }
-      GC_SETBLACK(hash->array);
-      GC_SETBLACK(hash->table);
 
       size_t i;
       gc_traverse_pointer(hash->metatable, LTABLE);
       /* copy over the array */
       if (hash->array != NULL) {
+        GC_SETBLACK(hash->array);
         for (i = 0; i < hash->length; i++) {
           gc_traverse(hash->array[i]);
         }
       }
       /* reinsert hash into the hashtable */
       if (hash->table != NULL) {
+        GC_SETBLACK(hash->table);
         for (i = 0; i < hash->tcap; i++) {
           if (hash->table[i].key != LUAV_NIL) {
             gc_traverse(hash->table[i].key);
