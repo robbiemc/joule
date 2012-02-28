@@ -19,12 +19,12 @@ typedef struct {
 } smap_t;
 smap_t smap = {NULL, STRING_HASHMAP_CAP, 0};
 
-int initialized = 0;
-lstring_t empty;
+static int initialized = 0; //<! Sanity check
+static lstring_t empty;     //<! Unique empty string
 
 static void smap_insert(lstring_t *str);
 static void smap_ins(smap_t *map, lstring_t *str);
-static lstring_t *smap_lookup(lstring_t *str);
+static ssize_t smap_lookup(lstring_t *str);
 static int smap_equal(lstring_t *str1, lstring_t *str2);
 static u32 smap_hash(u8 *str, size_t size);
 
@@ -41,10 +41,19 @@ DESTROY static void lstr_destroy() {
   free(smap.table);
 }
 
+/**
+ * @brief Quick method for fetching the canonical empty string
+ */
 lstring_t *lstr_empty() {
   return &empty;
 }
 
+/**
+ * @brief Allocates a string of a specified size
+ *
+ * @param size the size to allocate
+ * @return the allocated string
+ */
 lstring_t *lstr_alloc(size_t size) {
   lstring_t *str = gc_alloc(sizeof(lstring_t) + size, LSTRING);
   str->length = size;
@@ -52,28 +61,50 @@ lstring_t *lstr_alloc(size_t size) {
   return str;
 }
 
+/**
+ * @brief Reallocate the space for a given string
+ *
+ * @param str the string to reallocate space for
+ * @param size the new size to assume, or if 0, the size is doubled
+ * @return the reallocated string
+ */
 lstring_t *lstr_realloc(lstring_t *str, size_t size) {
   if (size == 0) size = str->length * 2;
   str->length = size;
   return gc_realloc(str, sizeof(lstring_t) + size);
 }
 
+/**
+ * @brief Add a new string to the global table
+ *
+ * If the string is already located in the global table, then the provided
+ * string is ignored and the global string is returned.
+ *
+ * @param str the gc-allocated string
+ * @return the canonical representation of the provided string
+ */
 lstring_t *lstr_add(lstring_t *str) {
   xassert(initialized);
   assert(str->data[str->length] == 0);
   // compute the hash of the string
   str->hash = smap_hash((u8*) str->data, str->length);
   // lookup the string in the hashset (see if it's already stored)
-  lstring_t *found = smap_lookup(str);
-  if (NONEMPTY(found)) {
+  ssize_t found = smap_lookup(str);
+  if (found >= 0) {
     /* TODO: gc free, or let GC take care of it on the next round? */
-    return found;
+    return smap.table[found];
   }
   // now add the new string to the table
   smap_insert(str);
   return str;
 }
 
+/**
+ * @brief Creates a new lua string based off the literal C-string
+ *
+ * @param cstr the null-terminated C-string
+ * @return the canonical lstring_t to represent the provided string
+ */
 lstring_t *lstr_literal(char *cstr) {
   size_t size = strlen(cstr);
   lstring_t *str = lstr_alloc(size);
@@ -117,18 +148,18 @@ static void smap_ins(smap_t *map, lstring_t *str) {
   map->size++;
 }
 
-static lstring_t *smap_lookup(lstring_t *str) {
+static ssize_t smap_lookup(lstring_t *str) {
   lstring_t *s;
   size_t cap = smap.capacity;
   size_t idx = str->hash % cap;
   size_t step = 1;
   while (NONEMPTY(s = smap.table[idx])) {
     if (smap_equal(str, s))
-      return s;
+      return (ssize_t) idx;
     idx = (idx + step) % cap;
     step++;
   }
-  return NULL;
+  return -1;
 }
 
 static int smap_equal(lstring_t *str1, lstring_t *str2) {
@@ -159,5 +190,8 @@ static u32 smap_hash(u8 *str, size_t size) {
  * @param str the string to remove.
  */
 void lstr_remove(lstring_t *str) {
-  /* TODO: fill in */
+  ssize_t idx = smap_lookup(str);
+  if (index >= 0) {
+    smap.table[idx] = LSTR_EMPTY;
+  }
 }
