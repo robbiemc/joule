@@ -189,7 +189,7 @@ void gc_traverse(luav val) {
 void gc_traverse_pointer(void *_ptr, int type) {
   if (_ptr == NULL || (_ptr > exec_edata() && GC_ISBLACK(_ptr))) {
     return;
-  } else if (_ptr > exec_edata()) {
+  } else if (_ptr > exec_end()) {
     GC_SETBLACK(_ptr);
   }
 
