@@ -58,6 +58,7 @@ lstring_t *lstr_alloc(size_t size) {
   lstring_t *str = gc_alloc(sizeof(lstring_t) + size, LSTRING);
   str->length = size;
   str->data[0] = 0;
+  str->hash    = 0;
   return str;
 }
 
