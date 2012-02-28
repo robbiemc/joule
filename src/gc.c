@@ -162,7 +162,6 @@ void garbage_collect() {
     if (type == LSTRING) {
       lstr_remove((lstring_t*) (to_finalize + 1));
     }
-    printf("bye: %p[%d]\n", to_finalize, type);
     free(to_finalize);
     to_finalize = GC_NEXT(header);
   }
