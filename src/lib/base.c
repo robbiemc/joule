@@ -460,11 +460,11 @@ static u32 lua_dofile(LSTATE) {
   if (luac_parse_file(&func, filename->data) < 0) {
     err_rawstr("Bad lua file.", 0);
   }
-  lclosure_t closure;
-  closure.function.lua = &func;
-  closure.type         = LUAF_LUA;
-  closure.env          = vm_running->closure->env;
-  return vm_fun(&closure, vm_running, 0, 0, retc, retvi);
+  lclosure_t *closure = gc_alloc(sizeof(lclosure_t), LFUNCTION);
+  closure->function.lua = &func;
+  closure->type         = LUAF_LUA;
+  closure->env          = vm_running->closure->env;
+  return vm_fun(closure, vm_running, 0, 0, retc, retvi);
 }
 
 static u32 lua_getfenv(LSTATE) {
