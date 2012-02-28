@@ -58,13 +58,6 @@ void gc_add_hook(gchook_t *hook) {
   gc_hooks[num_hooks++] = hook;
 }
 
-void *gc_calloc(size_t nelt, size_t eltsize, int type) {
-  size_t size = nelt * eltsize;
-  void *addr = gc_alloc(size, type);
-  memset(addr, 0, size);
-  return addr;
-}
-
 void *gc_alloc(size_t size, int type) {
   size += sizeof(u64);
 
