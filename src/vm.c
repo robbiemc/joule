@@ -180,6 +180,7 @@ void vm_stack_grow(lstack_t *stack, u32 amt) {
     stack->base = xrealloc(stack->base, stack->limit * sizeof(luav));
   }
   stack->top = stack->base + stack->size;
+  lv_nilify(&stack->base[stack->size - amt], amt);
 }
 
 /**

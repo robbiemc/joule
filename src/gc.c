@@ -115,7 +115,7 @@ void *gc_realloc(void *_addr, size_t newsize) {
         prev = cur;
         cur = GC_NEXT(*cur);
       }
-      *prev = GC_BUILD(addr2, GC_TYPE(*addr));
+      *prev = GC_BUILD(addr2, GC_TYPE(header));
     }
     /* Now fix our "next" pointer */
     *addr2 = header;
@@ -233,6 +233,8 @@ void gc_traverse_pointer(void *_ptr, int type) {
           if (hash->table[i].key != LUAV_NIL) {
             gc_traverse(hash->table[i].key);
             gc_traverse(hash->table[i].value);
+          } else {
+            hash->table[i].value = LUAV_NIL;
           }
         }
       }
