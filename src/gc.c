@@ -290,8 +290,8 @@ void gc_traverse_pointer(void *_ptr, int type) {
 }
 
 void gc_traverse_stack(lstack_t *stack) {
-  luav *val;
-  for (val = stack->base; val != stack->top; val++) {
-    gc_traverse(*val);
+  u32 i;
+  for (i = 0; i < stack->size; i++) {
+    gc_traverse(stack->base[i]);
   }
 }
