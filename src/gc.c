@@ -100,7 +100,7 @@ void *gc_realloc(void *_addr, size_t newsize) {
         prev = cur;
         cur = GC_NEXT(*cur);
       }
-      *prev = GC_BUILD(addr2, GC_TYPE(header));
+      *prev = GC_BUILD(addr2, GC_TYPE(*prev));
     }
     /* Now fix our "next" pointer */
     *addr2 = header;
@@ -187,15 +187,24 @@ void gc_traverse(luav val) {
  * @return the new location of the pointer, possibly the same value
  */
 void gc_traverse_pointer(void *_ptr, int type) {
-  if (_ptr == NULL || (_ptr > exec_edata() && GC_ISBLACK(_ptr))) {
-    return;
-  } else if (_ptr > exec_end()) {
-    GC_SETBLACK(_ptr);
+  if (_ptr == NULL) return;
+  if (type != LSTRING) {
+    if (_ptr > exec_end() && GC_ISBLACK(_ptr)) {
+      return;
+    } else if (_ptr > exec_end()) {
+      GC_SETBLACK(_ptr);
+    }
   }
 
   switch (type) {
-    case LSTRING:
+    case LSTRING: {
+      lstring_t *str = _ptr;
+      if (str->type == LSTR_GC) {
+        assert(_ptr > exec_end());
+        GC_SETBLACK(_ptr);
+      }
       break; /* no recursion */
+    }
 
     case LTABLE: {
       lhash_t *hash = _ptr;

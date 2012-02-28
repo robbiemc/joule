@@ -9,8 +9,12 @@
 typedef struct lstring {
   size_t  length;
   u32     hash;
+  u32     type;
   char    data[1];
 } lstring_t;
+
+#define LSTR_MALLOC 0
+#define LSTR_GC     1
 
 #define LSTR(s) lv_string(lstr_literal(s))
 

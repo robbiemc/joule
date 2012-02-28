@@ -20,7 +20,7 @@ typedef struct {
 smap_t smap = {NULL, STRING_HASHMAP_CAP, 0};
 
 static int initialized = 0; //<! Sanity check
-static lstring_t empty;     //<! Unique empty string
+static lstring_t *empty;    //<! Unique empty string
 
 static void smap_insert(lstring_t *str);
 static void smap_ins(smap_t *map, lstring_t *str);
@@ -30,13 +30,17 @@ static u32 smap_hash(u8 *str, size_t size);
 EARLY(0) static void lstr_init() {
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
   initialized = 1;
-
-  empty.length  = 0;
-  empty.data[0] = 0;
-  lstr_add(&empty);
+  empty = lstr_literal("");
 }
 
 DESTROY static void lstr_destroy() {
+  size_t i;
+  for (i = 0; i < smap.capacity; i++) {
+    if (NONEMPTY(smap.table[i]) && smap.table[i]->type == LSTR_MALLOC) {
+      free(smap.table[i]);
+      smap.table[i] = LSTR_EMPTY;
+    }
+  }
   free(smap.table);
   smap.table = NULL;
 }
@@ -45,7 +49,7 @@ DESTROY static void lstr_destroy() {
  * @brief Quick method for fetching the canonical empty string
  */
 lstring_t *lstr_empty() {
-  return &empty;
+  return empty;
 }
 
 /**
@@ -56,7 +60,8 @@ lstring_t *lstr_empty() {
  */
 lstring_t *lstr_alloc(size_t size) {
   lstring_t *str = gc_alloc(sizeof(lstring_t) + size, LSTRING);
-  str->length = size;
+  str->type    = LSTR_GC;
+  str->length  = size;
   str->data[0] = 0;
   str->hash    = 0;
   return str;
@@ -70,6 +75,8 @@ lstring_t *lstr_alloc(size_t size) {
  * @return the reallocated string
  */
 lstring_t *lstr_realloc(lstring_t *str, size_t size) {
+  assert(str->type == LSTR_GC);
+  assert(str->hash == 0);
   if (size == 0) size = str->length * 2;
   str->length = size;
   return gc_realloc(str, sizeof(lstring_t) + size);
@@ -86,13 +93,16 @@ lstring_t *lstr_realloc(lstring_t *str, size_t size) {
  */
 lstring_t *lstr_add(lstring_t *str) {
   xassert(initialized);
+  assert(str->hash == 0);
   assert(str->data[str->length] == 0);
   // compute the hash of the string
   str->hash = smap_hash((u8*) str->data, str->length);
   // lookup the string in the hashset (see if it's already stored)
   ssize_t found = smap_lookup(str);
   if (found >= 0) {
-    /* TODO: gc free, or let GC take care of it on the next round? */
+    if (str->type == LSTR_MALLOC) {
+      free(str);
+    }
     return smap.table[found];
   }
   // now add the new string to the table
@@ -108,8 +118,11 @@ lstring_t *lstr_add(lstring_t *str) {
  */
 lstring_t *lstr_literal(char *cstr) {
   size_t size = strlen(cstr);
-  lstring_t *str = lstr_alloc(size);
+  lstring_t *str = malloc(sizeof(lstring_t) + size);
+  xassert(str != NULL);
+  str->type   = LSTR_MALLOC;
   str->length = size;
+  str->hash   = 0;
   memcpy(str->data, cstr, size + 1);
   return lstr_add(str);
 }
@@ -141,7 +154,7 @@ static void smap_ins(smap_t *map, lstring_t *str) {
   size_t cap = map->capacity;
   size_t idx = str->hash % cap;
   size_t step = 1;
-  while (NONEMPTY(map->table[idx])) {
+  while (map->table[idx] != NULL) {
     idx = (idx + step) % cap;
     step++;
   }
@@ -187,6 +200,7 @@ static u32 smap_hash(u8 *str, size_t size) {
  * @param str the string to remove.
  */
 void lstr_remove(lstring_t *str) {
+  assert(str->type == LSTR_GC);
   if (smap.table == NULL) {
     return;
   }
