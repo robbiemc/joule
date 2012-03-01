@@ -48,7 +48,7 @@ typedef struct lclosure {
     lfunc_t *lua;
     cfunc_t *c;
   } function;
-  luav upvalues[1]; /* TODO: why does this need to be 1? */
+  luav upvalues[1];
 } lclosure_t;
 
 typedef struct lframe {

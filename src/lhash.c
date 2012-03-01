@@ -2,8 +2,6 @@
  * @brief Hash table implementation
  *
  * Currently very simple, lots of room for optimization.
- *
- * TODO: iterate over metamethods in lhash_next
  */
 
 #include <assert.h>

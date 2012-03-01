@@ -441,7 +441,6 @@ static u32 lua_dofile(LSTATE) {
   if (argc == 0) {
     panic("Read from stdin? That's silly.");
   }
-  /* TODO: luac_parse_source() panics on error, should propogate error */
   lstring_t *filename = lstate_getstring(0);
   lfunc_t func;
   if (luac_parse_file(&func, filename->data) < 0) {
