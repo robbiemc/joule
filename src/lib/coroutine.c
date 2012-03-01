@@ -17,7 +17,7 @@
 #define CO_STACK_SIZE (16 * 1024)
 
 static lhash_t   *lua_coroutine;
-static lthread_t  main_thread;
+static lthread_t *main_thread;
 static lstack_t  *main_stack;
 static lthread_t *cur_thread;
 
@@ -38,13 +38,18 @@ static cfunc_t *co_wrapper_cf;
 static void coroutine_gc();
 
 INIT static void lua_coroutine_init() {
-  str_running     = LSTR("running");
-  str_suspended   = LSTR("suspended");
-  str_normal      = LSTR("normal");
-  str_dead        = LSTR("dead");
-  cur_thread      = &main_thread;
-  main_thread.env = lua_globals;
-  main_stack      = vm_stack;
+  str_running   = LSTR("running");
+  str_suspended = LSTR("suspended");
+  str_normal    = LSTR("normal");
+  str_dead      = LSTR("dead");
+  main_thread   = gc_alloc(sizeof(lthread_t), LTHREAD);
+  cur_thread    = main_thread;
+  main_stack    = vm_stack;
+
+  main_thread->env = lua_globals;
+  main_thread->caller = NULL;
+  main_thread->closure = NULL;
+  vm_stack_init(&main_thread->vm_stack, 1);
 
   lua_coroutine = gc_alloc(sizeof(lhash_t), LTABLE);
   lhash_init(lua_coroutine);
@@ -68,7 +73,7 @@ DESTROY static void lua_coroutine_destroy() {}
 
 static void coroutine_gc() {
   gc_traverse_pointer(cur_thread, LTHREAD);
-  gc_traverse_pointer(&main_thread, LTHREAD);
+  gc_traverse_pointer(main_thread, LTHREAD);
   gc_traverse_pointer(co_wrapper_cf, LCFUNC);
 }
 
@@ -82,7 +87,7 @@ void coroutine_changeenv(lthread_t *to) {
   cur_thread = to;
   to->status = CO_RUNNING;
   global_env = to->env;
-  if (to == &main_thread) {
+  if (to == main_thread) {
     vm_stack = main_stack;
   } else {
     vm_stack = &to->vm_stack;
@@ -173,7 +178,7 @@ lthread_t* coroutine_current() {
 }
 
 static u32 lua_co_running(LSTATE) {
-  if (cur_thread == &main_thread) {
+  if (cur_thread == main_thread) {
     lstate_return1(LUAV_NIL);
   }
   lstate_return1(lv_thread(cur_thread));
