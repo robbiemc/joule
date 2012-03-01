@@ -105,7 +105,7 @@ void err_explain(int err, lframe_t *frame) {
           len = sprintf(err_desc, "%.25s:%u: %s", func->file, func->lines[pc],
                         lv_caststring(err_value, 0)->data);
           err_desc[len] = 0;
-          err_value = lv_string(LSTR(err_desc));
+          err_value = lv_string(lstr_literal(err_desc, FALSE));
         }
       } else {
         len = sprintf(err_desc, "(error object is not a string)");
@@ -119,7 +119,7 @@ void err_explain(int err, lframe_t *frame) {
   if (err_catcher != NULL) {
     if (err != ERR_LUAV) {
       err_desc[len] = 0;
-      err_value = lv_string(LSTR(err_desc));
+      err_value = lv_string(lstr_literal(err_desc, FALSE));
     }
     _longjmp(*err_catcher, 1);
   }

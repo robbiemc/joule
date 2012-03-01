@@ -162,7 +162,7 @@ double lv_castnumberb(luav number, u32 base, u32 argnum) {
 int lv_parsenum(lstring_t *str, u32 base, double *value) {
   char *end;
   double num = base == 10 ? strtod(str->data, &end) :
-                            (double) strtoul(str->data, &end, (int) base);
+                            (double) strtoull(str->data, &end, (int) base);
 
   if (end == str->data) { return -1; }
   while (*end != 0 && isspace(*end)) end++;

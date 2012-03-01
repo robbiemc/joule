@@ -26,7 +26,7 @@
  */
 #define lv_file(fptr) ({                                      \
           luav _lf = lv_userdata(fptr);                       \
-          lhash_set(&userdata_meta, _lf, lv_table(&fd_meta)); \
+          lhash_set(userdata_meta, _lf, lv_table(fd_meta)); \
           _lf;                                                \
         })
 
@@ -39,11 +39,11 @@ static luav str_cur;
 static luav str_end;
 static luav str_file;
 static luav str_closed_file;
-static lhash_t fd_meta;
+static lhash_t *fd_meta;
 static FILE *default_out;
 static FILE *default_in;
 
-static lhash_t lua_io;
+static lhash_t *lua_io;
 static u32 lua_io_close(LSTATE);
 static u32 lua_io_flush(LSTATE);
 static u32 lua_io_input(LSTATE);
@@ -55,57 +55,51 @@ static u32 lua_io_seek(LSTATE);
 static u32 lua_io_read(LSTATE);
 static u32 lua_io_output(LSTATE);
 static u32 lua_io_type(LSTATE);
-
-static LUAF(lua_io_close);
-static LUAF(lua_io_flush);
-static LUAF(lua_io_input);
-static LUAF(lua_io_lines);
-static LUAF(lua_io_open);
-static LUAF(lua_io_write);
-static LUAF(lua_io_tmpfile);
-static LUAF(lua_io_seek);
-static LUAF(lua_io_read);
-static LUAF(lua_io_output);
-static LUAF(lua_io_type);
+static void io_gc();
 
 INIT static void lua_io_init() {
-  str_r = LSTR("r");
-  str_w = LSTR("w");
-  str_set = LSTR("set");
-  str_cur = LSTR("cur");
-  str_end = LSTR("end");
-  str_file = LSTR("file");
+  str_r           = LSTR("r");
+  str_w           = LSTR("w");
+  str_set         = LSTR("set");
+  str_cur         = LSTR("cur");
+  str_end         = LSTR("end");
+  str_file        = LSTR("file");
   str_closed_file = LSTR("closed file");
   str_open_failed = LSTR("Error opening file");
-  str_close_std = LSTR("cannot close standard file");
-  default_out = stdout;
-  default_in  = stdin;
+  str_close_std   = LSTR("cannot close standard file");
+  default_out     = stdout;
+  default_in      = stdin;
 
-  lhash_init(&fd_meta);
-  lhash_set(&fd_meta, META_METATABLE, LUAV_TRUE);
-  lhash_set(&fd_meta, META_INDEX, lv_table(&fd_meta));
-  lhash_set(&fd_meta, LSTR("write"), lv_function(&lua_io_write_f));
-  lhash_set(&fd_meta, LSTR("close"), lv_function(&lua_io_close_f));
-  lhash_set(&fd_meta, LSTR("seek"),  lv_function(&lua_io_seek_f));
-  lhash_set(&fd_meta, LSTR("read"),  lv_function(&lua_io_read_f));
+  lua_io  = gc_alloc(sizeof(lhash_t), LTABLE);
+  fd_meta = gc_alloc(sizeof(lhash_t), LTABLE);
+  lhash_init(lua_io);
+  cfunc_register(lua_io, "close",   lua_io_close);
+  cfunc_register(lua_io, "flush",   lua_io_flush);
+  cfunc_register(lua_io, "input",   lua_io_input);
+  cfunc_register(lua_io, "lines",   lua_io_lines);
+  cfunc_register(lua_io, "open",    lua_io_open);
+  cfunc_register(lua_io, "write",   lua_io_write);
+  cfunc_register(lua_io, "tmpfile", lua_io_tmpfile);
+  cfunc_register(lua_io, "output",  lua_io_output);
+  cfunc_register(lua_io, "type",    lua_io_type);
+  lhash_set(lua_io, LSTR("stdin"),  lv_file(default_in));
+  lhash_set(lua_io, LSTR("stdout"), lv_file(default_out));
 
-  lhash_init(&lua_io);
-  REGISTER(&lua_io, "close",   &lua_io_close_f);
-  REGISTER(&lua_io, "flush",   &lua_io_flush_f);
-  REGISTER(&lua_io, "input",   &lua_io_input_f);
-  REGISTER(&lua_io, "lines",   &lua_io_lines_f);
-  REGISTER(&lua_io, "open",    &lua_io_open_f);
-  REGISTER(&lua_io, "write",   &lua_io_write_f);
-  REGISTER(&lua_io, "tmpfile", &lua_io_tmpfile_f);
-  REGISTER(&lua_io, "output",  &lua_io_output_f);
-  REGISTER(&lua_io, "type",    &lua_io_type_f);
-  lhash_set(&lua_io, LSTR("stdin"), lv_file(default_in));
-  lhash_set(&lua_io, LSTR("stdout"), lv_file(default_out));
+  lhash_init(fd_meta);
+  lhash_set(fd_meta, META_METATABLE, LUAV_TRUE);
+  lhash_set(fd_meta, META_INDEX, lv_table(fd_meta));
+  lhash_set(fd_meta, LSTR("write"), lhash_get(lua_io, LSTR("write")));
+  lhash_set(fd_meta, LSTR("close"), lhash_get(lua_io, LSTR("close")));
+  cfunc_register(fd_meta, "seek", lua_io_seek);
+  cfunc_register(fd_meta, "read", lua_io_read);
 
-  lhash_set(&lua_globals, LSTR("io"), lv_table(&lua_io));
+  lhash_set(lua_globals, LSTR("io"), lv_table(lua_io));
+  gc_add_hook(io_gc);
 }
 
-DESTROY static void lua_io_destroy() {}
+static void io_gc() {
+  gc_traverse_pointer(fd_meta, LTABLE);
+}
 
 /**
  * @brief Closes an input file, defaulting to stdout
@@ -304,7 +298,7 @@ static u32 lua_io_seek(LSTATE) {
 
   if (fseek(f, offset, whence) != 0) {
     lstate_return(LUAV_NIL, 0);
-    lstate_return(lv_string(lstr_literal(strerror(errno))), 1);
+    lstate_return(lv_string(lstr_literal(strerror(errno), FALSE)), 1);
     return 2;
   }
   lstate_return1(lv_number((double) ftell(f)));

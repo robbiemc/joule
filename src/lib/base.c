@@ -27,6 +27,8 @@ static luav str_userdata;
 static luav str_thread;
 static luav str_hash;
 static luav str_metatable;
+static luav lua_next_f;
+static luav lua_nexti_f;
 static u32  lua_assert(LSTATE);
 static u32  lua_type(LSTATE);
 static u32  lua_tostring(LSTATE);
@@ -51,31 +53,7 @@ static u32  lua_getfenv(LSTATE);
 static u32  lua_setfenv(LSTATE);
 static u32  lua_rawequal(LSTATE);
 static u32  lua_loadfile(LSTATE);
-
-static LUAF(lua_assert);
-static LUAF(lua_type);
-static LUAF(lua_tostring);
-static LUAF(lua_print);
-static LUAF(lua_select);
-static LUAF(lua_tonumber);
-static LUAF(lua_rawget);
-static LUAF(lua_rawset);
-static LUAF(lua_setmetatable);
-static LUAF(lua_getmetatable);
-static LUAF(lua_loadstring);
-static LUAF(lua_pcall);
-static LUAF(lua_xpcall);
-static LUAF(lua_error);
-static LUAF(lua_next);
-static LUAF(lua_pairs);
-static LUAF(lua_nexti);
-static LUAF(lua_ipairs);
-static LUAF(lua_unpack);
-static LUAF(lua_dofile);
-static LUAF(lua_getfenv);
-static LUAF(lua_setfenv);
-static LUAF(lua_rawequal);
-static LUAF(lua_loadfile);
+static void lua_base_gc(void);
 
 INIT static void lua_utils_init() {
   str_number    = LSTR("number");
@@ -89,29 +67,38 @@ INIT static void lua_utils_init() {
   str_hash      = LSTR("#");
   str_metatable = LSTR("__metatable");
 
-  REGISTER(&lua_globals, "assert",        &lua_assert_f);
-  REGISTER(&lua_globals, "type",          &lua_type_f);
-  REGISTER(&lua_globals, "tostring",      &lua_tostring_f);
-  REGISTER(&lua_globals, "print",         &lua_print_f);
-  REGISTER(&lua_globals, "tonumber",      &lua_tonumber_f);
-  REGISTER(&lua_globals, "select",        &lua_select_f);
-  REGISTER(&lua_globals, "rawget",        &lua_rawget_f);
-  REGISTER(&lua_globals, "rawset",        &lua_rawset_f);
-  REGISTER(&lua_globals, "setmetatable",  &lua_setmetatable_f);
-  REGISTER(&lua_globals, "getmetatable",  &lua_getmetatable_f);
-  REGISTER(&lua_globals, "loadstring",    &lua_loadstring_f);
-  REGISTER(&lua_globals, "pcall",         &lua_pcall_f);
-  REGISTER(&lua_globals, "xpcall",        &lua_xpcall_f);
-  REGISTER(&lua_globals, "error",         &lua_error_f);
-  REGISTER(&lua_globals, "next",          &lua_next_f);
-  REGISTER(&lua_globals, "pairs",         &lua_pairs_f);
-  REGISTER(&lua_globals, "ipairs",        &lua_ipairs_f);
-  REGISTER(&lua_globals, "unpack",        &lua_unpack_f);
-  REGISTER(&lua_globals, "dofile",        &lua_dofile_f);
-  REGISTER(&lua_globals, "getfenv",       &lua_getfenv_f);
-  REGISTER(&lua_globals, "setfenv",       &lua_setfenv_f);
-  REGISTER(&lua_globals, "rawequal",      &lua_rawequal_f);
-  REGISTER(&lua_globals, "loadfile",      &lua_loadfile_f);
+  cfunc_register(lua_globals, "assert",        lua_assert);
+  cfunc_register(lua_globals, "type",          lua_type);
+  cfunc_register(lua_globals, "tostring",      lua_tostring);
+  cfunc_register(lua_globals, "print",         lua_print);
+  cfunc_register(lua_globals, "tonumber",      lua_tonumber);
+  cfunc_register(lua_globals, "select",        lua_select);
+  cfunc_register(lua_globals, "rawget",        lua_rawget);
+  cfunc_register(lua_globals, "rawset",        lua_rawset);
+  cfunc_register(lua_globals, "setmetatable",  lua_setmetatable);
+  cfunc_register(lua_globals, "getmetatable",  lua_getmetatable);
+  cfunc_register(lua_globals, "loadstring",    lua_loadstring);
+  cfunc_register(lua_globals, "pcall",         lua_pcall);
+  cfunc_register(lua_globals, "xpcall",        lua_xpcall);
+  cfunc_register(lua_globals, "error",         lua_error);
+  cfunc_register(lua_globals, "next",          lua_next);
+  cfunc_register(lua_globals, "pairs",         lua_pairs);
+  cfunc_register(lua_globals, "ipairs",        lua_ipairs);
+  cfunc_register(lua_globals, "unpack",        lua_unpack);
+  cfunc_register(lua_globals, "dofile",        lua_dofile);
+  cfunc_register(lua_globals, "getfenv",       lua_getfenv);
+  cfunc_register(lua_globals, "setfenv",       lua_setfenv);
+  cfunc_register(lua_globals, "rawequal",      lua_rawequal);
+  cfunc_register(lua_globals, "loadfile",      lua_loadfile);
+
+  lua_next_f = lhash_get(lua_globals, LSTR("next"));
+  lua_nexti_f = lv_function(cfunc_alloc(lua_nexti, "nexti", 0));
+  gc_add_hook(lua_base_gc);
+}
+
+static void lua_base_gc() {
+  gc_traverse(lua_next_f);
+  gc_traverse(lua_nexti_f);
 }
 
 static u32 lua_assert(LSTATE) {
@@ -412,7 +399,7 @@ static u32 lua_next(LSTATE) {
 }
 
 static u32 lua_pairs(LSTATE) {
-  lstate_return(lv_function(&lua_next_f), 0);
+  lstate_return(lua_next_f, 0);
   lstate_return(lv_table(lstate_gettable(0)), 1);
   lstate_return(LUAV_NIL, 2);
   return 3;
@@ -431,7 +418,7 @@ static u32 lua_nexti(LSTATE) {
 }
 
 static u32 lua_ipairs(LSTATE) {
-  lstate_return(lv_function(&lua_nexti_f), 0);
+  lstate_return(lua_nexti_f, 0);
   lstate_return(lv_table(lstate_gettable(0)), 1);
   lstate_return(lv_number(0), 2);
   return 3;
@@ -454,17 +441,16 @@ static u32 lua_dofile(LSTATE) {
   if (argc == 0) {
     panic("Read from stdin? That's silly.");
   }
-  /* TODO: luac_parse_source() panics on error, should propogate error */
   lstring_t *filename = lstate_getstring(0);
   lfunc_t func;
   if (luac_parse_file(&func, filename->data) < 0) {
     err_rawstr("Bad lua file.", 0);
   }
-  lclosure_t closure;
-  closure.function.lua = &func;
-  closure.type         = LUAF_LUA;
-  closure.env          = vm_running->closure->env;
-  return vm_fun(&closure, vm_running, 0, 0, retc, retvi);
+  lclosure_t *closure = gc_alloc(sizeof(lclosure_t), LFUNCTION);
+  closure->function.lua = &func;
+  closure->type         = LUAF_LUA;
+  closure->env          = vm_running->closure->env;
+  return vm_fun(closure, vm_running, 0, 0, retc, retvi);
 }
 
 static u32 lua_getfenv(LSTATE) {
@@ -532,9 +518,8 @@ static u32 lua_rawequal(LSTATE) {
 static u32 lua_loadfile(LSTATE) {
   lstring_t *fname = lstate_getstring(0);
 
-  lfunc_t *func = xmalloc(sizeof(lfunc_t));
+  lfunc_t *func = gc_alloc(sizeof(lfunc_t), LFUNC);
   if (luac_parse_file(func, fname->data) < 0) {
-    free(func);
     lstate_return(LUAV_NIL, 0);
     lstate_return(LSTR("Bad file"), 1);
     return 2;

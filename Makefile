@@ -1,5 +1,5 @@
 CC       = gcc
-CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g -m64 \
+CFLAGS   = -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g \
            -Wno-unused-parameter
 OBJDIR   = objs
 SRCDIR   = src
@@ -30,7 +30,7 @@ LUATESTS :=	tail factorial bool closure multipart bool2 math forint concat   \
 		loop sort func fib select math2 bisect cf printf select smallfun \
 		os strings coroutine2 sieve load pcall metabasic calls coroutine \
 		noglobals fibfor readonly echo constructs errors events literals \
-		closure2 closure3 nextvar coroutine-gc locals
+		closure2 closure3 nextvar cor coroutine-gc locals
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 
 BENCHTESTS :=	ackermann.lua-2 ary nbody nbody.lua-2 nbody.lua-4 hash fibo \
@@ -43,9 +43,6 @@ BENCHTESTS :=	ackermann.lua-2 ary nbody nbody.lua-2 nbody.lua-4 hash fibo \
 		binarytrees.lua-2 binarytrees.lua-3
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
-CTESTS := hash types
-CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
-
 .PHONY: bench clean
 
 all: joule
@@ -56,6 +53,8 @@ joule: $(OBJS) $(OBJDIR)/main.o
 # Run all lua tests
 test: $(LUATESTS:=test)
 	@echo -- All lua tests passed --
+btest: $(BENCHTESTS:=test)
+	@echo -- All benchmarks passed --
 leaks: $(BENCHTESTS:=leak)
 	@echo -- All leak tests passed --
 
@@ -88,11 +87,6 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.S
 $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
 	gcc $(CFLAGS) -M -MT $(@:.dep=.o) -MF $@ $<
-
-# Target for test executables
-$(OBJDIR)/%: $(OBJS) %.c
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -o $@ $^ -lm
 
 # Running a lua test
 %.luatest: joule

@@ -1,11 +1,12 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include "gc.h"
 #include "lhash.h"
 #include "lstate.h"
 #include "vm.h"
 
-static lhash_t lua_math;
+static lhash_t *lua_math;
 static u32 lua_math_abs(LSTATE);
 static u32 lua_math_acos(LSTATE);
 static u32 lua_math_asin(LSTATE);
@@ -36,75 +37,44 @@ static u32 lua_math_sqrt(LSTATE);
 static u32 lua_math_tan(LSTATE);
 static u32 lua_math_tanh(LSTATE);
 
-static LUAF(lua_math_abs);
-static LUAF(lua_math_acos);
-static LUAF(lua_math_asin);
-static LUAF(lua_math_atan);
-static LUAF(lua_math_atan2);
-static LUAF(lua_math_ceil);
-static LUAF(lua_math_cos);
-static LUAF(lua_math_cosh);
-static LUAF(lua_math_deg);
-static LUAF(lua_math_exp);
-static LUAF(lua_math_floor);
-static LUAF(lua_math_fmod);
-static LUAF(lua_math_frexp);
-static LUAF(lua_math_ldexp);
-static LUAF(lua_math_log);
-static LUAF(lua_math_log10);
-static LUAF(lua_math_max);
-static LUAF(lua_math_min);
-static LUAF(lua_math_mod);
-static LUAF(lua_math_modf);
-static LUAF(lua_math_pow);
-static LUAF(lua_math_rad);
-static LUAF(lua_math_random);
-static LUAF(lua_math_randomseed);
-static LUAF(lua_math_sin);
-static LUAF(lua_math_sinh);
-static LUAF(lua_math_sqrt);
-static LUAF(lua_math_tan);
-static LUAF(lua_math_tanh);
-
 INIT static void lua_math_init() {
-  lhash_init(&lua_math);
+  lua_math = gc_alloc(sizeof(lhash_t), LTABLE);
+  lhash_init(lua_math);
 
-  lhash_set(&lua_math, LSTR("pi"),    lv_number(M_PI));
-  lhash_set(&lua_math, LSTR("huge"),  lv_number(HUGE_VAL));
-  REGISTER(&lua_math, "abs",        &lua_math_abs_f);
-  REGISTER(&lua_math, "acos",       &lua_math_acos_f);
-  REGISTER(&lua_math, "asin",       &lua_math_asin_f);
-  REGISTER(&lua_math, "atan",       &lua_math_atan_f);
-  REGISTER(&lua_math, "atan2",      &lua_math_atan2_f);
-  REGISTER(&lua_math, "ceil",       &lua_math_ceil_f);
-  REGISTER(&lua_math, "cos",        &lua_math_cos_f);
-  REGISTER(&lua_math, "cosh",       &lua_math_cosh_f);
-  REGISTER(&lua_math, "deg",        &lua_math_deg_f);
-  REGISTER(&lua_math, "exp",        &lua_math_exp_f);
-  REGISTER(&lua_math, "floor",      &lua_math_floor_f);
-  REGISTER(&lua_math, "fmod",       &lua_math_fmod_f);
-  REGISTER(&lua_math, "frexp",      &lua_math_frexp_f);
-  REGISTER(&lua_math, "ldexp",      &lua_math_ldexp_f);
-  REGISTER(&lua_math, "log",        &lua_math_log_f);
-  REGISTER(&lua_math, "log10",      &lua_math_log10_f);
-  REGISTER(&lua_math, "min",        &lua_math_min_f);
-  REGISTER(&lua_math, "max",        &lua_math_max_f);
-  REGISTER(&lua_math, "mod",        &lua_math_mod_f);
-  REGISTER(&lua_math, "modf",       &lua_math_modf_f);
-  REGISTER(&lua_math, "pow",        &lua_math_pow_f);
-  REGISTER(&lua_math, "rad",        &lua_math_rad_f);
-  REGISTER(&lua_math, "random",     &lua_math_random_f);
-  REGISTER(&lua_math, "randomseed", &lua_math_randomseed_f);
-  REGISTER(&lua_math, "sin",        &lua_math_sin_f);
-  REGISTER(&lua_math, "sinh",       &lua_math_sinh_f);
-  REGISTER(&lua_math, "sqrt",       &lua_math_sqrt_f);
-  REGISTER(&lua_math, "tan",        &lua_math_tan_f);
-  REGISTER(&lua_math, "tanh",       &lua_math_tanh_f);
+  lhash_set(lua_math, LSTR("pi"),    lv_number(M_PI));
+  lhash_set(lua_math, LSTR("huge"),  lv_number(HUGE_VAL));
+  cfunc_register(lua_math, "abs",        lua_math_abs);
+  cfunc_register(lua_math, "acos",       lua_math_acos);
+  cfunc_register(lua_math, "asin",       lua_math_asin);
+  cfunc_register(lua_math, "atan",       lua_math_atan);
+  cfunc_register(lua_math, "atan2",      lua_math_atan2);
+  cfunc_register(lua_math, "ceil",       lua_math_ceil);
+  cfunc_register(lua_math, "cos",        lua_math_cos);
+  cfunc_register(lua_math, "cosh",       lua_math_cosh);
+  cfunc_register(lua_math, "deg",        lua_math_deg);
+  cfunc_register(lua_math, "exp",        lua_math_exp);
+  cfunc_register(lua_math, "floor",      lua_math_floor);
+  cfunc_register(lua_math, "fmod",       lua_math_fmod);
+  cfunc_register(lua_math, "frexp",      lua_math_frexp);
+  cfunc_register(lua_math, "ldexp",      lua_math_ldexp);
+  cfunc_register(lua_math, "log",        lua_math_log);
+  cfunc_register(lua_math, "log10",      lua_math_log10);
+  cfunc_register(lua_math, "min",        lua_math_min);
+  cfunc_register(lua_math, "max",        lua_math_max);
+  cfunc_register(lua_math, "mod",        lua_math_mod);
+  cfunc_register(lua_math, "modf",       lua_math_modf);
+  cfunc_register(lua_math, "pow",        lua_math_pow);
+  cfunc_register(lua_math, "rad",        lua_math_rad);
+  cfunc_register(lua_math, "random",     lua_math_random);
+  cfunc_register(lua_math, "randomseed", lua_math_randomseed);
+  cfunc_register(lua_math, "sin",        lua_math_sin);
+  cfunc_register(lua_math, "sinh",       lua_math_sinh);
+  cfunc_register(lua_math, "sqrt",       lua_math_sqrt);
+  cfunc_register(lua_math, "tan",        lua_math_tan);
+  cfunc_register(lua_math, "tanh",       lua_math_tanh);
 
-  lhash_set(&lua_globals, LSTR("math"), lv_table(&lua_math));
+  lhash_set(lua_globals, LSTR("math"), lv_table(lua_math));
 }
-
-DESTROY static void lua_math_destroy() {}
 
 static u32 lua_math_abs(LSTATE) {
   lstate_return1(lv_number(fabs(lstate_getnumber(0))));

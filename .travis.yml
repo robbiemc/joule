@@ -1,6 +1,5 @@
-before_script: make
 language: c
-script: "make ltest"
+script: "make test btest"
 
 branches:
   only:

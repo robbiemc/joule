@@ -2,8 +2,6 @@
  * @brief Hash table implementation
  *
  * Currently very simple, lots of room for optimization.
- *
- * TODO: iterate over metamethods in lhash_next
  */
 
 #include <assert.h>
@@ -105,8 +103,8 @@ luav lhash_get(lhash_t *map, luav key) {
   assert(!lv_isupvalue(key));
   if (key == LUAV_NIL) {
     return LUAV_NIL;
-  } else if (map == &lua_globals && key == str__G) {
-    return lv_table(&lua_globals);
+  } else if (map == lua_globals && key == str__G) {
+    return lv_table(lua_globals);
   }
 
   if (lv_isnumber(key)) {

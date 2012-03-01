@@ -17,11 +17,18 @@ typedef int64_t   i64;
 
 #define PACKED     __attribute__((packed))
 #define NORETURN   __attribute__((noreturn))
-#define EARLY(n)   __attribute__((constructor(200+n)))
-#define INIT       __attribute__((constructor(500)))
-#define DESTROY    __attribute__((destructor(500)))
-#define LATE(n)    __attribute__((destructor(200+n)))
 #define MUST_CHECK __attribute__((warn_unused_result))
+#if defined(__APPLE__) && !defined(__clang__)
+# define EARLY(n)   __attribute__((constructor))
+# define LATE(n)    __attribute__((destructor))
+# define INIT       __attribute__((constructor))
+# define DESTROY    __attribute__((destructor))
+#else
+# define EARLY(n)   __attribute__((constructor(200+n)))
+# define LATE(n)    __attribute__((destructor(200+n)))
+# define INIT       __attribute__((constructor(500)))
+# define DESTROY    __attribute__((destructor(500)))
+#endif
 
 #define INIT_HEAP_SIZE    (2 * 1024 * 1024)
 #define LUAV_INIT_STRING  100

@@ -48,7 +48,7 @@ typedef struct lclosure {
     lfunc_t *lua;
     cfunc_t *c;
   } function;
-  luav upvalues[1]; /* TODO: why does this need to be 1? */
+  luav upvalues[1];
 } lclosure_t;
 
 typedef struct lframe {
@@ -66,20 +66,12 @@ typedef struct lstack {
 
 #define LUAF_C    1
 #define LUAF_LUA  2
-#define CLOSURE_SIZE(num_upvalues) \
-  (sizeof(lclosure_t) + (num_upvalues) * sizeof(luav))
+#define CLOSURE_SIZE(upvalues) (sizeof(lclosure_t) + (upvalues) * sizeof(luav))
 
-#define LUAF(fun) \
-  cfunc_t fun ## _cf = {.f = fun, .upvalues = 0}; \
-  lclosure_t fun ## _f = {.type = LUAF_C, .function.c = &fun##_cf, \
-                          .env = &lua_globals}
+lclosure_t* cfunc_alloc(cfunction_t *f, char *name, int upvalues);
+void cfunc_register(struct lhash *table, char *name, cfunction_t *f);
 
-#define REGISTER(tbl, str, fun) {                 \
-    lhash_set(tbl, LSTR(str), lv_function(fun));  \
-    (fun)->function.c->name = str;                \
-  }
-
-extern struct lhash lua_globals;
+extern struct lhash *lua_globals;
 extern lframe_t *vm_running;
 extern lstack_t *vm_stack;
 extern struct lhash *global_env;

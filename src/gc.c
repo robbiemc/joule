@@ -16,17 +16,22 @@
 #include "gc.h"
 
 #define GC_HOOKS 50
-#define GC_NEXT(quad) ((void*) ((quad) & 0x00fffffffffffc))
-#define GC_TYPE(quad) ((int) (((quad) >> 56) & 0xff))
+#define GC_NEXT(header) ((void*) ((header)->bits & 0x00fffffffffffc))
+#define GC_TYPE(header) ((int) (((header)->bits >> 56) & 0xff))
 #define GC_BUILD(next, type) ((u64) (next) | (((u64) (type)) << 56))
-#define GC_ISBLACK(ptr) (*((u64*) (ptr) - 1) & 1)
-#define GC_SETBLACK(ptr) (*((u64*) (ptr) - 1) |= 1)
+#define GC_ISBLACK(ptr) (((gc_header_t*) (ptr) - 1)->bits & 1)
+#define GC_SETBLACK(ptr) (((gc_header_t*) (ptr) - 1)->bits |= 1)
+
+typedef struct gc_header {
+  u64 bits;
+  size_t size;
+} gc_header_t;
 
 /* Heap metadata */
 static size_t heap_limit = INIT_HEAP_SIZE;
 static size_t heap_size  = 0;
 static size_t heap_last  = 0;
-static u64   *gc_head    = NULL;
+static gc_header_t *gc_head = NULL;
 
 /* Hook stuff */
 static gchook_t* gc_hooks[GC_HOOKS];
@@ -59,7 +64,7 @@ void gc_add_hook(gchook_t *hook) {
 }
 
 void *gc_alloc(size_t size, int type) {
-  size += sizeof(u64);
+  size += sizeof(gc_header_t);
 
   /* check if we need to garbage collect */
   if (heap_size + size >= heap_limit) {
@@ -77,34 +82,36 @@ void *gc_alloc(size_t size, int type) {
   assert(heap_size < heap_limit);
 
   /* allocate the block */
-  u64 *block = malloc(size);
-  xassert(block != NULL);
-  *block = GC_BUILD(gc_head, type);
+  gc_header_t *block = xmalloc(size);
+  block->bits = GC_BUILD(gc_head, type);
+  block->size = size;
   gc_head = block;
-  return (void*) (block + 1);
+  return block + 1;
 }
 
 void *gc_realloc(void *_addr, size_t newsize) {
-  u64 *addr = ((u64*) _addr) - 1;
-  u64 header = *addr;
-  u64 *addr2 = realloc(addr, newsize + sizeof(u64));
-  xassert(addr2 != NULL);
+  newsize += sizeof(gc_header_t);
+  gc_header_t *addr = ((gc_header_t*) _addr) - 1;
+  u64 bits = addr->bits;
+  heap_size += newsize - addr->size;
+  gc_header_t *addr2 = xrealloc(addr, newsize);
   if (addr2 != addr) {
     /* Find our location in the list, and update our "previous" pointer */
     if (gc_head == addr) {
       gc_head = addr2;
     } else {
-      u64 *prev = gc_head;
-      u64 *cur = gc_head;
+      gc_header_t *prev = gc_head;
+      gc_header_t *cur = gc_head;
       while (cur != addr) {
         prev = cur;
-        cur = GC_NEXT(*cur);
+        cur = GC_NEXT(cur);
       }
-      *prev = GC_BUILD(addr2, GC_TYPE(header));
+      prev->bits = GC_BUILD(addr2, GC_TYPE(prev));
     }
     /* Now fix our "next" pointer */
-    *addr2 = header;
+    addr2->bits = bits;
   }
+  addr2->size = newsize;
   return addr2 + 1;
 }
 
@@ -114,7 +121,7 @@ void *gc_realloc(void *_addr, size_t newsize) {
 void garbage_collect() {
   /* Sanity check to make sure we don't GC in GC */
   static int in_gc = 0;
-  assert(!in_gc);
+  xassert(!in_gc);
   in_gc = 1;
 
   /* Run all hooks */
@@ -123,27 +130,28 @@ void garbage_collect() {
     gc_hooks[i]();
   }
 
-  u64 *to_finalize = NULL;
-  u64 *cur = gc_head;
+  gc_header_t *to_finalize = NULL;
+  gc_header_t *cur = gc_head;
+  gc_header_t *nxt;
   gc_head = NULL;
 
   /* Move everything in the current list onto one of gc_head or the to_finalize
      list */
   while (cur != NULL) {
-    u64 header = *cur;
+    nxt = GC_NEXT(cur);
     if (GC_ISBLACK(cur + 1)) {
-      *cur = GC_BUILD(gc_head, GC_TYPE(header));
+      cur->bits = GC_BUILD(gc_head, GC_TYPE(cur));
       gc_head = cur;
     } else {
-      *cur = GC_BUILD(to_finalize, GC_TYPE(header));
+      cur->bits = GC_BUILD(to_finalize, GC_TYPE(cur));
       to_finalize = cur;
     }
-    cur = GC_NEXT(header);
+    cur = nxt;
   }
 
   while (to_finalize != NULL) {
-    u64 header = *to_finalize;
-    switch (GC_TYPE(header)) {
+    nxt = GC_NEXT(to_finalize);
+    switch (GC_TYPE(to_finalize)) {
       case LSTRING:
         lstr_remove((lstring_t*) (to_finalize + 1));
         break;
@@ -151,8 +159,11 @@ void garbage_collect() {
         coroutine_free((lthread_t*) (to_finalize + 1));
         break;
     }
+    heap_size -= to_finalize->size;
+    assert((ssize_t) heap_size >= 0);
+    memset(to_finalize, 0x42, to_finalize->size);
     free(to_finalize);
-    to_finalize = GC_NEXT(header);
+    to_finalize = nxt;
   }
 
   in_gc = 0;
@@ -175,6 +186,19 @@ void gc_traverse(luav val) {
     case LUPVALUE:
       gc_traverse_pointer(lv_getptr(val), type);
       break;
+
+    case LFUNC:
+    case LCFUNC:
+      panic("bad item to gc_traverse");
+
+    case LNUMBER:
+    case LBOOLEAN:
+    case LNIL:
+    case LUSERDATA:
+      break;
+
+    default:
+      panic("bad type in gc: %d\n", type);
   }
 }
 
@@ -187,23 +211,17 @@ void gc_traverse(luav val) {
  * @return the new location of the pointer, possibly the same value
  */
 void gc_traverse_pointer(void *_ptr, int type) {
-  if (_ptr == NULL || (_ptr > exec_edata() && GC_ISBLACK(_ptr))) {
+  if (_ptr == NULL || GC_ISBLACK(_ptr)) {
     return;
-  } else if (_ptr > exec_end()) {
-    GC_SETBLACK(_ptr);
   }
+  GC_SETBLACK(_ptr);
 
   switch (type) {
     case LSTRING:
-      break; /* no recursion */
+      break; /* no need for recursion */
 
     case LTABLE: {
       lhash_t *hash = _ptr;
-      if ((hash->array != NULL && GC_ISBLACK(hash->array)) ||
-          (hash->table != NULL && GC_ISBLACK(hash->table))) {
-        break;
-      }
-
       size_t i;
       gc_traverse_pointer(hash->metatable, LTABLE);
       /* copy over the array */
@@ -241,6 +259,8 @@ void gc_traverse_pointer(void *_ptr, int type) {
       }
       if (func->type == LUAF_LUA) {
         gc_traverse_pointer(func->function.lua, LFUNC);
+      } else if (func->type == LUAF_C){
+        gc_traverse_pointer(func->function.c, LCFUNC);
       }
       break;
     }
@@ -282,13 +302,18 @@ void gc_traverse_pointer(void *_ptr, int type) {
       break;
     }
 
+    /* Nothing to do here once it's marked black */
+    case LCFUNC:
+      break;
+
     case LNUMBER:
     case LBOOLEAN:
     case LNIL:
     case LUSERDATA:
     default:
-      panic("not a pointer");
+      panic("not a pointer type: %d", type);
   }
+
 }
 
 void gc_traverse_stack(lstack_t *stack) {

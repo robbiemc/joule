@@ -1,8 +1,10 @@
 #include <assert.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
+#include "gc.h"
 #include "lhash.h"
 #include "lstate.h"
 #include "luav.h"
@@ -87,7 +89,7 @@
   }
 
 static luav str_empty;
-static lhash_t lua_string;
+static lhash_t *lua_string;
 static u32 lua_string_format(LSTATE);
 static u32 lua_string_rep(LSTATE);
 static u32 lua_string_sub(LSTATE);
@@ -100,36 +102,24 @@ static u32 lua_string_char(LSTATE);
 static u32 lua_string_find(LSTATE);
 static char errbuf[200];
 
-static LUAF(lua_string_format);
-static LUAF(lua_string_rep);
-static LUAF(lua_string_sub);
-static LUAF(lua_string_len);
-static LUAF(lua_string_upper);
-static LUAF(lua_string_lower);
-static LUAF(lua_string_reverse);
-static LUAF(lua_string_byte);
-static LUAF(lua_string_char);
-static LUAF(lua_string_find);
-
 INIT static void lua_string_init() {
-  str_empty = LSTR("");
+  str_empty = lv_string(lstr_empty());
 
-  lhash_init(&lua_string);
-  REGISTER(&lua_string, "format",  &lua_string_format_f);
-  REGISTER(&lua_string, "rep",     &lua_string_rep_f);
-  REGISTER(&lua_string, "sub",     &lua_string_sub_f);
-  REGISTER(&lua_string, "len",     &lua_string_len_f);
-  REGISTER(&lua_string, "lower",   &lua_string_lower_f);
-  REGISTER(&lua_string, "upper",   &lua_string_upper_f);
-  REGISTER(&lua_string, "reverse", &lua_string_reverse_f);
-  REGISTER(&lua_string, "byte",    &lua_string_byte_f);
-  REGISTER(&lua_string, "char",    &lua_string_char_f);
-  REGISTER(&lua_string, "find",    &lua_string_find_f);
+  lua_string = gc_alloc(sizeof(lhash_t), LTABLE);
+  lhash_init(lua_string);
+  cfunc_register(lua_string, "format",  lua_string_format);
+  cfunc_register(lua_string, "rep",     lua_string_rep);
+  cfunc_register(lua_string, "sub",     lua_string_sub);
+  cfunc_register(lua_string, "len",     lua_string_len);
+  cfunc_register(lua_string, "lower",   lua_string_lower);
+  cfunc_register(lua_string, "upper",   lua_string_upper);
+  cfunc_register(lua_string, "reverse", lua_string_reverse);
+  cfunc_register(lua_string, "byte",    lua_string_byte);
+  cfunc_register(lua_string, "char",    lua_string_char);
+  cfunc_register(lua_string, "find",    lua_string_find);
 
-  lhash_set(&lua_globals, LSTR("string"), lv_table(&lua_string));
+  lhash_set(lua_globals, LSTR("string"), lv_table(lua_string));
 }
-
-DESTROY static void lua_string_destroy() {}
 
 static u32 lua_string_format(LSTATE) {
   lstring_t *lfmt = lstate_getstring(0);
@@ -181,13 +171,13 @@ static u32 lua_string_format(LSTATE) {
       case 'u':
       case 'x':
       case 'X': {
-        /* Make sure the format has an 'l' in front so it actually uses the
-           longer forms to print out more bits */
+        /* Use the generic PRIu64 macro to print a 64-bit argument, but change
+           the last character to whatever format we specified. */
         u32 end = i - start;
-        buf[end + 1] = buf[end];
-        buf[end + 2] = 0;
-        buf[end] = 'l';
-        SNPRINTF(newstr, len, buf, (size_t) lstate_getnumber(argi));
+        buf[end + sizeof(PRIu64) - 1] = 0;
+        memcpy(&buf[end], PRIu64, sizeof(PRIu64) - 1);
+        buf[end + sizeof(PRIu64) - 2] = fmt[i];
+        SNPRINTF(newstr, len, buf, (i64) lstate_getnumber(argi));
         break;
       }
 

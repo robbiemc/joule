@@ -10,38 +10,32 @@
 #include <string.h>
 
 #include "config.h"
+#include "gc.h"
 #include "lhash.h"
 #include "lstate.h"
 #include "vm.h"
 
+static lhash_t *lua_table;
 static u32 lua_table_getn(LSTATE);
 static u32 lua_table_maxn(LSTATE);
 static u32 lua_table_insert(LSTATE);
 static u32 lua_table_remove(LSTATE);
 static u32 lua_table_sort(LSTATE);
 static u32 lua_table_concat(LSTATE);
-static LUAF(lua_table_getn);
-static LUAF(lua_table_maxn);
-static LUAF(lua_table_insert);
-static LUAF(lua_table_remove);
-static LUAF(lua_table_sort);
-static LUAF(lua_table_concat);
-static lhash_t lua_table;
 
 INIT void lua_table_init() {
-  lhash_init(&lua_table);
+  lua_table = gc_alloc(sizeof(lhash_t), LTABLE);
+  lhash_init(lua_table);
 
-  REGISTER(&lua_table, "getn",   &lua_table_getn_f);
-  REGISTER(&lua_table, "maxn",   &lua_table_maxn_f);
-  REGISTER(&lua_table, "insert", &lua_table_insert_f);
-  REGISTER(&lua_table, "remove", &lua_table_remove_f);
-  REGISTER(&lua_table, "sort",   &lua_table_sort_f);
-  REGISTER(&lua_table, "concat", &lua_table_concat_f);
+  cfunc_register(lua_table, "getn",   lua_table_getn);
+  cfunc_register(lua_table, "maxn",   lua_table_maxn);
+  cfunc_register(lua_table, "insert", lua_table_insert);
+  cfunc_register(lua_table, "remove", lua_table_remove);
+  cfunc_register(lua_table, "sort",   lua_table_sort);
+  cfunc_register(lua_table, "concat", lua_table_concat);
 
-  lhash_set(&lua_globals, LSTR("table"), lv_table(&lua_table));
+  lhash_set(lua_globals, LSTR("table"), lv_table(lua_table));
 }
-
-DESTROY void lua_table_destroy() {}
 
 /**
  * @brief Same as the '#' operator for a table

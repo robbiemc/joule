@@ -72,7 +72,7 @@ int luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin) {
  * @param filename the filename to open
  */
 int luac_parse_file(lfunc_t *func, char *filename) {
-  char cmd_prefix[] = "luac -o - ";
+  char cmd_prefix[] = "luac -o - -- ";
   char *cmd = xmalloc(sizeof(cmd_prefix) + strlen(filename) + 1);
   strcpy(cmd, cmd_prefix);
   strcpy(cmd + sizeof(cmd_prefix) - 1, filename);
@@ -103,7 +103,7 @@ int luac_parse_bytecode(lfunc_t *func, int fd, char *filename) {
   if (header.format      != 0)              return -1;
   if (header.endianness  != 1)              return -1; // 1 = little endian
   if (header.int_size    != sizeof(int))    return -1;
-  if (header.size_t_size != sizeof(size_t)) return -1;
+  if (header.size_t_size != 8)              return -1;
   if (header.instr_size  != 4)              return -1;
   if (header.num_size    != sizeof(double)) return -1;
   if (header.int_flag    != 0)              return -1; // 0 = doubles
@@ -128,19 +128,19 @@ static int luac_skip(int fd, size_t len) {
 }
 
 static lstring_t *luac_read_string_(int fd) {
-  size_t len = xread8(fd);
+  size_t len = (size_t) xread8(fd);
   if (len <= 1) {
     if (len == 1) xassert(xread1(fd) == 0);
     return lstr_empty();
   }
-  lstring_t *str = lstr_alloc(len-1);
+  lstring_t *str = lstr_alloc(len - 1);
   xread(fd, str->data, len);
   return lstr_add(str);
 fderr:
   return NULL;
 }
 
-#define luac_skip_string(fd) luac_skip(fd, xread8(fd));
+#define luac_skip_string(fd) luac_skip(fd, (size_t) xread8(fd));
 #define luac_read_string(fd) ({                     \
           lstring_t *str = luac_read_string_(fd);   \
           if (str == NULL) goto fderr;              \
@@ -218,8 +218,9 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
   }
   // skip upvalues debug data
   size = xread4(fd);
-  for (i = 0; i < size; i++)
+  for (i = 0; i < size; i++) {
     luac_skip_string(fd);
+  }
 
   return 0;
 fderr:
