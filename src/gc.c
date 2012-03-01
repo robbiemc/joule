@@ -186,6 +186,19 @@ void gc_traverse(luav val) {
     case LUPVALUE:
       gc_traverse_pointer(lv_getptr(val), type);
       break;
+
+    case LFUNC:
+    case LCFUNC:
+      panic("bad item to gc_traverse");
+
+    case LNUMBER:
+    case LBOOLEAN:
+    case LNIL:
+    case LUSERDATA:
+      break;
+
+    default:
+      panic("bad type in gc: %d\n", type);
   }
 }
 
@@ -205,7 +218,7 @@ void gc_traverse_pointer(void *_ptr, int type) {
 
   switch (type) {
     case LSTRING:
-      break; /* no recursion */
+      break; /* no need for recursion */
 
     case LTABLE: {
       lhash_t *hash = _ptr;
@@ -298,7 +311,7 @@ void gc_traverse_pointer(void *_ptr, int type) {
     case LNIL:
     case LUSERDATA:
     default:
-      panic("not a pointer");
+      panic("not a pointer type: %d", type);
   }
 
 }

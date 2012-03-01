@@ -76,7 +76,7 @@ void dbg_dump_luav(FILE *out, luav value) {
       pr("\"");
       return;
   }
-  panic("lv_gettype seems to be broken...");
+  panic("lv_gettype seems to be broken... %d", lv_gettype(value));
 }
 
 static void dbg_dump_lstring(FILE *out, lstring_t *str) {
