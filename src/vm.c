@@ -127,8 +127,8 @@ DESTROY static void vm_destroy() {
 static void vm_gc() {
   /* Traverse all our globals */
   gc_traverse_stack(&init_stack);
-  gc_traverse_pointer(&lua_globals, LTABLE);
-  gc_traverse_pointer(&userdata_meta, LTABLE);
+  gc_traverse_pointer(lua_globals, LTABLE);
+  gc_traverse_pointer(userdata_meta, LTABLE);
   gc_traverse_pointer(global_env, LTABLE);
 
   /* Keep the call stack around */
