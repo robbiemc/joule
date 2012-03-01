@@ -1,5 +1,9 @@
 language: c
-script: "make test btest"
+script: "make test"
+
+env:
+  - BUILD=opt
+  - BUILD=dbg
 
 branches:
   only:
