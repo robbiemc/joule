@@ -55,6 +55,8 @@ joule: $(OBJS) $(OBJDIR)/main.o
 # Run all lua tests
 test: $(LUATESTS:=test)
 	@echo -- All lua tests passed --
+btest: $(BENCHTESTS:=test)
+	@echo -- All benchmarks passed --
 leaks: $(BENCHTESTS:=leak)
 	@echo -- All leak tests passed --
 
