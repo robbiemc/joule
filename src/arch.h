@@ -2,7 +2,7 @@
 #define _ARCH_H
 
 #if !defined(__x86_64) && !defined(__i386)
-#error Don't currently support this architecture
+#error Current architecture not supported
 #endif
 
 #ifdef __APPLE__
