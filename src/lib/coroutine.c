@@ -46,10 +46,11 @@ INIT static void lua_coroutine_init() {
   cur_thread    = main_thread;
   main_stack    = vm_stack;
 
-  main_thread->env = lua_globals;
-  main_thread->caller = NULL;
-  main_thread->closure = NULL;
-  vm_stack_init(&main_thread->vm_stack, 1);
+  main_thread->env           = lua_globals;
+  main_thread->caller        = NULL;
+  main_thread->closure       = NULL;
+  main_thread->vm_stack.size = 0;
+  main_thread->stack         = NULL;
 
   lua_coroutine = gc_alloc(sizeof(lhash_t), LTABLE);
   lhash_init(lua_coroutine);
