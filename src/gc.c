@@ -16,9 +16,9 @@
 #include "gc.h"
 
 #define GC_HOOKS 50
-#define GC_NEXT(header) ((void*) ((header)->bits & 0x00fffffffffffc))
+#define GC_NEXT(header) ((void*) (size_t) ((header)->bits & 0x00fffffffffffc))
 #define GC_TYPE(header) ((int) (((header)->bits >> 56) & 0xff))
-#define GC_BUILD(next, type) ((u64) (next) | (((u64) (type)) << 56))
+#define GC_BUILD(next, type) ((u64) (size_t) (next) | (((u64) (type)) << 56))
 #define GC_ISBLACK(ptr) (((gc_header_t*) (ptr) - 1)->bits & 1)
 #define GC_SETBLACK(ptr) (((gc_header_t*) (ptr) - 1)->bits |= 1)
 
