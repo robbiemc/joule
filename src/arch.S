@@ -35,21 +35,24 @@ ENTRY(arch_coroutine_swap)
 
 #else
 
-/* 4(%esp) = where to save %rsp, 8(%esp) = new %esp */
+/* 4(%esp) = where to save %esp, 8(%esp) = new %esp */
 ENTRY(arch_coroutine_swap)
   /* Save callee-saved registers */
-  push %eax
-  push %ecx
-  push %edx
+  push %ebp
+  push %ebx
+  push %edi
+  push %esi
 
   /* Change contexts */
-  mov %esp, 16(%esp)
-  mov 20(%esp), %esp
+  mov 20(%esp), %eax
+  mov %esp, (%eax)
+  mov 24(%esp), %esp
 
   /* Restore registers */
-  pop %edx
-  pop %ecx
-  pop %eax
+  pop %esi
+  pop %edi
+  pop %ebx
+  pop %ebp
 
   ret
 

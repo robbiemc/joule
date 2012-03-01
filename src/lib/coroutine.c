@@ -124,16 +124,17 @@ static u32 lua_co_create(LSTATE) {
   thread->caller  = NULL;
   thread->closure = function;
   thread->env     = cur_thread->env;
-  thread->argvi = 0;
-  thread->argc = 0;
+  thread->argvi   = 0;
+  thread->argc    = 0;
   vm_stack_init(&thread->vm_stack, 20);
 
   size_t *stack = (size_t*) ((size_t) thread->stack + CO_STACK_SIZE);
   /* Bogus return address, and then actual address to return to */
-  memset(stack - 8, 0, sizeof(size_t) * 8);
+  size_t spaces = CALLEE_REGS + 2;
+  memset(stack - spaces, 0, sizeof(size_t) * spaces);
   *(stack - 1) = 0;
   *(stack - 2) = (size_t) coroutine_wrapper;
-  thread->curstack = stack - 8; /* 6 callee regs, and two return addresses */
+  thread->curstack = stack - spaces;
 
   lstate_return1(lv_thread(thread));
 }
