@@ -72,7 +72,7 @@ int luac_parse_string(lfunc_t *func, char *code, size_t csz, char *origin) {
  * @param filename the filename to open
  */
 int luac_parse_file(lfunc_t *func, char *filename) {
-  char cmd_prefix[] = "luac -o - ";
+  char cmd_prefix[] = "luac -o - -- ";
   char *cmd = xmalloc(sizeof(cmd_prefix) + strlen(filename) + 1);
   strcpy(cmd, cmd_prefix);
   strcpy(cmd + sizeof(cmd_prefix) - 1, filename);
