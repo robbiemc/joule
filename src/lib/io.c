@@ -55,6 +55,7 @@ static u32 lua_io_seek(LSTATE);
 static u32 lua_io_read(LSTATE);
 static u32 lua_io_output(LSTATE);
 static u32 lua_io_type(LSTATE);
+static void io_gc();
 
 INIT static void lua_io_init() {
   str_r           = LSTR("r");
@@ -93,9 +94,12 @@ INIT static void lua_io_init() {
   cfunc_register(fd_meta, "read", lua_io_read);
 
   lhash_set(lua_globals, LSTR("io"), lv_table(lua_io));
+  gc_add_hook(io_gc);
 }
 
-DESTROY static void lua_io_destroy() {}
+static void io_gc() {
+  gc_traverse_pointer(fd_meta, LTABLE);
+}
 
 /**
  * @brief Closes an input file, defaulting to stdout
