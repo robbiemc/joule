@@ -42,8 +42,8 @@ static void gc_keep_strings();
 EARLY(0) static void lstr_init() {
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
   initialized = 1;
-  empty = lstr_literal("", 1);
   keep.limit = 0;
+  empty = lstr_literal("", 1);
   gc_add_hook(gc_keep_strings);
 }
 
