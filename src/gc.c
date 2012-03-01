@@ -160,7 +160,7 @@ void garbage_collect() {
         break;
     }
     heap_size -= to_finalize->size;
-    assert(heap_size >= 0);
+    assert((ssize_t) heap_size >= 0);
     memset(to_finalize, 0x42, to_finalize->size);
     free(to_finalize);
     to_finalize = nxt;
