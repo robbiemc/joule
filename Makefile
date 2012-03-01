@@ -40,7 +40,7 @@ BENCHTESTS :=	ackermann.lua-2 ary nbody nbody.lua-2 nbody.lua-4 hash fibo \
 		message.lua-2 harmonic fannkuchredux fasta fannkuch         \
 		fannkuch.lua-2 chameneos except hash2 methcall strcat lists \
 		objinst                                                     \
-		binarytrees.lua-2 ackermann.lua-3
+		binarytrees.lua-2 binarytrees.lua-3
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
 .PHONY: bench clean
