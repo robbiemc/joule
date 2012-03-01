@@ -37,8 +37,6 @@ INIT void lua_table_init() {
   lhash_set(lua_globals, LSTR("table"), lv_table(lua_table));
 }
 
-DESTROY void lua_table_destroy() {}
-
 /**
  * @brief Same as the '#' operator for a table
  *

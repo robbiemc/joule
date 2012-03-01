@@ -69,8 +69,6 @@ INIT static void lua_coroutine_init() {
   co_wrapper_cf->name = "do not see";
 }
 
-DESTROY static void lua_coroutine_destroy() {}
-
 static void coroutine_gc() {
   gc_traverse_pointer(cur_thread, LTHREAD);
   gc_traverse_pointer(main_thread, LTHREAD);

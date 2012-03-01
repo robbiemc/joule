@@ -75,8 +75,6 @@ INIT static void lua_os_init() {
   lhash_set(lua_globals, LSTR("os"), lv_table(lua_os));
 }
 
-DESTROY static void lua_os_destroy() {}
-
 static u32 lua_os_clock(LSTATE) {
   clock_t c = clock();
   lstate_return1(lv_number((double) c / CLOCKS_PER_SEC));

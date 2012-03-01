@@ -76,8 +76,6 @@ INIT static void lua_math_init() {
   lhash_set(lua_globals, LSTR("math"), lv_table(lua_math));
 }
 
-DESTROY static void lua_math_destroy() {}
-
 static u32 lua_math_abs(LSTATE) {
   lstate_return1(lv_number(fabs(lstate_getnumber(0))));
 }
