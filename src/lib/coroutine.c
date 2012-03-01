@@ -60,7 +60,7 @@ INIT static void lua_coroutine_init() {
 
   co_wrapper_cf = gc_alloc(sizeof(cfunc_t), LCFUNC);
   co_wrapper_cf->f = co_wrap_trampoline;
-  co_wrapper_cf->upvalues = 0;
+  co_wrapper_cf->upvalues = 1;
   co_wrapper_cf->name = "do not see";
 }
 
