@@ -7,6 +7,8 @@
 #define ENTRY(n) .globl CONCAT1(__USER_LABEL_PREFIX__, n);\
                  CONCAT1(__USER_LABEL_PREFIX__, n) ##:
 
+#ifdef __x86_64
+
 /* %rdi = where to save %rsp, %rsi = new %rsp */
 ENTRY(arch_coroutine_swap)
   /* Save callee-saved registers */
@@ -30,3 +32,25 @@ ENTRY(arch_coroutine_swap)
   pop %rbp
 
   ret
+
+#else
+
+/* 4(%esp) = where to save %rsp, 8(%esp) = new %esp */
+ENTRY(arch_coroutine_swap)
+  /* Save callee-saved registers */
+  push %eax
+  push %ecx
+  push %edx
+
+  /* Change contexts */
+  mov %esp, 16(%esp)
+  mov 20(%esp), %esp
+
+  /* Restore registers */
+  pop %edx
+  pop %ecx
+  pop %eax
+
+  ret
+
+#endif

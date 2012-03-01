@@ -1,8 +1,8 @@
 #ifndef _ARCH_H
 #define _ARCH_H
 
-#ifndef __x86_64
-#error Nothing works on archs other than x86-64 yet.
+#if !defined(__x86_64) && !defined(__i386)
+#error Don't currently support this architecture
 #endif
 
 #ifdef __APPLE__
