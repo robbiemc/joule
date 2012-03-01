@@ -518,9 +518,8 @@ static u32 lua_rawequal(LSTATE) {
 static u32 lua_loadfile(LSTATE) {
   lstring_t *fname = lstate_getstring(0);
 
-  lfunc_t *func = xmalloc(sizeof(lfunc_t));
+  lfunc_t *func = gc_alloc(sizeof(lfunc_t), LFUNC);
   if (luac_parse_file(func, fname->data) < 0) {
-    free(func);
     lstate_return(LUAV_NIL, 0);
     lstate_return(LSTR("Bad file"), 1);
     return 2;
