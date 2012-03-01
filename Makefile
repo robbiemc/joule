@@ -42,9 +42,6 @@ BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2         \
 							binarytrees.lua-3 except hash2 methcall strcat lists objinst
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
-CTESTS := hash types
-CTESTS := $(CTESTS:%=$(OBJDIR)/$(CTESTDIR)/%)
-
 .PHONY: bench clean
 
 all: joule
@@ -89,11 +86,6 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.S
 $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
 	gcc $(CFLAGS) -M -MT $(@:.dep=.o) -MF $@ $<
-
-# Target for test executables
-$(OBJDIR)/%: $(OBJS) %.c
-	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -o $@ $^ -lm
 
 # Running a lua test
 %.luatest: joule
