@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -181,13 +182,13 @@ static u32 lua_string_format(LSTATE) {
       case 'u':
       case 'x':
       case 'X': {
-        /* Make sure the format has an 'l' in front so it actually uses the
-           longer forms to print out more bits */
+        /* Use the generic PRIu64 macro to print a 64-bit argument, but change
+           the last character to whatever format we specified. */
         u32 end = i - start;
-        buf[end + 1] = buf[end];
-        buf[end + 2] = 0;
-        buf[end] = 'l';
-        SNPRINTF(newstr, len, buf, (size_t) lstate_getnumber(argi));
+        buf[end + sizeof(PRIu64) - 1] = 0;
+        memcpy(&buf[end], PRIu64, sizeof(PRIu64) - 1);
+        buf[end + sizeof(PRIu64) - 2] = fmt[i];
+        SNPRINTF(newstr, len, buf, (i64) lstate_getnumber(argi));
         break;
       }
 
