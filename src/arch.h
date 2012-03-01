@@ -5,18 +5,6 @@
 #error Current architecture not supported
 #endif
 
-#ifdef __APPLE__
-# include <mach-o/getsect.h>
-# define exec_etext() ((void*) get_etext())
-# define exec_edata() ((void*) get_edata())
-# define exec_end()   ((void*) get_end())
-#else
-extern char etext, edata, end;
-# define exec_etext() ((void*) &etext)
-# define exec_edata() ((void*) &edata)
-# define exec_end()   ((void*) &end)
-#endif
-
 #if defined(__x86_64)
 # define CALLEE_REGS 6
 #elif defined(__i386)

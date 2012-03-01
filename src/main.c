@@ -15,8 +15,6 @@
 
 #define SET(i,str) (strcmp(argv[(i)], (str)) == 0)
 
-static lhash_t lua_arg;
-
 lflags_t flags;
 
 static int parse_args(int argc, char **argv) {
@@ -37,12 +35,14 @@ static int parse_args(int argc, char **argv) {
 }
 
 static void register_argv(int bias, int argc, char **argv) {
-  lhash_init(&lua_arg);
-  lhash_set(&lua_globals, LSTR("arg"), lv_table(&lua_arg));
+  lhash_t *args = gc_alloc(sizeof(lhash_t), LTABLE);
+  lhash_init(args);
+  lhash_set(lua_globals, LSTR("arg"), lv_table(args));
 
   int i;
   for (i = 0; i < argc; i++) {
-    lhash_set(&lua_arg, lv_number(i - bias), LSTR(argv[i]));
+    lhash_set(args, lv_number(i - bias),
+              lv_string(lstr_literal(argv[i], FALSE)));
   }
 }
 

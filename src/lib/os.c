@@ -33,7 +33,7 @@ static luav str_monetary;
 static luav str_numeric;
 static luav str_time;
 
-static lhash_t lua_os;
+static lhash_t *lua_os;
 static u32 lua_os_clock(LSTATE);
 static u32 lua_os_exit(LSTATE);
 static u32 lua_os_execute(LSTATE);
@@ -43,15 +43,6 @@ static u32 lua_os_setlocale(LSTATE);
 static u32 lua_os_tmpname(LSTATE);
 static u32 lua_os_remove(LSTATE);
 static u32 lua_os_rename(LSTATE);
-static LUAF(lua_os_clock);
-static LUAF(lua_os_exit);
-static LUAF(lua_os_execute);
-static LUAF(lua_os_getenv);
-static LUAF(lua_os_date);
-static LUAF(lua_os_setlocale);
-static LUAF(lua_os_tmpname);
-static LUAF(lua_os_remove);
-static LUAF(lua_os_rename);
 
 INIT static void lua_os_init() {
   str_sec      = LSTR("sec");
@@ -69,18 +60,19 @@ INIT static void lua_os_init() {
   str_numeric  = LSTR("numeric");
   str_time     = LSTR("time");
 
-  lhash_init(&lua_os);
-  REGISTER(&lua_os, "clock",     &lua_os_clock_f);
-  REGISTER(&lua_os, "exit",      &lua_os_exit_f);
-  REGISTER(&lua_os, "execute",   &lua_os_execute_f);
-  REGISTER(&lua_os, "getenv",    &lua_os_getenv_f);
-  REGISTER(&lua_os, "date",      &lua_os_date_f);
-  REGISTER(&lua_os, "setlocale", &lua_os_setlocale_f);
-  REGISTER(&lua_os, "tmpname",   &lua_os_tmpname_f);
-  REGISTER(&lua_os, "remove",    &lua_os_remove_f);
-  REGISTER(&lua_os, "rename",    &lua_os_rename_f);
+  lua_os = gc_alloc(sizeof(lhash_t), LTABLE);
+  lhash_init(lua_os);
+  cfunc_register(lua_os, "clock",     lua_os_clock);
+  cfunc_register(lua_os, "exit",      lua_os_exit);
+  cfunc_register(lua_os, "execute",   lua_os_execute);
+  cfunc_register(lua_os, "getenv",    lua_os_getenv);
+  cfunc_register(lua_os, "date",      lua_os_date);
+  cfunc_register(lua_os, "setlocale", lua_os_setlocale);
+  cfunc_register(lua_os, "tmpname",   lua_os_tmpname);
+  cfunc_register(lua_os, "remove",    lua_os_remove);
+  cfunc_register(lua_os, "rename",    lua_os_rename);
 
-  lhash_set(&lua_globals, LSTR("os"), lv_table(&lua_os));
+  lhash_set(lua_globals, LSTR("os"), lv_table(lua_os));
 }
 
 DESTROY static void lua_os_destroy() {}
@@ -198,7 +190,7 @@ static u32 lua_os_tmpname(LSTATE) {
     lstate_return1(LUAV_NIL);
   }
   close(fd);
-  lstate_return1(lv_string(lstr_literal(buf)));
+  lstate_return1(lv_string(lstr_literal(buf, FALSE)));
 }
 
 /**
@@ -212,7 +204,7 @@ static u32 lua_os_remove(LSTATE) {
   int err = errno;
 
   lstate_return(LUAV_NIL, 0);
-  lstate_return(lv_string(lstr_literal(strerror(err))), 1);
+  lstate_return(lv_string(lstr_literal(strerror(err), FALSE)), 1);
   return 2;
 }
 
@@ -228,6 +220,6 @@ static u32 lua_os_rename(LSTATE) {
   int err = errno;
 
   lstate_return(LUAV_NIL, 0);
-  lstate_return(lv_string(lstr_literal(strerror(err))), 1);
+  lstate_return(lv_string(lstr_literal(strerror(err), FALSE)), 1);
   return 2;
 }

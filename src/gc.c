@@ -77,18 +77,16 @@ void *gc_alloc(size_t size, int type) {
   assert(heap_size < heap_limit);
 
   /* allocate the block */
-  u64 *block = malloc(size);
-  xassert(block != NULL);
+  u64 *block = xmalloc(size);
   *block = GC_BUILD(gc_head, type);
   gc_head = block;
-  return (void*) (block + 1);
+  return block + 1;
 }
 
 void *gc_realloc(void *_addr, size_t newsize) {
   u64 *addr = ((u64*) _addr) - 1;
   u64 header = *addr;
-  u64 *addr2 = realloc(addr, newsize + sizeof(u64));
-  xassert(addr2 != NULL);
+  u64 *addr2 = xrealloc(addr, newsize + sizeof(u64));
   if (addr2 != addr) {
     /* Find our location in the list, and update our "previous" pointer */
     if (gc_head == addr) {
@@ -187,32 +185,17 @@ void gc_traverse(luav val) {
  * @return the new location of the pointer, possibly the same value
  */
 void gc_traverse_pointer(void *_ptr, int type) {
-  if (_ptr == NULL) return;
-  if (type != LSTRING) {
-    if (_ptr > exec_end() && GC_ISBLACK(_ptr)) {
-      return;
-    } else if (_ptr > exec_end()) {
-      GC_SETBLACK(_ptr);
-    }
+  if (_ptr == NULL || GC_ISBLACK(_ptr)) {
+    return;
   }
+  GC_SETBLACK(_ptr);
 
   switch (type) {
-    case LSTRING: {
-      lstring_t *str = _ptr;
-      if (str->type == LSTR_GC) {
-        assert(_ptr > exec_end());
-        GC_SETBLACK(_ptr);
-      }
+    case LSTRING:
       break; /* no recursion */
-    }
 
     case LTABLE: {
       lhash_t *hash = _ptr;
-      if ((hash->array != NULL && GC_ISBLACK(hash->array)) ||
-          (hash->table != NULL && GC_ISBLACK(hash->table))) {
-        break;
-      }
-
       size_t i;
       gc_traverse_pointer(hash->metatable, LTABLE);
       /* copy over the array */
@@ -250,6 +233,8 @@ void gc_traverse_pointer(void *_ptr, int type) {
       }
       if (func->type == LUAF_LUA) {
         gc_traverse_pointer(func->function.lua, LFUNC);
+      } else if (func->type == LUAF_C){
+        gc_traverse_pointer(func->function.c, LCFUNC);
       }
       break;
     }
@@ -291,6 +276,10 @@ void gc_traverse_pointer(void *_ptr, int type) {
       break;
     }
 
+    /* Nothing to do here once it's marked black */
+    case LCFUNC:
+      break;
+
     case LNUMBER:
     case LBOOLEAN:
     case LNIL:
@@ -298,6 +287,7 @@ void gc_traverse_pointer(void *_ptr, int type) {
     default:
       panic("not a pointer");
   }
+
 }
 
 void gc_traverse_stack(lstack_t *stack) {

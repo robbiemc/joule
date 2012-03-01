@@ -85,8 +85,8 @@
           }                                                               \
         }
 
-lhash_t userdata_meta;       //<! metatables for all existing userdata
-lhash_t lua_globals;         //<! default global environment
+lhash_t *userdata_meta;      //<! metatables for all existing userdata
+lhash_t *lua_globals;        //<! default global environment
 lhash_t *global_env = NULL;  //<! current global environment
 lframe_t *vm_running = NULL; //<! currently running function's frame
 lstack_t *vm_stack;          //<! current stack, changes on thread switches
@@ -109,9 +109,11 @@ static void vm_gc();
  * Requres that the strings have been initialized
  */
 EARLY(100) static void vm_setup() {
-  lhash_init(&userdata_meta);
-  lhash_init(&lua_globals);
-  lhash_set(&lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
+  lua_globals = gc_alloc(sizeof(lhash_t), LTABLE);
+  userdata_meta = gc_alloc(sizeof(lhash_t), LTABLE);
+  lhash_init(userdata_meta);
+  lhash_init(lua_globals);
+  lhash_set(lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
 
   vm_stack_init(&init_stack, VM_STACK_INIT);
   vm_stack = &init_stack;
@@ -134,6 +136,34 @@ static void vm_gc() {
   for (frame = vm_running; frame != NULL; frame = frame->caller) {
     gc_traverse_pointer(frame->closure, LFUNCTION);
   }
+}
+
+/**
+ * @brief Creates a closure for the specified function
+ */
+lclosure_t* cfunc_alloc(cfunction_t *f, char *name, int upvalues) {
+  cfunc_t *cf  = gc_alloc(sizeof(cfunc_t), LCFUNC);
+  cf->f        = f;
+  cf->upvalues = 0;
+  cf->name     = name;
+
+  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(0), LFUNCTION);
+  closure->type = LUAF_C;
+  closure->function.c = cf;
+  closure->env = lua_globals;
+  return closure;
+}
+
+/**
+ * @brief Register a C-function in a hash table with the given name
+ *
+ * @param table the table to add the function to
+ * @param name the name for the function, and key in the table
+ * @param f the c-function which is to be added
+ */
+void cfunc_register(lhash_t *table, char *name, cfunction_t *f) {
+  lclosure_t *closure = cfunc_alloc(f, name, 0);
+  lhash_set(table, lv_string(lstr_literal(name, FALSE)), lv_function(closure));
 }
 
 /**
@@ -223,8 +253,8 @@ void vm_run(lfunc_t *func) {
   lclosure_t *closure = gc_alloc(sizeof(lclosure_t), LFUNCTION);
   closure->function.lua = func;
   closure->type = LUAF_LUA;
-  closure->env  = &lua_globals;
-  global_env   = &lua_globals;
+  closure->env  = lua_globals;
+  global_env    = lua_globals;
   assert(func->num_upvalues == 0);
 
   vm_fun(closure, NULL, 0, 0, 0, 0);
