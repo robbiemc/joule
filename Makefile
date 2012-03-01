@@ -21,25 +21,26 @@ endif
 # Order matters in this list because object files listed first have their
 # initializers run first, and destructors run last.
 OBJS := gc.o lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
-				lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o error.o       \
-				lib/coroutine.o arch.o lib/table.o
+	lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o error.o       \
+	lib/coroutine.o arch.o lib/table.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
-LUATESTS := tail factorial bool closure multipart bool2 math forint concat   \
-						loop sort func fib select math2 bisect cf printf select smallfun \
-						os strings coroutine2 sieve load pcall metabasic calls coroutine \
-						noglobals fibfor readonly echo constructs errors events literals \
-						closure2 closure3 nextvar
+LUATESTS :=	tail factorial bool closure multipart bool2 math forint concat   \
+		loop sort func fib select math2 bisect cf printf select smallfun \
+		os strings coroutine2 sieve load pcall metabasic calls coroutine \
+		noglobals fibfor readonly echo constructs errors events literals \
+		closure2 closure3 nextvar coroutine-gc locals
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 
-BENCHTESTS := ackermann.lua-2 ary binarytrees.lua-2 nbody nbody.lua-2         \
-							nbody.lua-4 hash fibo matrix nestedloop nsieve.lua-3            \
-							nsievebits prodcons random sieve sieve.lua-2 spectralnorm takfp \
-							threadring.lua-3 strcat.lua-2 recursive                 \
-							partialsums.lua-3 partialsums.lua-2 message.lua-2 harmonic      \
-							fannkuchredux fasta fannkuch fannkuch.lua-2 chameneos           \
-							binarytrees.lua-3 except hash2 methcall strcat lists objinst
+BENCHTESTS :=	ackermann.lua-2 ary nbody nbody.lua-2 nbody.lua-4 hash fibo \
+		matrix nestedloop nsieve.lua-3 nsievebits prodcons random   \
+		sieve sieve.lua-2 spectralnorm takfp threadring.lua-3       \
+		strcat.lua-2 recursive partialsums.lua-3 partialsums.lua-2  \
+		message.lua-2 harmonic fannkuchredux fasta fannkuch         \
+		fannkuch.lua-2 chameneos except hash2 methcall strcat lists \
+		objinst                                                     \
+		binarytrees.lua-2 ackermann.lua-3
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
 CTESTS := hash types
