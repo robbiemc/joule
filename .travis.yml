@@ -1,4 +1,4 @@
-before_script: "sudo apt-get install lua clang"
+before_script: "sudo apt-get install lua5.1 clang"
 language: lua
 script: "make test btest"
 
