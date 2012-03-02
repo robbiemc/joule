@@ -523,9 +523,11 @@ top:
         lfunc_t *function = func->funcs[bx];
         lclosure_t *closure2 = gc_alloc(CLOSURE_SIZE(function->num_upvalues),
                                         LFUNCTION);
+        SETREG(A(code), lv_function(closure2));
         closure2->type = LUAF_LUA;
         closure2->function.lua = function;
         closure2->env = closure->env;
+        lv_nilify(closure2->upvalues, function->num_upvalues);
 
         for (i = 0; i < function->num_upvalues; i++) {
           u32 pseudo = *instrs++;
@@ -555,8 +557,6 @@ top:
           /* The allocated closure needs a reference to the upvalue */
           closure2->upvalues[i] = upvalue;
         }
-
-        SETREG(A(code), lv_function(closure2));
         break;
       }
 
