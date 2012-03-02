@@ -185,16 +185,6 @@ lstring_t* lv_caststring(luav number, u32 argnum) {
   return lstr_add(str);
 }
 
-static lstring_t *global_s1, *global_s2;
-static void lv_retain_in_concat() {
-  gc_traverse_pointer(global_s1, LSTRING);
-  gc_traverse_pointer(global_s2, LSTRING);
-}
-
-INIT void luav_init() {
-  gc_add_hook(lv_retain_in_concat);
-}
-
 /**
  * @brief Concatenate two lua-values
  *
@@ -206,12 +196,11 @@ INIT void luav_init() {
  * @return the concatenated string
  */
 luav lv_concat(luav v1, luav v2) {
-  lstring_t *s1 = global_s1 = lv_caststring(v1, 0);
-  lstring_t *s2 = global_s2 = lv_caststring(v2, 0);
+  lstring_t *s1 = lv_caststring(v1, 0);
+  lstring_t *s2 = lv_caststring(v2, 0);
   lstring_t *sn = lstr_alloc(s1->length + s2->length);
   memcpy(sn->data, s1->data, s1->length);
   memcpy(sn->data + s1->length, s2->data, s2->length);
   sn->data[s1->length + s2->length] = 0;
-  global_s1 = global_s2 = NULL;
   return lv_string(lstr_add(sn));
 }

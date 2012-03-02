@@ -27,20 +27,7 @@ static int  lhash_index(lhash_t *map, luav key, i32 *index);
 
 luav meta_strings[NUM_META_METHODS];
 static luav str__G;
-static lhash_t *init_hash = NULL;
 
-/**
- * @brief Preserves whatever hash is in the middle of initialization for
- *        garbage collection
- *
- * If a hash is being initialized, it's probably not located anywhere in the
- * global tables of lua values, so we need to preserve it in case allocation of
- * sub components triggers GC. This preserves whatever hash is being initialized
- * if GC is triggered in lhash_init()
- */
-static void lhash_preserve_init_hash() {
-  gc_traverse_pointer(init_hash, LTABLE);
-}
 
 INIT static void lua_lhash_init() {
   meta_strings[META_ADD_IDX]       = LSTR("__add");
@@ -61,8 +48,6 @@ INIT static void lua_lhash_init() {
   meta_strings[META_METATABLE_IDX] = LSTR("__metatable");
   meta_strings[META_TOSTRING_IDX]  = LSTR("__tostring");
   str__G = LSTR("_G");
-
-  gc_add_hook(lhash_preserve_init_hash);
 }
 
 /**
@@ -76,7 +61,6 @@ INIT static void lua_lhash_init() {
 void lhash_init(lhash_t *map) {
   int i;
   assert(map != NULL);
-  init_hash = map;
   memset(map, 0, sizeof(lhash_t));
   map->tcap = LHASH_INIT_TSIZE;
   map->acap = LHASH_INIT_ASIZE;
@@ -87,7 +71,6 @@ void lhash_init(lhash_t *map) {
   }
   map->array = gc_alloc(LHASH_INIT_ASIZE * sizeof(map->array[0]), LANY);
   lv_nilify(map->array, LHASH_INIT_ASIZE);
-  init_hash = NULL;
 }
 
 /**

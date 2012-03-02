@@ -16,10 +16,13 @@
 #include "gc.h"
 
 #define GC_HOOKS 50
+#define GC_PERM_BIT ((u64)2)
 #define GC_NEXT(header) ((void*) (size_t) ((header)->bits & 0x00fffffffffffc))
 #define GC_TYPE(header) ((int) (((header)->bits >> 56) & 0xff))
-#define GC_BUILD(next, type) ((u64) (size_t) (next) | (((u64) (type)) << 56))
+#define GC_BUILD(next, type, bit) ((u64) (size_t) (next) | \
+                                   (((u64) (type)) << 56) | (bit))
 #define GC_ISBLACK(ptr) (((gc_header_t*) (ptr) - 1)->bits & 1)
+#define GC_ISPERM(ptr) (((gc_header_t*) (ptr) - 1)->bits & 2)
 #define GC_SETBLACK(ptr) (((gc_header_t*) (ptr) - 1)->bits |= 1)
 
 typedef struct gc_header {
@@ -83,7 +86,7 @@ void *gc_alloc(size_t size, int type) {
 
   /* allocate the block */
   gc_header_t *block = xmalloc(size);
-  block->bits = GC_BUILD(gc_head, type);
+  block->bits = GC_BUILD(gc_head, type, GC_PERM_BIT);
   block->size = size;
   gc_head = block;
   return block + 1;
@@ -106,13 +109,23 @@ void *gc_realloc(void *_addr, size_t newsize) {
         prev = cur;
         cur = GC_NEXT(cur);
       }
-      prev->bits = GC_BUILD(addr2, GC_TYPE(prev));
+      prev->bits = GC_BUILD(addr2, GC_TYPE(prev), GC_ISPERM(prev + 1));
     }
     /* Now fix our "next" pointer */
     addr2->bits = bits;
   }
   addr2->size = newsize;
   return addr2 + 1;
+}
+
+/**
+ * @brief Releases a pointer
+ *
+ * Sets something as garbage-collectable
+ */
+void gc_release(void *_addr) {
+  gc_header_t *addr = ((gc_header_t*) _addr) - 1;
+  addr->bits &= ~GC_PERM_BIT;
 }
 
 /**
@@ -130,40 +143,42 @@ void garbage_collect() {
     gc_hooks[i]();
   }
 
-  gc_header_t *to_finalize = NULL;
   gc_header_t *cur = gc_head;
   gc_header_t *nxt;
-  gc_head = NULL;
+
+  /* Traverse all permanent objects */
+  while (cur != NULL) {
+    if (GC_ISPERM(cur + 1)) {
+      gc_traverse_pointer(cur + 1, GC_TYPE(cur));
+    }
+    cur = GC_NEXT(cur);
+  }
 
   /* Move everything in the current list onto one of gc_head or the to_finalize
      list */
+  cur = gc_head;
+  gc_head = NULL;
   while (cur != NULL) {
     nxt = GC_NEXT(cur);
     if (GC_ISBLACK(cur + 1)) {
-      cur->bits = GC_BUILD(gc_head, GC_TYPE(cur));
+      cur->bits = GC_BUILD(gc_head, GC_TYPE(cur), GC_ISPERM(cur + 1));
       gc_head = cur;
     } else {
-      cur->bits = GC_BUILD(to_finalize, GC_TYPE(cur));
-      to_finalize = cur;
+      printf("HUH?\n");
+      switch (GC_TYPE(cur)) {
+        case LSTRING:
+          lstr_remove((lstring_t*) (cur + 1));
+          break;
+        case LTHREAD:
+          coroutine_free((lthread_t*) (cur + 1));
+          break;
+      }
+      heap_size -= cur->size;
+      assert((ssize_t) heap_size >= 0);
+      memset(cur, 0x42, cur->size);
+      free(cur);
     }
     cur = nxt;
-  }
-
-  while (to_finalize != NULL) {
-    nxt = GC_NEXT(to_finalize);
-    switch (GC_TYPE(to_finalize)) {
-      case LSTRING:
-        lstr_remove((lstring_t*) (to_finalize + 1));
-        break;
-      case LTHREAD:
-        coroutine_free((lthread_t*) (to_finalize + 1));
-        break;
-    }
-    heap_size -= to_finalize->size;
-    assert((ssize_t) heap_size >= 0);
-    memset(to_finalize, 0x42, to_finalize->size);
-    free(to_finalize);
-    to_finalize = nxt;
   }
 
   in_gc = 0;
@@ -218,6 +233,8 @@ void gc_traverse_pointer(void *_ptr, int type) {
 
   switch (type) {
     case LSTRING:
+    case LANY:
+    case LCFUNC:
       break; /* no need for recursion */
 
     case LTABLE: {
@@ -286,12 +303,10 @@ void gc_traverse_pointer(void *_ptr, int type) {
     case LFUNC: {
       lfunc_t *func = _ptr;
       gc_traverse_pointer(func->name, LSTRING);
-      GC_SETBLACK(func->instrs);
-      GC_SETBLACK(func->consts);
-      if (func->funcs != NULL) {
-        GC_SETBLACK(func->funcs);
-      }
-      GC_SETBLACK(func->lines);
+      if (func->instrs != NULL) GC_SETBLACK(func->instrs);
+      if (func->consts != NULL) GC_SETBLACK(func->consts);
+      if (func->funcs != NULL)  GC_SETBLACK(func->funcs);
+      if (func->lines != NULL)  GC_SETBLACK(func->lines);
       u32 i;
       for (i = 0; i < func->num_consts; i++) {
         gc_traverse(func->consts[i]);
@@ -301,10 +316,6 @@ void gc_traverse_pointer(void *_ptr, int type) {
       }
       break;
     }
-
-    /* Nothing to do here once it's marked black */
-    case LCFUNC:
-      break;
 
     case LNUMBER:
     case LBOOLEAN:

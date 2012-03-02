@@ -309,6 +309,7 @@ static u32 lua_loadstring(LSTATE) {
   lstring_t *name = (argc > 1) ? lstate_getstring(1) : str;
 
   lfunc_t *func = gc_alloc(sizeof(lfunc_t), LFUNC);
+  memset(func, 0, sizeof(lfunc_t));
   if (luac_parse_string(func, str->data, str->length, name->data) < 0) {
     lstate_return(LUAV_NIL, 0);
     lstate_return(LSTR("Bad lua string"), 1);

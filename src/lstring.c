@@ -11,7 +11,6 @@
 #define STRING_HASHMAP_CAP 251
 #define NONEMPTY(p) ((size_t)(p) > 1)
 #define LSTR_EMPTY ((lstring_t*) 1)
-#define LSTR_KEEP_SIZE 100
 
 typedef struct {
   lstring_t **table;
@@ -23,40 +22,20 @@ smap_t smap = {NULL, STRING_HASHMAP_CAP, 0};
 static int initialized = 0; //<! Sanity check
 static lstring_t *empty;    //<! Unique empty string
 
-/**
- * Strings which are cached at startups into a 'luav' in a global variable
- * need to be kept around, and it's more convenient to keep track of them all
- * here instead of having a GC hook in every module
- */
-static struct {
-  lstring_t *strings[LSTR_KEEP_SIZE];
-  u32 limit;
-} keep;
-
 static void smap_insert(lstring_t *str);
 static void smap_ins(smap_t *map, lstring_t *str);
 static ssize_t smap_lookup(lstring_t *str);
 static u32 smap_hash(u8 *str, size_t size);
-static void gc_keep_strings();
 
 EARLY(0) static void lstr_init() {
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
   initialized = 1;
-  keep.limit = 0;
   empty = lstr_literal("", 1);
-  gc_add_hook(gc_keep_strings);
 }
 
 DESTROY static void lstr_destroy() {
   free(smap.table);
   smap.table = NULL;
-}
-
-static void gc_keep_strings() {
-  u32 i;
-  for (i = 0; i < keep.limit; i++) {
-    gc_traverse_pointer(keep.strings[i], LSTRING);
-  }
 }
 
 /**
@@ -131,10 +110,6 @@ lstring_t *lstr_literal(char *cstr, int retain) {
   str->length = size;
   memcpy(str->data, cstr, size + 1);
   lstring_t *actual = lstr_add(str);
-  if (retain && actual == str) {
-    xassert(keep.limit < LSTR_KEEP_SIZE);
-    keep.strings[keep.limit++] = actual;
-  }
   return actual;
 }
 
