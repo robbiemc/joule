@@ -1,9 +1,12 @@
+before_script: "sudo apt-get install lua clang"
 language: lua
 script: "make test"
 
 env:
-  - BUILD=opt
-  - BUILD=dbg
+  - CC=gcc BUILD=opt
+  - CC=gcc BUILD=dbg
+  - CC=clang BUILD=opt
+  - CC=clang BUILD=dbg
 
 branches:
   only:
