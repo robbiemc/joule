@@ -242,8 +242,8 @@ static void lhash_resize(lhash_t *map, int which, int direction) {
   /* TODO: downsize array portion of the table */
   assert(direction == UPSIZE);
   assert(which == LHASH_ARRAY);
+  map->array = gc_realloc(map->array, map->acap * 2 * sizeof(map->array[0]));
   map->acap *= 2;
-  map->array = gc_realloc(map->array, map->acap * sizeof(map->array[0]));
 
   lv_nilify(map->array + map->acap / 2, map->acap / 2);
 
