@@ -147,7 +147,7 @@ void garbage_collect() {
   gc_header_t *nxt;
 
   /* Traverse all permanent objects */
-  while (cur != NULL) {
+  while (cur != NULL && num_hooks != 0) {
     if (GC_ISPERM(cur + 1)) {
       gc_traverse_pointer(cur + 1, GC_TYPE(cur));
     }
@@ -164,7 +164,6 @@ void garbage_collect() {
       cur->bits = GC_BUILD(gc_head, GC_TYPE(cur), GC_ISPERM(cur + 1));
       gc_head = cur;
     } else {
-      printf("HUH?\n");
       switch (GC_TYPE(cur)) {
         case LSTRING:
           lstr_remove((lstring_t*) (cur + 1));
