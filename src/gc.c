@@ -5,6 +5,7 @@
  * Currently this is implemented as a mark and sweep garbage collector
  */
 #include <assert.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/mman.h>
 
@@ -17,7 +18,8 @@
 
 #define GC_HOOKS 50
 #define GC_PERM_BIT ((u64)2)
-#define GC_NEXT(header) ((void*) (size_t) ((header)->bits & 0x00fffffffffffc))
+#define GC_ADDR_MASK UINT64_C(0x00fffffffffffc)
+#define GC_NEXT(header) ((void*) (size_t) ((header)->bits & GC_ADDR_MASK))
 #define GC_TYPE(header) ((int) (((header)->bits >> 56) & 0xff))
 #define GC_BUILD(next, type, bit) ((u64) (size_t) (next) | \
                                    (((u64) (type)) << 56) | (bit))

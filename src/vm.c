@@ -72,13 +72,13 @@
           luav bv = KREG(B(code)); luav cv = KREG(C(code));               \
           if (lv_sametyp(bv, cv) &&                                       \
               (lv_isnumber(bv) || lv_isstring(bv))) {                     \
-            lt = op(lv_compare(bv, cv), 0);                               \
+            lt = (u8) op(lv_compare(bv, cv), 0);                          \
           } else if (meta_eq(bv, cv, idx, &res)) {                        \
             lt = lv_getbool(res, 0);                                      \
           } else if (idx == META_LE && meta_eq(cv, bv, META_LT, &res)) {  \
             lt = !lv_getbool(res, 0);                                     \
           } else {                                                        \
-            lt = op(lv_compare(bv, cv), 0);                               \
+            lt = (u8) op(lv_compare(bv, cv), 0);                          \
           }                                                               \
           if (lt != A(code)) {                                            \
             instrs++;                                                     \
@@ -573,7 +573,7 @@ top:
         luav res;
         luav bv = KREG(B(code));
         luav cv = KREG(C(code));
-        u32 eq = (bv != LUAV_NAN) && (bv == cv);
+        u32 eq = (u32) ((bv != LUAV_NAN) && (bv == cv));
         if (!eq && meta_eq(bv, cv, META_EQ, &res))
           eq = lv_getbool(res, 0);
         if (eq != A(code))
