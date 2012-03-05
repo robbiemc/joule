@@ -93,7 +93,7 @@ $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 	@mkdir -p $(OBJDIR)/$(@D)
 	@echo $(@:.luatest=.lua)
 	@lua $(@:.luatest=.lua) > $(OBJDIR)/$(@:.luatest=.out)
-	@./joule $(@:.luatest=.lua) | tee $(OBJDIR)/$(@:.luatest=.log)
+	@./joule $(@:.luatest=.lua) > $(OBJDIR)/$(@:.luatest=.log)
 	@diff -u $(OBJDIR)/$(@:.luatest=.out) $(OBJDIR)/$(@:.luatest=.log)
 
 %.lualeak: joule
