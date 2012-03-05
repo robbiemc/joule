@@ -43,6 +43,7 @@
  */
 typedef u64 luav;
 
+#include <inttypes.h>
 #include <stdlib.h>
 
 #include "lstring.h"
@@ -60,29 +61,29 @@ struct lthread;
  * nil is defined as 15 (1111b), so its value in a luav is 0xFFFF0000...,
  * which can be checked quickly
  */
-#define LBOOLEAN  1ULL
-#define LSTRING   2ULL
-#define LFUNCTION 3ULL
-#define LTABLE    4ULL
-#define LUSERDATA 5ULL
-#define LTHREAD   6ULL
-#define LUPVALUE  7ULL
-#define LNUMBER   8ULL
-#define LNIL      15ULL
-#define LANY      16ULL
+#define LBOOLEAN  UINT64_C(1)
+#define LSTRING   UINT64_C(2)
+#define LFUNCTION UINT64_C(3)
+#define LTABLE    UINT64_C(4)
+#define LUSERDATA UINT64_C(5)
+#define LTHREAD   UINT64_C(6)
+#define LUPVALUE  UINT64_C(7)
+#define LNUMBER   UINT64_C(8)
+#define LNIL      UINT64_C(15)
+#define LANY      UINT64_C(16)
 /* Used for garbage collection, not in types */
 #define LFUNC     100
 #define LCFUNC    101
 
 /* Macros for dealing with u64 bits for luav */
 #define LUAV_DATA_SIZE 48
-#define LUAV_NAN_MASK  0xfff0000000000000ULL
-#define LUAV_TYPE_MASK 0xffff000000000000ULL
-#define LUAV_NAN       0xfff8000000000000ULL
-#define LUAV_NIL       0xffffffffffffffffULL
+#define LUAV_NAN_MASK  UINT64_C(0xfff0000000000000)
+#define LUAV_TYPE_MASK UINT64_C(0xffff000000000000)
+#define LUAV_NAN       UINT64_C(0xfff8000000000000)
+#define LUAV_NIL       UINT64_C(0xffffffffffffffff)
 #define LUAV_TRUE      (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 1)
 #define LUAV_FALSE     (LUAV_NAN_MASK | ((u64) LBOOLEAN << LUAV_DATA_SIZE) | 0)
-#define LUAV_DATA_MASK ((1ULL << LUAV_DATA_SIZE) - 1)
+#define LUAV_DATA_MASK ((UINT64_C(1) << LUAV_DATA_SIZE) - 1)
 
 #define LUAV_DATA(bits) ((bits) & LUAV_DATA_MASK)
 #define LUAV_PACK(typ, data) \
@@ -93,7 +94,7 @@ struct lthread;
 /* A number is either 0x8 or 0x0, so so long as the lower 3 bits of the type
    are 0, then this can be considered a number */
 #define lv_isnumber(lv)   (((lv) & LUAV_NAN_MASK) != LUAV_NAN_MASK || \
-                           !((lv) & (0x7ULL << LUAV_DATA_SIZE)))
+                           !((lv) & (UINT64_C(7) << LUAV_DATA_SIZE)))
 #define lv_isstring(lv)   lv_hastyp(lv, LSTRING << LUAV_DATA_SIZE)
 #define lv_istable(lv)    lv_hastyp(lv, LTABLE << LUAV_DATA_SIZE)
 #define lv_isbool(lv)     lv_hastyp(lv, LBOOLEAN << LUAV_DATA_SIZE)

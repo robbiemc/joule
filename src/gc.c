@@ -176,7 +176,9 @@ void garbage_collect() {
       }
       heap_size -= cur->size;
       assert((ssize_t) heap_size >= 0);
+      #ifndef NDEBUG
       memset(cur, 0x42, cur->size);
+      #endif
       free(cur);
     }
     cur = nxt;
