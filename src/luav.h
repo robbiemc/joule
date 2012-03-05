@@ -104,14 +104,15 @@ struct lthread;
 #define lv_isthread(lv)   lv_hastyp(lv, LTHREAD << LUAV_DATA_SIZE)
 
 /* Boxing a luav */
+#define lv_ptr(p, typ)    LUAV_PACK(typ, (size_t) (p))
 #define lv_number(n)      lv_bits(n)
-#define lv_table(hash)    LUAV_PACK(LTABLE, (size_t) (hash))
+#define lv_table(hash)    lv_ptr(hash, LTABLE)
 #define lv_bool(v)        LUAV_PACK(LBOOLEAN, !!(v))
-#define lv_userdata(data) LUAV_PACK(LUSERDATA, (size_t) (data))
-#define lv_string(idx)    LUAV_PACK(LSTRING, (size_t) (idx))
-#define lv_function(fun)  LUAV_PACK(LFUNCTION, (size_t) (fun))
-#define lv_upvalue(up)    LUAV_PACK(LUPVALUE, (size_t) (up))
-#define lv_thread(thread) LUAV_PACK(LTHREAD, (size_t) thread)
+#define lv_userdata(data) lv_ptr(data, LUSERDATA)
+#define lv_string(idx)    lv_ptr(idx, LSTRING)
+#define lv_function(fun)  lv_ptr(fun, LFUNCTION)
+#define lv_upvalue(up)    lv_ptr(up, LUPVALUE)
+#define lv_thread(thread) lv_ptr(thread, LTHREAD)
 
 /* Unboxing a luav */
 double           lv_castnumberb(luav value, u32 base, u32 argnum);
