@@ -12,7 +12,7 @@
 #include "util.h"
 #include "vm.h"
 
-static int luac_parse_func(lfunc_t *func, int fd, char *filename);
+static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size);
 
 /**
  * @brief Parses the given lua source
@@ -103,13 +103,12 @@ int luac_parse_bytecode(lfunc_t *func, int fd, char *filename) {
   if (header.format      != 0)              return -1;
   if (header.endianness  != 1)              return -1; // 1 = little endian
   if (header.int_size    != sizeof(int))    return -1;
-  if (header.size_t_size != 8)              return -1;
   if (header.instr_size  != 4)              return -1;
   if (header.num_size    != sizeof(double)) return -1;
   if (header.int_flag    != 0)              return -1; // 0 = doubles
 
   // parse the main function
-  return luac_parse_func(func, fd, filename);
+  return luac_parse_func(func, fd, filename, header.size_t_size);
 
 fderr:
   return -1;
@@ -127,8 +126,8 @@ static int luac_skip(int fd, size_t len) {
   return 0;
 }
 
-static lstring_t *luac_read_string_(int fd) {
-  size_t len = (size_t) xread8(fd);
+static lstring_t *luac_read_string_(int fd, u8 st_size) {
+  size_t len = (size_t) (st_size == 8 ? xread8(fd) : xread4(fd));
   if (len <= 1) {
     if (len == 1) xassert(xread1(fd) == 0);
     return lstr_empty();
@@ -141,17 +140,17 @@ fderr:
 }
 
 #define luac_skip_string(fd) luac_skip(fd, (size_t) xread8(fd));
-#define luac_read_string(fd) ({                     \
-          lstring_t *str = luac_read_string_(fd);   \
-          if (str == NULL) goto fderr;              \
-          str;                                      \
+#define luac_read_string(fd, s) ({                   \
+          lstring_t *str = luac_read_string_(fd, s); \
+          if (str == NULL) goto fderr;               \
+          str;                                       \
         })
 
-static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
+static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size) {
   size_t size, i;
   // file / function name
   func->file = filename;
-  func->name = luac_read_string(fd);
+  func->name = luac_read_string(fd, st_size);
 
   // function metadata
   func->start_line     = xread4(fd);
@@ -183,7 +182,7 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
         c[i] = lv_number(lv_cvt(xread8(fd)));
         break;
       case LUAC_TSTRING:
-        c[i] = lv_string(luac_read_string(fd));
+        c[i] = lv_string(luac_read_string(fd, st_size));
         break;
       default:
         goto fderr;
@@ -198,7 +197,7 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename) {
     func->funcs = gc_alloc(func->num_funcs * sizeof(lfunc_t*), LANY);
     for (i = 0; i < func->num_funcs; i++) {
       lfunc_t *f = gc_alloc(sizeof(lfunc_t), LFUNC);
-      int ret = luac_parse_func(f, fd, filename);
+      int ret = luac_parse_func(f, fd, filename, st_size);
       func->funcs[i] = f;
       if (ret < 0) goto fderr;
     }

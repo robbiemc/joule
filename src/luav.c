@@ -91,7 +91,7 @@ u8 lv_gettype(luav value) {
   u32 msw = (u32) (value >> LUAV_DATA_SIZE);
   if ((msw & 0xfff0) != 0xfff0)
     return LNUMBER;
-  u8 typ = msw & 0xf;
+  u8 typ = (u8) (msw & 0xf);
   if (typ == 0) {
     return LNUMBER;
   }

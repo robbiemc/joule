@@ -76,7 +76,7 @@
           } else if (meta_eq(bv, cv, idx, &res)) {                        \
             lt = lv_getbool(res, 0);                                      \
           } else if (idx == META_LE && meta_eq(cv, bv, META_LT, &res)) {  \
-            lt = !lv_getbool(res, 0);                                     \
+            lt = (u8) !lv_getbool(res, 0);                                \
           } else {                                                        \
             lt = (u8) op(lv_compare(bv, cv), 0);                          \
           }                                                               \
