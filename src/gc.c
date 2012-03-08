@@ -233,7 +233,7 @@ void gc_traverse_pointer(void *_ptr, int type) {
       /* copy over the array */
       if (hash->array != NULL) {
         GC_SETBLACK(hash->array);
-        for (i = 0; i < hash->length; i++) {
+        for (i = 0; i < hash->acap; i++) {
           gc_traverse(hash->array[i]);
         }
       }
