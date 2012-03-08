@@ -193,5 +193,7 @@ static u32 lua_table_concat(LSTATE) {
   *str_data = 0;
 
   ret = lstr_add(ret);
-  lstate_return1(lv_string(ret));
+  lstate_return(lv_string(ret), 0);
+  gc_check();
+  return 1;
 }

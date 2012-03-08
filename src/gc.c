@@ -4,6 +4,7 @@
  *
  * Currently this is implemented as a mark and sweep garbage collector
  */
+
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>
@@ -11,20 +12,17 @@
 
 #include "arch.h"
 #include "config.h"
+#include "gc.h"
 #include "lib/coroutine.h"
 #include "luav.h"
 #include "panic.h"
-#include "gc.h"
 
 #define GC_HOOKS 50
-#define GC_PERM_BIT ((u64)2)
 #define GC_ADDR_MASK UINT64_C(0x00fffffffffffc)
 #define GC_NEXT(header) ((void*) (size_t) ((header)->bits & GC_ADDR_MASK))
 #define GC_TYPE(header) ((int) (((header)->bits >> 56) & 0xff))
-#define GC_BUILD(next, type, bit) ((u64) (size_t) (next) | \
-                                   (((u64) (type)) << 56) | (bit))
+#define GC_BUILD(next, type) ((u64) (size_t) (next) | (((u64) (type)) << 56))
 #define GC_ISBLACK(ptr) (((gc_header_t*) (ptr) - 1)->bits & 1)
-#define GC_ISPERM(ptr) (((gc_header_t*) (ptr) - 1)->bits & 2)
 #define GC_SETBLACK(ptr) (((gc_header_t*) (ptr) - 1)->bits |= 1)
 
 typedef struct gc_header {
@@ -70,25 +68,11 @@ void gc_add_hook(gchook_t *hook) {
 
 void *gc_alloc(size_t size, int type) {
   size += sizeof(gc_header_t);
-
-  /* check if we need to garbage collect */
-  if (heap_size + size >= heap_limit) {
-    garbage_collect();
-    heap_last = heap_size;
-    /* Adjust the heap limit as necessary */
-    if (heap_size + size >= heap_limit) {
-      heap_limit += MAX(heap_limit, heap_size + size - heap_limit + 1024);
-    } else if ((heap_size + size) * 2 < heap_limit &&
-               heap_limit > INIT_HEAP_SIZE) {
-      heap_limit /= 2;
-    }
-  }
   heap_size += size;
-  assert(heap_size < heap_limit);
 
   /* allocate the block */
   gc_header_t *block = xmalloc(size);
-  block->bits = GC_BUILD(gc_head, type, GC_PERM_BIT);
+  block->bits = GC_BUILD(gc_head, type);
   block->size = size;
   gc_head = block;
   return block + 1;
@@ -111,7 +95,7 @@ void *gc_realloc(void *_addr, size_t newsize) {
         prev = cur;
         cur = GC_NEXT(cur);
       }
-      prev->bits = GC_BUILD(addr2, GC_TYPE(prev), GC_ISPERM(prev + 1));
+      prev->bits = GC_BUILD(addr2, GC_TYPE(prev));
     }
     /* Now fix our "next" pointer */
     addr2->bits = bits;
@@ -121,13 +105,24 @@ void *gc_realloc(void *_addr, size_t newsize) {
 }
 
 /**
- * @brief Releases a pointer
+ * @brief Check if garbage collection needs to be run, and if so, run it
  *
- * Sets something as garbage-collectable
+ * This should only be called if there's no possible way that an allocated
+ * object is only referenced by C. It must be on the lua stack somewhere
+ * somehow.
  */
-void gc_release(void *_addr) {
-  gc_header_t *addr = ((gc_header_t*) _addr) - 1;
-  addr->bits &= ~GC_PERM_BIT;
+void gc_check() {
+  if (heap_size >= heap_limit) {
+    garbage_collect();
+    heap_last = heap_size;
+    /* Adjust the heap limit as necessary */
+    if (heap_size >= heap_limit * 3 / 4) {
+      heap_limit += MAX(heap_limit, heap_size - heap_limit + 1024);
+    } else if (heap_size * 2 < heap_limit &&
+               heap_limit > INIT_HEAP_SIZE) {
+      heap_limit /= 2;
+    }
+  }
 }
 
 /**
@@ -147,23 +142,14 @@ void garbage_collect() {
 
   gc_header_t *cur = gc_head;
   gc_header_t *nxt;
-
-  /* Traverse all permanent objects */
-  while (cur != NULL && num_hooks != 0) {
-    if (GC_ISPERM(cur + 1)) {
-      gc_traverse_pointer(cur + 1, GC_TYPE(cur));
-    }
-    cur = GC_NEXT(cur);
-  }
+  gc_head = NULL;
 
   /* Move everything in the current list onto one of gc_head or the to_finalize
      list */
-  cur = gc_head;
-  gc_head = NULL;
   while (cur != NULL) {
     nxt = GC_NEXT(cur);
     if (GC_ISBLACK(cur + 1)) {
-      cur->bits = GC_BUILD(gc_head, GC_TYPE(cur), GC_ISPERM(cur + 1));
+      cur->bits = GC_BUILD(gc_head, GC_TYPE(cur));
       gc_head = cur;
     } else {
       switch (GC_TYPE(cur)) {

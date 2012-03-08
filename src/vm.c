@@ -354,6 +354,7 @@ top:
         luav key = CONST(BX(code));
         luav value = REG(A(code));
         meta_lhash_set(lv_table(closure->env), key, value, &frame);
+        gc_check();
         break;
       }
 
@@ -371,6 +372,7 @@ top:
         luav key = KREG(B(code));
         luav value = KREG(C(code));
         meta_lhash_set(table, key, value, &frame);
+        gc_check();
         break;
       }
 
@@ -557,6 +559,7 @@ top:
           /* The allocated closure needs a reference to the upvalue */
           closure2->upvalues[i] = upvalue;
         }
+        gc_check();
         break;
       }
 
@@ -658,6 +661,7 @@ top:
         lhash_t *ht = gc_alloc(sizeof(lhash_t), LTABLE);
         lhash_init(ht);
         SETREG(A(code), lv_table(ht));
+        // gc_check();
         break;
       }
 
@@ -692,6 +696,7 @@ top:
         }
 
         SETREG(A(code), value);
+        gc_check();
         break;
       }
 
