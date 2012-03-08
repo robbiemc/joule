@@ -24,8 +24,7 @@ static u32 lua_table_sort(LSTATE);
 static u32 lua_table_concat(LSTATE);
 
 INIT void lua_table_init() {
-  lua_table = gc_alloc(sizeof(lhash_t), LTABLE);
-  lhash_init(lua_table);
+  lua_table = lhash_alloc();
 
   cfunc_register(lua_table, "getn",   lua_table_getn);
   cfunc_register(lua_table, "maxn",   lua_table_maxn);

@@ -105,8 +105,7 @@ static char errbuf[200];
 INIT static void lua_string_init() {
   str_empty = lv_string(lstr_empty());
 
-  lua_string = gc_alloc(sizeof(lhash_t), LTABLE);
-  lhash_init(lua_string);
+  lua_string = lhash_alloc();
   cfunc_register(lua_string, "format",  lua_string_format);
   cfunc_register(lua_string, "rep",     lua_string_rep);
   cfunc_register(lua_string, "sub",     lua_string_sub);

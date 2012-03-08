@@ -60,8 +60,7 @@ INIT static void lua_os_init() {
   str_numeric  = LSTR("numeric");
   str_time     = LSTR("time");
 
-  lua_os = gc_alloc(sizeof(lhash_t), LTABLE);
-  lhash_init(lua_os);
+  lua_os = lhash_alloc();
   cfunc_register(lua_os, "clock",     lua_os_clock);
   cfunc_register(lua_os, "exit",      lua_os_exit);
   cfunc_register(lua_os, "execute",   lua_os_execute);
@@ -123,9 +122,7 @@ static u32 lua_os_date(LSTATE) {
   xassert(stm != NULL);
 
   if (strcmp("*t", format) == 0) {
-    lhash_t *hash = gc_alloc(sizeof(lhash_t), LTABLE);
-    lhash_init(hash);
-    lstate_return(lv_table(hash), 0);
+    lhash_t *hash = lhash_alloc();
 
     lhash_set(hash, str_sec,    lv_number(stm->tm_sec));
     lhash_set(hash, str_min,    lv_number(stm->tm_min));
@@ -137,7 +134,7 @@ static u32 lua_os_date(LSTATE) {
     lhash_set(hash, str_yday,   lv_number(stm->tm_yday + 1));
     lhash_set(hash, str_isdst,  lv_bool((u8) stm->tm_isdst));
 
-    return 1;
+    lstate_return1(lv_table(hash));
   }
 
   size_t cap = LUAV_INIT_STRING;

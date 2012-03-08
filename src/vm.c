@@ -109,10 +109,8 @@ static void vm_gc();
  * Requres that the strings have been initialized
  */
 EARLY(100) static void vm_setup() {
-  lua_globals = gc_alloc(sizeof(lhash_t), LTABLE);
-  userdata_meta = gc_alloc(sizeof(lhash_t), LTABLE);
-  lhash_init(userdata_meta);
-  lhash_init(lua_globals);
+  lua_globals = lhash_alloc();
+  userdata_meta = lhash_alloc();
   lhash_set(lua_globals, LSTR("_VERSION"), LSTR("Joule 0.0"));
 
   vm_stack_init(&init_stack, VM_STACK_INIT);
@@ -658,9 +656,7 @@ top:
       case OP_NEWTABLE: {
         // TODO - We can't currently create a table of a certain size, so we
         //        ignore the size hints. Eventually we should use them.
-        lhash_t *ht = gc_alloc(sizeof(lhash_t), LTABLE);
-        lhash_init(ht);
-        SETREG(A(code), lv_table(ht));
+        SETREG(A(code), lv_table(lhash_alloc()));
         gc_check();
         break;
       }

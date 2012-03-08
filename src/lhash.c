@@ -28,7 +28,6 @@ static int  lhash_index(lhash_t *map, luav key, i32 *index);
 luav meta_strings[NUM_META_METHODS];
 static luav str__G;
 
-
 INIT static void lua_lhash_init() {
   meta_strings[META_ADD_IDX]       = LSTR("__add");
   meta_strings[META_SUB_IDX]       = LSTR("__sub");
@@ -48,6 +47,15 @@ INIT static void lua_lhash_init() {
   meta_strings[META_METATABLE_IDX] = LSTR("__metatable");
   meta_strings[META_TOSTRING_IDX]  = LSTR("__tostring");
   str__G = LSTR("_G");
+}
+
+/**
+ * @brief Allocate a new hash on the heap and initialize it
+ */
+lhash_t* lhash_alloc() {
+  lhash_t *hash = gc_alloc(sizeof(lhash_t), LTABLE);
+  lhash_init(hash);
+  return hash;
 }
 
 /**

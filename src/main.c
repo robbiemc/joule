@@ -35,8 +35,7 @@ static int parse_args(int argc, char **argv) {
 }
 
 static void register_argv(int bias, int argc, char **argv) {
-  lhash_t *args = gc_alloc(sizeof(lhash_t), LTABLE);
-  lhash_init(args);
+  lhash_t *args = lhash_alloc();
   lhash_set(lua_globals, LSTR("arg"), lv_table(args));
 
   int i;

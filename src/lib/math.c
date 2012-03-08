@@ -38,8 +38,7 @@ static u32 lua_math_tan(LSTATE);
 static u32 lua_math_tanh(LSTATE);
 
 INIT static void lua_math_init() {
-  lua_math = gc_alloc(sizeof(lhash_t), LTABLE);
-  lhash_init(lua_math);
+  lua_math = lhash_alloc();
 
   lhash_set(lua_math, LSTR("pi"),    lv_number(M_PI));
   lhash_set(lua_math, LSTR("huge"),  lv_number(HUGE_VAL));

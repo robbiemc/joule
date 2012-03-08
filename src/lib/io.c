@@ -70,7 +70,7 @@ INIT static void lua_io_init() {
   default_out     = stdout;
   default_in      = stdin;
 
-  lua_io  = gc_alloc(sizeof(lhash_t), LTABLE);
+  lua_io  = lhash_alloc();
   fd_meta = gc_alloc(sizeof(lhash_t), LTABLE);
   lhash_init(lua_io);
   cfunc_register(lua_io, "close",   lua_io_close);

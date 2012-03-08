@@ -52,8 +52,7 @@ INIT static void lua_coroutine_init() {
   main_thread->vm_stack.size = 0;
   main_thread->stack         = NULL;
 
-  lua_coroutine = gc_alloc(sizeof(lhash_t), LTABLE);
-  lhash_init(lua_coroutine);
+  lua_coroutine = lhash_alloc();
   cfunc_register(lua_coroutine, "create",  lua_co_create);
   cfunc_register(lua_coroutine, "resume",  lua_co_resume);
   cfunc_register(lua_coroutine, "running", lua_co_running);
