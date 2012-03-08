@@ -26,16 +26,27 @@ static void smap_insert(lstring_t *str);
 static void smap_ins(smap_t *map, lstring_t *str);
 static ssize_t smap_lookup(lstring_t *str);
 static u32 smap_hash(u8 *str, size_t size);
+static void lstring_gc();
 
 EARLY(0) static void lstr_init() {
   smap.table = xcalloc(smap.capacity, sizeof(smap.table[0]));
   initialized = 1;
   empty = lstr_literal("", 1);
+  gc_add_hook(lstring_gc);
 }
 
 DESTROY static void lstr_destroy() {
   free(smap.table);
   smap.table = NULL;
+}
+
+static void lstring_gc() {
+  size_t i;
+  for (i = 0; i < smap.capacity; i++) {
+    if (NONEMPTY(smap.table[i]) && smap.table[i]->permanent) {
+      gc_traverse_pointer(smap.table[i], LSTRING);
+    }
+  }
 }
 
 /**
@@ -56,6 +67,7 @@ lstring_t *lstr_alloc(size_t size) {
   str->length  = size;
   str->data[0] = 0;
   str->hash    = 0;
+  str->permanent = 0;
   return str;
 }
 
@@ -108,6 +120,7 @@ lstring_t *lstr_literal(char *cstr, int retain) {
   size_t size = strlen(cstr);
   lstring_t *str = lstr_alloc(size);
   str->length = size;
+  str->permanent = (u32) retain;
   memcpy(str->data, cstr, size + 1);
   lstring_t *actual = lstr_add(str);
   return actual;

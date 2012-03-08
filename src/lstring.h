@@ -9,6 +9,7 @@
 typedef struct lstring {
   size_t  length;
   u32     hash;
+  u32     permanent;
   char    data[1];
 } lstring_t;
 
