@@ -661,7 +661,7 @@ top:
         lhash_t *ht = gc_alloc(sizeof(lhash_t), LTABLE);
         lhash_init(ht);
         SETREG(A(code), lv_table(ht));
-        // gc_check();
+        gc_check();
         break;
       }
 
