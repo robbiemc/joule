@@ -37,7 +37,7 @@ typedef struct lhash {
 typedef int(lcomparator_t)(luav*, luav*);
 
 lhash_t* lhash_alloc(void);
-void lhash_init(lhash_t *map);
+void lhash_init(lhash_t *map, u32 arr_size, u32 table_size);
 luav lhash_get(lhash_t *map, luav key);
 void lhash_set(lhash_t *map, luav key, luav value);
 

@@ -51,34 +51,36 @@ INIT static void lua_lhash_init() {
 
 /**
  * @brief Allocate a new hash on the heap and initialize it
+ *
+ * @return an initialized hash that's GC-allocated
  */
 lhash_t* lhash_alloc() {
   lhash_t *hash = gc_alloc(sizeof(lhash_t), LTABLE);
-  lhash_init(hash);
+  lhash_init(hash, LHASH_INIT_ASIZE, LHASH_INIT_TSIZE);
   return hash;
 }
 
 /**
- * @brief Initialize a new hash table so that it is ready for use.
- *
- * A hash should always be initialized before use, but it should never be
- * initialized twice.
+ * @brief Initialize a hash, using some sizing hints for the intial portions
+ *        of the hash
  *
  * @param map the hash to initialize
+ * @param arr_size initial size of the array portion of the hash
+ * @param table_size initial size of the table portion of the hash
  */
-void lhash_init(lhash_t *map) {
-  int i;
+void lhash_init(lhash_t *map, u32 arr_size, u32 table_size) {
+  u32 i;
   assert(map != NULL);
   memset(map, 0, sizeof(lhash_t));
-  map->tcap = LHASH_INIT_TSIZE;
-  map->acap = LHASH_INIT_ASIZE;
+  map->tcap = MAX(table_size, LHASH_INIT_TSIZE);
+  map->acap = MAX(arr_size, LHASH_INIT_ASIZE);
 
-  map->table = gc_alloc(LHASH_INIT_TSIZE * sizeof(map->table[0]), LANY);
-  for (i = 0; i < LHASH_INIT_TSIZE; i++) {
+  map->table = gc_alloc(map->tcap * sizeof(map->table[0]), LANY);
+  for (i = 0; i < map->tcap; i++) {
     map->table[i].key = LUAV_NIL;
   }
-  map->array = gc_alloc(LHASH_INIT_ASIZE * sizeof(map->array[0]), LANY);
-  lv_nilify(map->array, LHASH_INIT_ASIZE);
+  map->array = gc_alloc(map->acap * sizeof(map->array[0]), LANY);
+  lv_nilify(map->array, map->acap);
 }
 
 /**
@@ -192,6 +194,7 @@ void lhash_set(lhash_t *map, luav key, luav value) {
     map->table[index].value = value;
     map->tsize++;
   }
+
   if (map->tsize * 100 / map->tcap > LHASH_MAP_THRESH) {
     lhash_resize(map, LHASH_TABLE, UPSIZE);
   } else if (value == LUAV_NIL &&

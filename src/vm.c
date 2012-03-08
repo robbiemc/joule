@@ -654,9 +654,9 @@ top:
       }
 
       case OP_NEWTABLE: {
-        // TODO - We can't currently create a table of a certain size, so we
-        //        ignore the size hints. Eventually we should use them.
-        SETREG(A(code), lv_table(lhash_alloc()));
+        lhash_t *ht = gc_alloc(sizeof(lhash_t), LTABLE);
+        lhash_init(ht, B(code), C(code));
+        SETREG(A(code), lv_table(ht));
         gc_check();
         break;
       }

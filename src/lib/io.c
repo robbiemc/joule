@@ -71,8 +71,7 @@ INIT static void lua_io_init() {
   default_in      = stdin;
 
   lua_io  = lhash_alloc();
-  fd_meta = gc_alloc(sizeof(lhash_t), LTABLE);
-  lhash_init(lua_io);
+  fd_meta = lhash_alloc();
   cfunc_register(lua_io, "close",   lua_io_close);
   cfunc_register(lua_io, "flush",   lua_io_flush);
   cfunc_register(lua_io, "input",   lua_io_input);
@@ -85,7 +84,6 @@ INIT static void lua_io_init() {
   lhash_set(lua_io, LSTR("stdin"),  lv_file(default_in));
   lhash_set(lua_io, LSTR("stdout"), lv_file(default_out));
 
-  lhash_init(fd_meta);
   lhash_set(fd_meta, META_METATABLE, LUAV_TRUE);
   lhash_set(fd_meta, META_INDEX, lv_table(fd_meta));
   lhash_set(fd_meta, LSTR("write"), lhash_get(lua_io, LSTR("write")));
