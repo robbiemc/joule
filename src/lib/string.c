@@ -172,11 +172,12 @@ static u32 lua_string_format(LSTATE) {
       case 'X': {
         /* Use the generic PRIu64 macro to print a 64-bit argument, but change
            the last character to whatever format we specified. */
+        char *default_fmt = "zd";
         u32 end = i - start;
-        buf[end + sizeof(PRIu64) - 1] = 0;
-        memcpy(&buf[end], PRIu64, sizeof(PRIu64) - 1);
-        buf[end + sizeof(PRIu64) - 2] = fmt[i];
-        SNPRINTF(newstr, len, buf, (i64) lstate_getnumber(argi));
+        buf[end + strlen(default_fmt)] = 0;
+        memcpy(&buf[end], default_fmt, strlen(default_fmt));
+        buf[end + strlen(default_fmt) - 1] = fmt[i];
+        SNPRINTF(newstr, len, buf, (ssize_t) lstate_getnumber(argi));
         break;
       }
 
