@@ -139,7 +139,8 @@ fderr:
   return NULL;
 }
 
-#define luac_skip_string(fd) luac_skip(fd, (size_t) xread8(fd));
+#define luac_skip_string(fd, s) \
+  luac_skip(fd, (size_t) ((s) == 8 ? xread8(fd) : xread4(fd)));
 #define luac_read_string(fd, s) ({                   \
           lstring_t *str = luac_read_string_(fd, s); \
           if (str == NULL) goto fderr;               \
@@ -205,6 +206,7 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size) {
 
   // source lines
   func->num_lines = xread4(fd);
+
   size = func->num_lines * sizeof(u32);
   func->lines = gc_alloc(size, LANY);
   xread(fd, func->lines, size);
@@ -212,13 +214,13 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size) {
   // skip locals debug data
   size = xread4(fd);
   for (i = 0; i < size; i++) {
-    luac_skip_string(fd);
+    luac_skip_string(fd, st_size);
     luac_skip(fd, 2 * sizeof(u32));
   }
   // skip upvalues debug data
   size = xread4(fd);
   for (i = 0; i < size; i++) {
-    luac_skip_string(fd);
+    luac_skip_string(fd, st_size);
   }
 
   return 0;
