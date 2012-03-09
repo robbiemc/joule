@@ -134,8 +134,8 @@ static u32 lua_type(LSTATE) {
 }
 
 static u32 lua_tostring(LSTATE) {
-  lstring_t *str = lstr_alloc(LUAV_INIT_STRING);
-  int len;
+  int len = 20;
+  lstring_t *str = lstr_alloc((size_t) len);
 
   luav v = lstate_getval(0);
   switch (lv_gettype(v)) {
@@ -151,7 +151,7 @@ static u32 lua_tostring(LSTATE) {
       len = sprintf(str->data, lv_getbool(v, 0) ? "true" : "false");
       break;
     case LNUMBER: {
-      len = snprintf(str->data, LUAV_INIT_STRING, LUA_NUMBER_FMT,
+      len = snprintf(str->data, (size_t) len, LUA_NUMBER_FMT,
                      lv_castnumber(v, 0));
       break;
     }
