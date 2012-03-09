@@ -31,7 +31,7 @@ typedef int64_t   i64;
 #endif
 
 #define INIT_HEAP_SIZE    (128 * 1024)
-#define LUAV_INIT_STRING  100
+#define LUAV_INIT_STRING  10
 #define LUA_NUMBER_FMT    "%.14g"
 #define LFIELDS_PER_FLUSH 50
 
