@@ -1,7 +1,7 @@
 -- $Id: nestedloop.lua,v 1.1.1.1 2004-05-19 18:10:56 bfulgham Exp $
 -- http://www.bagley.org/~doug/shootout/
 
-local n = tonumber((arg and arg[1]) or 14)
+local n = tonumber((arg and arg[1]) or 22)
 local x = 0
 for a=1,n do
     for b=1,n do
