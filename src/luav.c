@@ -180,8 +180,10 @@ lstring_t* lv_caststring(luav number, u32 argnum) {
     err_badtype(argnum, LSTRING, lv_gettype(number));
   }
 
-  lstring_t *str = lstr_alloc(20);
-  str->length = (size_t)snprintf(str->data, 20, LUA_NUMBER_FMT, lv_cvt(number));
+  static char buf[20];
+  int len = snprintf(buf, sizeof(buf) - 1, LUA_NUMBER_FMT, lv_cvt(number));
+  lstring_t *str = lstr_alloc((size_t) len);
+  memcpy(str->data, buf, (size_t) len + 1);
   return lstr_add(str);
 }
 
