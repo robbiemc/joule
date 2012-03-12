@@ -3,5 +3,11 @@
 
 void llvm_compile() {
   LLVMPassManagerRef pass = LLVMCreatePassManager();
+
   LLVMAddCFGSimplificationPass(pass);
+  LLVMAddMemCpyOptPass(pass);
+  LLVMAddConstantPropagationPass(pass);
+  LLVMAddDemoteMemoryToRegisterPass(pass);
+
+  LLVMDisposePassManager(pass);
 }
