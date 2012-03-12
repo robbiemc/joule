@@ -1,4 +1,5 @@
 CC       ?= gcc
+CXX      ?= g++
 CFLAGS   ?= -Wall -Wextra -Werror -I$(SRCDIR) -Wconversion -g \
             -Wno-unused-parameter
 OBJDIR   = objs
@@ -6,6 +7,7 @@ SRCDIR   = src
 TESTDIR  = tests
 CTESTDIR = ctests
 BENCHDIR = bench
+LDFLAGS  = -lm $(shell llvm-config --libs)
 
 # Different flags for opt vs debug
 ifeq ($(BUILD),opt)
@@ -22,7 +24,7 @@ endif
 # initializers run first, and destructors run last.
 OBJS := gc.o lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
 	lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o error.o       \
-	lib/coroutine.o arch.o lib/table.o
+	lib/coroutine.o arch.o lib/table.o llvm.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
@@ -48,7 +50,7 @@ BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 all: joule
 
 joule: $(OBJS) $(OBJDIR)/main.o
-	$(CC) $(CFLAGS) -o joule $^ -lm
+	$(CXX) $(CFLAGS) $(LDFLAGS) -o joule $^
 
 # Run all lua tests
 test: $(LUATESTS:=test)
@@ -87,6 +89,8 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.S
 $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
 	gcc $(CFLAGS) -M -MT $(@:.dep=.o) -MF $@ $<
+
+$(OBJDIR)/llvm.%: CFLAGS += $(shell llvm-config --cflags)
 
 # Running a lua test
 %.luatest: joule
