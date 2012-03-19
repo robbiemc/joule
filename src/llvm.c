@@ -35,7 +35,9 @@ INIT static void llvm_init() {
   pass_manager = LLVMCreateFunctionPassManagerForModule(module);
   xassert(pass_manager != NULL);
 
+#ifndef NDEBUG
   LLVMAddVerifierPass(pass_manager);
+#endif
   LLVMAddCFGSimplificationPass(pass_manager);
   LLVMAddPromoteMemoryToRegisterPass(pass_manager);
 
