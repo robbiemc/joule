@@ -23,6 +23,7 @@ static LLVMTypeRef llvm_u64;
 static LLVMTypeRef llvm_u64_ptr;
 static LLVMTypeRef llvm_double;
 static LLVMTypeRef llvm_double_ptr;
+static LLVMTypeRef llvm_void_ptr;
 
 /**
  * @brief Initialize LLVM globals and engines needed for JIT compilation
@@ -52,6 +53,12 @@ void llvm_init() {
   llvm_u64_ptr = LLVMPointerType(llvm_u64, 0);
   llvm_double = LLVMDoubleType();
   llvm_double_ptr = LLVMPointerType(llvm_double, 0);
+  llvm_void_ptr = LLVMPointerType(LLVMVoidType(), 0);
+
+  /* Adding functions */
+  LLVMTypeRef lhash_get_args[2] = {llvm_void_ptr, llvm_u64};
+  LLVMTypeRef lhash_get_type = LLVMFunctionType(llvm_u64, lhash_get_args, 2, 0);
+  LLVMAddFunction(module, "lhash_get", lhash_get_type);
 }
 
 /**
