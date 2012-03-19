@@ -7,7 +7,7 @@ SRCDIR   = src
 TESTDIR  = tests
 CTESTDIR = ctests
 BENCHDIR = bench
-LDFLAGS  = -lm $(shell llvm-config --libs jit core native --ldflags)
+LDFLAGS  = -lm $(shell llvm-config --libs jit core native) $(shell llvm-config --ldflags)
 
 # Different flags for opt vs debug
 ifeq ($(BUILD),opt)
@@ -50,7 +50,7 @@ BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 all: joule
 
 joule: $(OBJS) $(OBJDIR)/main.o
-	$(CXX) $(CFLAGS) -o joule $^ $(LDFLAGS)
+	$(CXX) $^ $(CFLAGS) $(LDFLAGS) -o joule
 
 # Run all lua tests
 test: $(LUATESTS:=test)
