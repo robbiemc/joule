@@ -160,19 +160,19 @@ void llvm_munge(lfunc_t *func) {
         LLVMValueRef bv, cv;
         if (B(code) >= 256) {
           bv = LLVMBuildUIToFP(builder, consts[B(code) - 256],
-                               llvm_double, "add_bf");
+                               llvm_double, "lt_bf");
         } else {
           LLVMValueRef ptr = LLVMBuildPointerCast(builder, regs[B(code)],
-                                                  llvm_double_ptr, "add_bloc");
-          bv = LLVMBuildLoad(builder, ptr, "add_bf");
+                                                  llvm_double_ptr, "lt_bloc");
+          bv = LLVMBuildLoad(builder, ptr, "lt_bf");
         }
         if (C(code) >= 256) {
           cv = LLVMBuildUIToFP(builder, consts[C(code) - 256],
-                               llvm_double, "add_cf");
+                               llvm_double, "lt_cf");
         } else {
           LLVMValueRef ptr = LLVMBuildPointerCast(builder, regs[C(code)],
-                                                  llvm_double_ptr, "add_cloc");
-          cv = LLVMBuildLoad(builder, ptr, "add_cf");
+                                                  llvm_double_ptr, "lt_cloc");
+          cv = LLVMBuildLoad(builder, ptr, "lt_cf");
         }
         LLVMRealPredicate pred = A(code) ? LLVMRealOGE : LLVMRealOLT;
         LLVMValueRef res = LLVMBuildFCmp(builder, pred, bv, cv, "lt");
