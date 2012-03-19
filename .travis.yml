@@ -1,11 +1,8 @@
 before_script: "sudo apt-get install lua5.1"
 language: lua
-script: "make test btest"
+#script: "make test btest"
+script: "./joule tests/fib2.lua"
 
 env:
   - CC=gcc BUILD=opt
   - CC=gcc BUILD=dbg
-
-branches:
-  only:
-      - master
