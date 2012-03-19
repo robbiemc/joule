@@ -53,7 +53,7 @@ void llvm_init() {
   llvm_u64_ptr      = LLVMPointerType(llvm_u64, 0);
   llvm_double       = LLVMDoubleType();
   llvm_double_ptr   = LLVMPointerType(llvm_double, 0);
-  llvm_void_ptr     = LLVMPointerType(LLVMVoidType(), 0);
+  llvm_void_ptr     = LLVMPointerType(LLVMInt8Type(), 0);
   llvm_void_ptr_ptr = LLVMPointerType(llvm_void_ptr, 0);
 
   /* Adding functions */
