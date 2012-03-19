@@ -95,9 +95,9 @@ void llvm_munge(lfunc_t *func) {
 
   LLVMValueRef offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
   LLVMValueRef closure_addr = LLVMBuildPtrToInt(builder, closure, llvm_u64, "");
-  closure_addr = LLVMBuildAdd(builder, closure_addr, offset, "");
-  closure_addr = LLVMBuildIntToPtr(builder, closure_addr, llvm_void_ptr_ptr,"");
-  LLVMValueRef closure_env = LLVMBuildLoad(builder, closure_addr, "env");
+  LLVMValueRef env_addr = LLVMBuildAdd(builder, closure_addr, offset, "");
+  env_addr = LLVMBuildIntToPtr(builder, env_addr, llvm_void_ptr_ptr, "");
+  LLVMValueRef closure_env = LLVMBuildLoad(builder, env_addr, "env");
 
   for (i = 0; i < func->max_stack; i++) {
     sprintf(name, "reg%d", i);
