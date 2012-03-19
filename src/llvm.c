@@ -141,22 +141,19 @@ void llvm_munge(lfunc_t *func) {
           bv = LLVMBuildUIToFP(builder, consts[B(code) - 256],
                                llvm_double, "add_bf");
         } else {
-          LLVMValueRef ptr = LLVMBuildPointerCast(builder, regs[B(code)],
-                                                  llvm_double_ptr, "add_bloc");
-          bv = LLVMBuildLoad(builder, ptr, "add_bf");
+          bv = LLVMBuildLoad(builder, regs[B(code)], "add_b64");
+          bv = LLVMBuildBitCast(builder, bv, llvm_double, "add_bf");
         }
         if (C(code) >= 256) {
           cv = LLVMBuildUIToFP(builder, consts[C(code) - 256],
                                llvm_double, "add_cf");
         } else {
-          LLVMValueRef ptr = LLVMBuildPointerCast(builder, regs[C(code)],
-                                                  llvm_double_ptr, "add_cloc");
-          cv = LLVMBuildLoad(builder, ptr, "add_cf");
+          cv = LLVMBuildLoad(builder, regs[C(code)], "add_c64");
+          cv = LLVMBuildBitCast(builder, cv, llvm_double, "add_cf");
         }
-        LLVMValueRef res = LLVMBuildFAdd(builder, bv, cv, "add");
-        LLVMValueRef ptr = LLVMBuildPointerCast(builder, regs[A(code)],
-                                                llvm_double_ptr, "add_dst");
-        LLVMBuildStore(builder, res, ptr);
+        LLVMValueRef res = LLVMBuildFAdd(builder, bv, cv, "add_resf");
+        res = LLVMBuildBitCast(builder, res, llvm_u64, "add_res64");
+        LLVMBuildStore(builder, res, regs[A(code)]);
 
         LLVMBuildBr(builder, blocks[i]);
         break;
@@ -169,17 +166,15 @@ void llvm_munge(lfunc_t *func) {
           bv = LLVMBuildUIToFP(builder, consts[B(code) - 256],
                                llvm_double, "lt_bf");
         } else {
-          LLVMValueRef ptr = LLVMBuildPointerCast(builder, regs[B(code)],
-                                                  llvm_double_ptr, "lt_bloc");
-          bv = LLVMBuildLoad(builder, ptr, "lt_bf");
+          bv = LLVMBuildLoad(builder, regs[B(code)], "lt_b64");
+          bv = LLVMBuildBitCast(builder, bv, llvm_double, "lt_bf");
         }
         if (C(code) >= 256) {
           cv = LLVMBuildUIToFP(builder, consts[C(code) - 256],
                                llvm_double, "lt_cf");
         } else {
-          LLVMValueRef ptr = LLVMBuildPointerCast(builder, regs[C(code)],
-                                                  llvm_double_ptr, "lt_cloc");
-          cv = LLVMBuildLoad(builder, ptr, "lt_cf");
+          cv = LLVMBuildLoad(builder, regs[C(code)], "lt_c64");
+          cv = LLVMBuildBitCast(builder, cv, llvm_double, "lt_cf");
         }
         LLVMRealPredicate pred = A(code) ? LLVMRealOGE : LLVMRealOLT;
         LLVMValueRef res = LLVMBuildFCmp(builder, pred, bv, cv, "lt");
