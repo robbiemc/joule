@@ -24,6 +24,7 @@ static LLVMTypeRef llvm_u64_ptr;
 static LLVMTypeRef llvm_double;
 static LLVMTypeRef llvm_double_ptr;
 static LLVMTypeRef llvm_void_ptr;
+static LLVMTypeRef llvm_void_ptr_ptr;
 
 /**
  * @brief Initialize LLVM globals and engines needed for JIT compilation
@@ -36,9 +37,7 @@ void llvm_init() {
   pass_manager = LLVMCreateFunctionPassManagerForModule(module);
   xassert(pass_manager != NULL);
 
-#ifndef NDEBUG
   LLVMAddVerifierPass(pass_manager);
-#endif
   LLVMAddCFGSimplificationPass(pass_manager);
   LLVMAddPromoteMemoryToRegisterPass(pass_manager);
 
@@ -54,6 +53,7 @@ void llvm_init() {
   llvm_double = LLVMDoubleType();
   llvm_double_ptr = LLVMPointerType(llvm_double, 0);
   llvm_void_ptr = LLVMPointerType(LLVMVoidType(), 0);
+  llvm_void_ptr_ptr = LLVMPointerType(llvm_void_ptr, 0);
 
   /* Adding functions */
   LLVMTypeRef lhash_get_args[2] = {llvm_void_ptr, llvm_u64};
@@ -96,7 +96,7 @@ void llvm_munge(lfunc_t *func) {
   LLVMValueRef offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
   LLVMValueRef closure_addr = LLVMBuildPtrToInt(builder, closure, llvm_u64, "");
   closure_addr = LLVMBuildAdd(builder, closure_addr, offset, "");
-  closure_addr = LLVMBuildIntToPtr(builder, closure_addr, llvm_u64_ptr, "");
+  closure_addr = LLVMBuildIntToPtr(builder, closure_addr, llvm_void_ptr_ptr,"");
   LLVMValueRef closure_env = LLVMBuildLoad(builder, closure_addr, "env");
 
   for (i = 0; i < func->max_stack; i++) {
