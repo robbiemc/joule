@@ -6,8 +6,10 @@
 #include <llvm-c/Core.h>
 #include <llvm-c/ExecutionEngine.h>
 #include <llvm-c/Transforms/Scalar.h>
+#include <stddef.h>
 
 #include "config.h"
+#include "lhash.h"
 #include "opcode.h"
 #include "panic.h"
 #include "vm.h"
@@ -18,6 +20,7 @@ static LLVMPassManagerRef pass_manager;
 static LLVMExecutionEngineRef ex_engine;
 static LLVMBuilderRef builder;
 static LLVMTypeRef llvm_u64;
+static LLVMTypeRef llvm_u64_ptr;
 static LLVMTypeRef llvm_double;
 static LLVMTypeRef llvm_double_ptr;
 
@@ -25,6 +28,7 @@ static LLVMTypeRef llvm_double_ptr;
  * @brief Initialize LLVM globals and engines needed for JIT compilation
  */
 INIT static void llvm_init() {
+  LLVMInitializeNativeTarget();
   module = LLVMModuleCreateWithName("joule");
   xassert(module != NULL);
 
@@ -43,6 +47,7 @@ INIT static void llvm_init() {
   xassert(builder != NULL);
 
   llvm_u64 = LLVMInt64Type();
+  llvm_u64_ptr = LLVMPointerType(llvm_u64, 0);
   llvm_double = LLVMDoubleType();
   llvm_double_ptr = LLVMPointerType(llvm_double, 0);
 }
@@ -63,17 +68,39 @@ void llvm_munge(lfunc_t *func) {
   char name[20];
   u32 i;
 
-  LLVMTypeRef funtyp = LLVMFunctionType(LLVMVoidType(), NULL, 0, FALSE);
+  LLVMTypeRef params[] = {
+    LLVMPointerType(LLVMVoidType(), 0),
+    LLVMPointerType(LLVMArrayType(llvm_u64, func->max_stack), 0),
+  };
+
+  LLVMTypeRef  funtyp   = LLVMFunctionType(LLVMVoidType(), params, 2, FALSE);
   LLVMValueRef function = LLVMAddFunction(module, "test", funtyp);
+  LLVMValueRef closure  = LLVMGetParam(function, 0);
+  LLVMValueRef stack    = LLVMGetParam(function, 1);
 
   for (i = 0; i < func->num_instrs; i++) {
     blocks[i] = LLVMAppendBasicBlock(function, "block");
   }
 
   LLVMPositionBuilderAtEnd(builder, blocks[0]);
+
+  LLVMValueRef offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
+  LLVMValueRef closure_addr = LLVMBuildPtrToInt(builder, closure, llvm_u64, "");
+  closure_addr = LLVMBuildAdd(builder, closure_addr, offset, "");
+  closure_addr = LLVMBuildIntToPtr(builder, closure_addr, llvm_u64_ptr, "");
+  LLVMValueRef closure_env = LLVMBuildLoad(builder, closure_addr, "env");
+
   for (i = 0; i < func->max_stack; i++) {
     sprintf(name, "reg%d", i);
     regs[i] = LLVMBuildAlloca(builder, llvm_u64, name);
+  }
+  LLVMValueRef indices[2];
+  indices[0] = LLVMConstInt(llvm_u64, 0, 0);
+  for (i = 0; i < func->max_stack; i++) {
+    indices[1] = LLVMConstInt(llvm_u64, i, 0);
+    LLVMValueRef addr = LLVMBuildInBoundsGEP(builder, stack, indices, 2, "");
+    LLVMValueRef val  = LLVMBuildLoad(builder, addr, "");
+    LLVMBuildStore(builder, val, regs[i]);
   }
   for (i = 0; i < func->num_consts; i++) {
     consts[i] = LLVMConstInt(llvm_u64, func->consts[i], FALSE);
@@ -156,12 +183,28 @@ void llvm_munge(lfunc_t *func) {
         break;
       }
 
+      case OP_RETURN: {
+        LLVMBuildRetVoid(builder);
+        break;
+      }
+
+      case OP_GETGLOBAL: {
+        /* TODO: metatable? */
+        LLVMValueRef fn = LLVMGetNamedFunction(module, "lhash_get");
+        xassert(fn != NULL);
+        LLVMValueRef args[] = {
+          closure_env,
+          consts[BX(code)]
+        };
+        LLVMDumpValue(fn);
+        LLVMValueRef val = LLVMBuildCall(builder, fn, args, 2, "");
+        LLVMBuildStore(builder, val, regs[A(code)]);
+        LLVMBuildBr(builder, blocks[i]);
+        break;
+      }
+
       default: {
-        if (i == func->num_instrs) {
-          LLVMBuildRetVoid(builder);
-        } else {
-          LLVMBuildBr(builder, blocks[i]);
-        }
+        LLVMBuildBr(builder, blocks[i]);
         break;
       }
     }
