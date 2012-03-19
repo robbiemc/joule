@@ -27,7 +27,7 @@ static LLVMTypeRef llvm_double_ptr;
 /**
  * @brief Initialize LLVM globals and engines needed for JIT compilation
  */
-INIT static void llvm_init() {
+void llvm_init() {
   LLVMInitializeNativeTarget();
   module = LLVMModuleCreateWithName("joule");
   xassert(module != NULL);

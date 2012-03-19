@@ -46,8 +46,10 @@ static void register_argv(int bias, int argc, char **argv) {
 }
 
 void llvm_munge(lfunc_t *func);
+void llvm_init();
 
 int main(int argc, char **argv) {
+  llvm_init();
   int ret;
   lfunc_t *func = gc_alloc(sizeof(lfunc_t), LFUNC);
 
