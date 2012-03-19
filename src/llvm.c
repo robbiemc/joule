@@ -40,7 +40,6 @@ void llvm_init() {
   LLVMAddVerifierPass(pass_manager);
   LLVMAddCFGSimplificationPass(pass_manager);
   LLVMAddPromoteMemoryToRegisterPass(pass_manager);
-  LLVMAddEarlyCSEPass(pass_manager);
 
   /* Builder and execution engine */
   char *err;
