@@ -34,25 +34,27 @@ void llvm_init() {
   module = LLVMModuleCreateWithName("joule");
   xassert(module != NULL);
 
+  /* Optimization passes */
   pass_manager = LLVMCreateFunctionPassManagerForModule(module);
   xassert(pass_manager != NULL);
-
   LLVMAddVerifierPass(pass_manager);
   LLVMAddCFGSimplificationPass(pass_manager);
   LLVMAddPromoteMemoryToRegisterPass(pass_manager);
+  LLVMAddEarlyCSEPass(pass_manager);
 
+  /* Builder and execution engine */
   char *err;
   LLVMBool ret = LLVMCreateJITCompilerForModule(&ex_engine, module, 100, &err);
   xassert(ret);
-
   builder = LLVMCreateBuilder();
   xassert(builder != NULL);
 
-  llvm_u64 = LLVMInt64Type();
-  llvm_u64_ptr = LLVMPointerType(llvm_u64, 0);
-  llvm_double = LLVMDoubleType();
-  llvm_double_ptr = LLVMPointerType(llvm_double, 0);
-  llvm_void_ptr = LLVMPointerType(LLVMVoidType(), 0);
+  /* Useful types used in lots of places */
+  llvm_u64          = LLVMInt64Type();
+  llvm_u64_ptr      = LLVMPointerType(llvm_u64, 0);
+  llvm_double       = LLVMDoubleType();
+  llvm_double_ptr   = LLVMPointerType(llvm_double, 0);
+  llvm_void_ptr     = LLVMPointerType(LLVMVoidType(), 0);
   llvm_void_ptr_ptr = LLVMPointerType(llvm_void_ptr, 0);
 
   /* Adding functions */
@@ -78,7 +80,7 @@ void llvm_munge(lfunc_t *func) {
   u32 i;
 
   LLVMTypeRef params[] = {
-    LLVMPointerType(LLVMVoidType(), 0),
+    llvm_void_ptr,
     LLVMPointerType(LLVMArrayType(llvm_u64, func->max_stack), 0),
   };
 
@@ -90,8 +92,14 @@ void llvm_munge(lfunc_t *func) {
   for (i = 0; i < func->num_instrs; i++) {
     blocks[i] = LLVMAppendBasicBlock(function, "block");
   }
-
   LLVMPositionBuilderAtEnd(builder, blocks[0]);
+  for (i = 0; i < func->num_consts; i++) {
+    consts[i] = LLVMConstInt(llvm_u64, func->consts[i], FALSE);
+  }
+  for (i = 0; i < func->max_stack; i++) {
+    sprintf(name, "reg%d", i);
+    regs[i] = LLVMBuildAlloca(builder, llvm_u64, name);
+  }
 
   LLVMValueRef offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
   LLVMValueRef closure_addr = LLVMBuildPtrToInt(builder, closure, llvm_u64, "");
@@ -99,10 +107,6 @@ void llvm_munge(lfunc_t *func) {
   env_addr = LLVMBuildIntToPtr(builder, env_addr, llvm_void_ptr_ptr, "");
   LLVMValueRef closure_env = LLVMBuildLoad(builder, env_addr, "env");
 
-  for (i = 0; i < func->max_stack; i++) {
-    sprintf(name, "reg%d", i);
-    regs[i] = LLVMBuildAlloca(builder, llvm_u64, name);
-  }
   LLVMValueRef indices[2];
   indices[0] = LLVMConstInt(llvm_u64, 0, 0);
   for (i = 0; i < func->max_stack; i++) {
@@ -110,9 +114,6 @@ void llvm_munge(lfunc_t *func) {
     LLVMValueRef addr = LLVMBuildInBoundsGEP(builder, stack, indices, 2, "");
     LLVMValueRef val  = LLVMBuildLoad(builder, addr, "");
     LLVMBuildStore(builder, val, regs[i]);
-  }
-  for (i = 0; i < func->num_consts; i++) {
-    consts[i] = LLVMConstInt(llvm_u64, func->consts[i], FALSE);
   }
 
   for (i = 0; i < func->num_instrs;) {
