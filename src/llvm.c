@@ -84,7 +84,7 @@ void llvm_init() {
 /**
  * @brief Deallocates all memory associated with LLVM allocated on startup
  */
-DESTROY static void llvm_destroy() {
+void llvm_destroy() {
   LLVMDisposePassManager(pass_manager);
   LLVMDisposeBuilder(builder);
   LLVMDisposeExecutionEngine(ex_engine);

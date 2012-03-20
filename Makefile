@@ -7,7 +7,7 @@ SRCDIR   = src
 TESTDIR  = tests
 CTESTDIR = ctests
 BENCHDIR = bench
-LDFLAGS  = -lm $(shell llvm-config --libs jit core native) $(shell llvm-config --ldflags)
+LDFLAGS  = -lm $(shell llvm-config --libs jit core native) $(shell llvm-config --ldflags) -rdynamic
 
 # Different flags for opt vs debug
 ifeq ($(BUILD),opt)

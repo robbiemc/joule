@@ -47,6 +47,7 @@ static void register_argv(int bias, int argc, char **argv) {
 
 void llvm_munge(lfunc_t *func);
 void llvm_init();
+void llvm_destroy();
 
 int main(int argc, char **argv) {
   llvm_init();
@@ -83,6 +84,7 @@ int main(int argc, char **argv) {
   // vm_run(func);
   llvm_munge(func);
 
+  llvm_destroy();
   return 0;
 
 usage:
