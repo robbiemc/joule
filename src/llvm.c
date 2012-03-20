@@ -61,7 +61,13 @@ void llvm_init() {
   LLVMAddCFGSimplificationPass(pass_manager);
   LLVMAddPromoteMemoryToRegisterPass(pass_manager);
   LLVMAddGVNPass(pass_manager);
+  LLVMAddConstantPropagationPass(pass_manager);
+  LLVMAddDeadStoreEliminationPass(pass_manager);
+  LLVMAddAggressiveDCEPass(pass_manager);
   LLVMAddLoopRotatePass(pass_manager);
+  LLVMAddLoopUnrollPass(pass_manager);
+  LLVMAddIndVarSimplifyPass(pass_manager);
+  LLVMAddLICMPass(pass_manager);
 
   /* Builder and execution engine */
   char *errs;
@@ -374,7 +380,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   }
 
   LLVMRunFunctionPassManager(pass_manager, function);
-  LLVMDumpModule(module);
+  //LLVMDumpModule(module);
   return function;
 }
 
