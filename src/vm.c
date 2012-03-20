@@ -327,6 +327,12 @@ top:
   while (1) {
     assert(instrs < func->instrs + func->num_instrs);
 
+    // increase the run count and check if we should compile
+    if (instrs->count++ > 0 && instrs->jfunc == NULL) {
+      u32 instr_index = (u32) (instrs - func->instrs) / sizeof(instr_t);
+      instrs->jfunc = llvm_compile(func, instr_index, (u32) func->num_instrs);
+    }
+
     // check if there's a compiled version available
     if (instrs->jfunc != NULL) {
       u32 stack_stuff[] = {
@@ -337,7 +343,6 @@ top:
         [JRETVI]  = retvi
       };
       i32 ret = llvm_run(instrs->jfunc, closure, stack_stuff);
-      xassert(ret != -1); // TODO handle failures correctly
       if (ret < 0) {
         // the function returned
         u32 rcount = (u32) (-ret) - 1;
@@ -349,12 +354,6 @@ top:
       // the function ended, but it's still in this lfunc
       instrs = &func->instrs[ret];
       continue;
-    }
-
-    // increase the run count and check if we should compile
-    if (instrs->count++ > 0) {
-      u32 instr_index = (u32) (instrs - func->instrs) / sizeof(instr_t);
-      instrs->jfunc = llvm_compile(func, instr_index, (u32) func->num_instrs);
     }
 
     u32 code = (instrs++)->instr;
