@@ -9,6 +9,7 @@
 #include "flags.h"
 #include "gc.h"
 #include "lhash.h"
+#include "llvm.h"
 #include "luav.h"
 #include "meta.h"
 #include "opcode.h"
@@ -300,7 +301,7 @@ top:
   u32 last_ret = 0;
   u32 upvalues = 0;
   lfunc_t *func = closure->function.lua;
-  u32 *instrs = func->instrs;
+  instr_t *instrs = func->instrs;
   frame.pc = &instrs;
   luav temp;
   assert(closure->env != NULL);
@@ -325,7 +326,38 @@ top:
   /* Core VM loop, also really slow VM loop... */
   while (1) {
     assert(instrs < func->instrs + func->num_instrs);
-    u32 code = *instrs++;
+
+    // check if there's a compiled version available
+    if (instrs->jfunc != NULL) {
+      u32 stack_stuff[] = {
+        [JSTACKI] = stack,
+        [JARGC]   = argc,
+        [JARGVI]  = argvi,
+        [JRETC]   = retc,
+        [JRETVI]  = retvi
+      };
+      i32 ret = llvm_run(instrs->jfunc, closure, stack_stuff);
+      xassert(ret != -1); // TODO handle failures correctly
+      if (ret < 0) {
+        // the function returned
+        u32 rcount = (u32) (-ret) - 1;
+        vm_running = parent; // reset the currently running frame 
+        /* make sure we don't deallocate past the arguments returned */
+        vm_stack_dealloc(vm_stack, MAX(retvi + rcount, stack_orig));
+        return rcount;
+      }
+      // the function ended, but it's still in this lfunc
+      instrs = &func->instrs[ret];
+      continue;
+    }
+
+    // increase the run count and check if we should compile
+    if (instrs->count++ > 0) {
+      u32 instr_index = (u32) (instrs - func->instrs) / sizeof(instr_t);
+      instrs->jfunc = llvm_compile(func, instr_index, (u32) func->num_instrs);
+    }
+
+    u32 code = (instrs++)->instr;
 
 #ifndef NDEBUG
     if (flags.print) {
@@ -530,7 +562,7 @@ top:
         lv_nilify(closure2->upvalues, function->num_upvalues);
 
         for (i = 0; i < function->num_upvalues; i++) {
-          u32 pseudo = *instrs++;
+          u32 pseudo = (instrs++)->instr;
           luav upvalue;
           if (OP(pseudo) == OP_MOVE) {
             /* Can't use the REG macro because we don't want to duplicate
@@ -701,7 +733,7 @@ top:
         a = A(code);
         c = C(code);
         if (c == 0) {
-          c = *instrs++;
+          c = (instrs++)->instr;
         }
         if (b == 0) { b = last_ret - a - 1; }
         lhash_t *hash = lv_gettable(REG(a), 0);

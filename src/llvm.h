@@ -1,6 +1,11 @@
 #ifndef _LLVM_H_
 #define _LLVM_H_
 
+struct lfunc;
+struct lclosure;
+
+typedef void jfunc_t;
+
 #include "lstate.h"
 
 #define JSTACKI 0
@@ -9,11 +14,6 @@
 #define JRETC   3
 #define JRETVI  4
 #define JARGS   5
-
-struct lfunc;
-struct lclosure;
-
-typedef void jfunc_t;
 
 void llvm_init();
 void llvm_destroy();

@@ -163,9 +163,12 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size) {
 
   // instructions
   func->num_instrs = xread4(fd);
-  size = func->num_instrs * sizeof(u32);
-  func->instrs = gc_alloc(size, LANY);
-  xread(fd, func->instrs, size);
+  func->instrs = gc_alloc(func->num_instrs * sizeof(instr_t), LANY);
+  for (i = 0; i < func->num_instrs; i++) {
+    func->instrs[i].instr = xread4(fd);
+    func->instrs[i].count = 0;
+    func->instrs[i].jfunc = NULL;
+  }
 
   // constants :(
   func->num_consts = xread4(fd);

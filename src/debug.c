@@ -51,7 +51,7 @@ static void dbg_dump_func(FILE *out, lfunc_t *func, int level) {
   __pr("  Instructions: %zu\n", func->num_instrs);
   iloop(num_instrs) {
     __pr("  %*zu   ", width, i);
-    opcode_dump(out, func->instrs[i]);
+    opcode_dump(out, func->instrs[i].instr);
     pr("\n");
   }
 

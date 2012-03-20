@@ -197,7 +197,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   /* Translate! */
   for (i = start; i <= end;) {
     LLVMPositionBuilderAtEnd(builder, blocks[i]);
-    u32 code = func->instrs[i++];
+    u32 code = func->instrs[i++].instr;
 
     switch (OP(code)) {
       case OP_MOVE: {
@@ -373,8 +373,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
     }
   }
 
-  printf("%p %p\n", blocks[start], LLVMGetEntryBasicBlock(function));
-  printf("%p\n", LLVMGetPreviousBasicBlock(blocks[start]));
   LLVMRunFunctionPassManager(pass_manager, function);
   LLVMDumpModule(module);
   return function;

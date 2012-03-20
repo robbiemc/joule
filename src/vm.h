@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#include "llvm.h"
 #include "lstate.h"
 #include "lstring.h"
 #include "luav.h"
@@ -13,22 +14,28 @@ struct lhash;
 
 typedef u32 cfunction_t(LSTATE);
 
-typedef struct lfunc {
-  lstring_t     *name;
-  char          *file;
-  u32           start_line;
-  u32           end_line;
-  uint8_t       num_upvalues;
-  uint8_t       num_parameters;
-  uint8_t       is_vararg;
-  uint8_t       max_stack;
+typedef struct instr {
+  u32       instr;
+  u32       count;
+  jfunc_t   *jfunc;
+} instr_t;
 
-  size_t        num_instrs;
-  uint32_t      *instrs;
-  size_t        num_consts;
-  luav          *consts;
-  size_t        num_funcs;
-  struct lfunc  **funcs;
+typedef struct lfunc {
+  lstring_t   *name;
+  char        *file;
+  u32         start_line;
+  u32         end_line;
+  u8          num_upvalues;
+  u8          num_parameters;
+  u8          is_vararg;
+  u8          max_stack;
+
+  size_t      num_instrs;
+  instr_t     *instrs;
+  size_t      num_consts;
+  luav        *consts;
+  size_t      num_funcs;
+  struct lfunc **funcs;
 
   // debug information
   u32           num_lines;
@@ -53,7 +60,7 @@ typedef struct lclosure {
 
 typedef struct lframe {
   lclosure_t *closure;
-  u32 **pc;
+  instr_t **pc;
   struct lframe *caller;
 } lframe_t;
 

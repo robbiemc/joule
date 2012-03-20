@@ -24,7 +24,7 @@ void opcode_dump_idx(FILE *out, lfunc_t *func, size_t idx) {
     fprintf(out, "??  ");
   else
     fprintf(out, "%2d  ", func->lines[idx]);
-  opcode_dump(out, func->instrs[idx]);
+  opcode_dump(out, func->instrs[idx].instr);
 }
 
 void opcode_dump(FILE *out, uint32_t code) {
