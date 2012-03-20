@@ -1,7 +1,7 @@
 local prev, next, N, i, tmp, j
 prev = 1
 next = 1
-N = 20
+N = 3000000
 i = 0
 j = nil
 
