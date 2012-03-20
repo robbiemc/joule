@@ -19,12 +19,17 @@ static LLVMModuleRef module;
 static LLVMPassManagerRef pass_manager;
 static LLVMExecutionEngineRef ex_engine;
 static LLVMBuilderRef builder;
+static LLVMTypeRef llvm_u32;
 static LLVMTypeRef llvm_u64;
 static LLVMTypeRef llvm_u64_ptr;
 static LLVMTypeRef llvm_double;
 static LLVMTypeRef llvm_double_ptr;
 static LLVMTypeRef llvm_void_ptr;
 static LLVMTypeRef llvm_void_ptr_ptr;
+
+static LLVMValueRef lvc_null;
+static LLVMValueRef lvc_u32_one;
+static LLVMValueRef lvc_data_mask;
 
 /**
  * @brief Initialize LLVM globals and engines needed for JIT compilation
@@ -49,6 +54,7 @@ void llvm_init() {
   xassert(builder != NULL);
 
   /* Useful types used in lots of places */
+  llvm_u32          = LLVMInt32Type();
   llvm_u64          = LLVMInt64Type();
   llvm_u64_ptr      = LLVMPointerType(llvm_u64, 0);
   llvm_double       = LLVMDoubleType();
@@ -56,10 +62,22 @@ void llvm_init() {
   llvm_void_ptr     = LLVMPointerType(LLVMInt8Type(), 0);
   llvm_void_ptr_ptr = LLVMPointerType(llvm_void_ptr, 0);
 
+  /* Constants */
+  lvc_null = LLVMConstNull(llvm_void_ptr);
+  lvc_u32_one = LLVMConstInt(llvm_u32, 1, FALSE);
+  lvc_data_mask = LLVMConstInt(llvm_u64, LUAV_DATA_MASK, FALSE);
+
   /* Adding functions */
   LLVMTypeRef lhash_get_args[2] = {llvm_void_ptr, llvm_u64};
   LLVMTypeRef lhash_get_type = LLVMFunctionType(llvm_u64, lhash_get_args, 2, 0);
   LLVMAddFunction(module, "lhash_get", lhash_get_type);
+  LLVMTypeRef vm_fun_args[6] = {llvm_void_ptr, llvm_void_ptr, llvm_u32,
+                                llvm_u32, llvm_u32, llvm_u32};
+  LLVMTypeRef vm_fun_type = LLVMFunctionType(llvm_u32, vm_fun_args, 6, 0);
+  LLVMAddFunction(module, "vm_fun", vm_fun_type);
+  LLVMTypeRef memset_args[3] = {llvm_void_ptr, llvm_u32, llvm_u64};
+  LLVMTypeRef memset_type = LLVMFunctionType(llvm_void_ptr, memset_args, 3, 0);
+  LLVMAddFunction(module, "memset", memset_type);
 }
 
 /**
@@ -76,7 +94,7 @@ void llvm_munge(lfunc_t *func) {
   LLVMValueRef regs[func->max_stack];
   LLVMValueRef consts[func->num_consts];
   char name[20];
-  u32 i;
+  u32 i, j;
 
   LLVMTypeRef params[] = {
     llvm_void_ptr,
@@ -203,6 +221,54 @@ void llvm_munge(lfunc_t *func) {
         LLVMDumpValue(fn);
         LLVMValueRef val = LLVMBuildCall(builder, fn, args, 2, "");
         LLVMBuildStore(builder, val, regs[A(code)]);
+        LLVMBuildBr(builder, blocks[i]);
+        break;
+      }
+
+      case OP_CALL: {
+        /* TODO: varargs, multiple returns, etc... */
+        // copy things from c stack to lua stack
+        for (j = 0; j < func->max_stack; j++) {
+          indices[1] = LLVMConstInt(llvm_u64, j, 0);
+          LLVMValueRef addr = LLVMBuildInBoundsGEP(builder, stack, indices, 2, "");
+          LLVMValueRef val  = LLVMBuildLoad(builder, regs[j], "");
+          LLVMBuildStore(builder, val, addr);
+        }
+        xassert(B(code) > 0 && C(code) > 0);
+        u32 num_args = B(code) - 1;
+        u32 num_rets = C(code) - 1;
+        // get the function pointer
+        LLVMValueRef a_u64 = LLVMBuildPtrToInt(builder, regs[A(code)], llvm_u64, "");
+        LLVMValueRef cl_ptr = LLVMBuildAnd(builder, a_u64, lvc_data_mask, "call_and");
+        LLVMValueRef closure = LLVMBuildIntToPtr(builder, cl_ptr, llvm_void_ptr, "");
+        // call the function
+        LLVMValueRef av = LLVMConstInt(llvm_u32, A(code), FALSE);
+        LLVMValueRef fn = LLVMGetNamedFunction(module, "vm_fun");
+        xassert(fn != NULL);
+        LLVMValueRef args[] = {
+          closure,
+          lvc_null,
+          LLVMConstInt(llvm_u32, num_args, FALSE),
+          LLVMBuildAdd(builder, av, lvc_u32_one, "call_a_inc"),
+          LLVMConstInt(llvm_u32, num_rets, FALSE),
+          av
+        };
+        /*LLVMValueRef ret =*/ LLVMBuildCall(builder, fn, args, 6, "");
+        // nilify unused return parameters
+        /* TODO
+        LLVMValueRef memset_fn = LLVMGetNamedFunction(module, "memset");
+        LLVMValueRef memset_argvs = {
+          //
+        };
+        LLVMBuildCall(builder, memset_fn, memset_argvs, 3, "memset");
+        */
+        // copy things from lua stack back to c stack
+        for (j = 0; j < func->max_stack; j++) {
+          indices[1] = LLVMConstInt(llvm_u64, j, 0);
+          LLVMValueRef addr = LLVMBuildInBoundsGEP(builder, stack, indices, 2, "");
+          LLVMValueRef val  = LLVMBuildLoad(builder, addr, "");
+          LLVMBuildStore(builder, val, regs[j]);
+        }
         LLVMBuildBr(builder, blocks[i]);
         break;
       }
