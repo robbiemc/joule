@@ -312,5 +312,8 @@ void llvm_munge(lfunc_t *func) {
     LLVMCreateGenericValueOfPointer(&lclosure),
     LLVMCreateGenericValueOfInt(llvm_u32, lstacki, FALSE)
   };
-  LLVMRunFunction(ex_engine, function, 2, args);
+  LLVMGenericValueRef ret = LLVMRunFunction(ex_engine, function, 2, args);
+  LLVMDisposeGenericValue(args[0]);
+  LLVMDisposeGenericValue(args[1]);
+  LLVMDisposeGenericValue(ret);
 }
