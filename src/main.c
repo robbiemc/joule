@@ -8,6 +8,7 @@
 #include "flags.h"
 #include "gc.h"
 #include "lhash.h"
+#include "llvm.h"
 #include "lstring.h"
 #include "panic.h"
 #include "parse.h"
@@ -45,10 +46,6 @@ static void register_argv(int bias, int argc, char **argv) {
   }
 }
 
-void llvm_munge(lfunc_t *func);
-void llvm_init();
-void llvm_destroy();
-
 int main(int argc, char **argv) {
   llvm_init();
   int ret;
@@ -81,8 +78,7 @@ int main(int argc, char **argv) {
   }
 
   register_argv(i, argc, argv);
-  // vm_run(func);
-  llvm_munge(func);
+  vm_run(func);
 
   llvm_destroy();
   return 0;
