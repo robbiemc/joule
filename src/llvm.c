@@ -121,9 +121,8 @@ void llvm_munge(lfunc_t *func) {
 
   /* Calculate closure->env */
   LLVMValueRef offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
-  LLVMValueRef closure_addr = LLVMBuildPtrToInt(builder, closure, llvm_u64, "");
-  LLVMValueRef env_addr = LLVMBuildAdd(builder, closure_addr, offset, "");
-  env_addr = LLVMBuildIntToPtr(builder, env_addr, llvm_void_ptr_ptr, "");
+  LLVMValueRef env_addr = LLVMBuildInBoundsGEP(builder, closure, &offset, 1,"");
+  env_addr = LLVMBuildBitCast(builder, env_addr, llvm_void_ptr_ptr, "");
   LLVMValueRef closure_env = LLVMBuildLoad(builder, env_addr, "env");
 
   /* Calculate stack base */
