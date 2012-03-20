@@ -30,6 +30,7 @@ static LLVMTypeRef llvm_void_ptr_ptr;
 static LLVMValueRef lvc_null;
 static LLVMValueRef lvc_u32_one;
 static LLVMValueRef lvc_data_mask;
+static LLVMValueRef lvc_nil;
 
 /**
  * @brief Initialize LLVM globals and engines needed for JIT compilation
@@ -64,9 +65,10 @@ void llvm_init() {
   llvm_void_ptr_ptr = LLVMPointerType(llvm_void_ptr, 0);
 
   /* Constants */
-  lvc_null = LLVMConstNull(llvm_void_ptr);
-  lvc_u32_one = LLVMConstInt(llvm_u32, 1, FALSE);
+  lvc_null      = LLVMConstNull(llvm_void_ptr);
+  lvc_u32_one   = LLVMConstInt(llvm_u32, 1, FALSE);
   lvc_data_mask = LLVMConstInt(llvm_u64, LUAV_DATA_MASK, FALSE);
+  lvc_nil       = LLVMConstInt(llvm_u64, LUAV_NIL, FALSE);
 
   /* Adding functions */
   LLVMTypeRef lhash_get_args[2] = {llvm_void_ptr, llvm_u64};
@@ -146,7 +148,7 @@ void llvm_munge(lfunc_t *func) {
 
     switch (OP(code)) {
       case OP_MOVE: {
-        LLVMValueRef val = LLVMBuildLoad(builder, regs[B(code)], "move_load");
+        LLVMValueRef val = LLVMBuildLoad(builder, regs[B(code)], "mv");
         LLVMBuildStore(builder, val, regs[A(code)]);
 
         LLVMBuildBr(builder, blocks[i]);
@@ -155,6 +157,14 @@ void llvm_munge(lfunc_t *func) {
 
       case OP_LOADK: {
         LLVMBuildStore(builder, consts[BX(code)], regs[A(code)]);
+        LLVMBuildBr(builder, blocks[i]);
+        break;
+      }
+
+      case OP_LOADNIL: {
+        for (j = A(code); j <= B(code); j++) {
+          LLVMBuildStore(builder, lvc_nil, regs[j]);
+        }
         LLVMBuildBr(builder, blocks[i]);
         break;
       }

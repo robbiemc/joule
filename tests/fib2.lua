@@ -1,8 +1,9 @@
-local prev, next, N, i, tmp
+local prev, next, N, i, tmp, j
 prev = 1
 next = 1
 N = 20
 i = 0
+j = nil
 
 while i < N do
   tmp = prev + next
@@ -11,4 +12,4 @@ while i < N do
   i = i + 1
 end
 
-print(next)
+print(next, j)
