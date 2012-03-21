@@ -19,6 +19,7 @@
 typedef LLVMValueRef Value;
 typedef LLVMTypeRef  Type;
 typedef LLVMValueRef(Binop)(LLVMBuilderRef, Value, Value, const char*);
+typedef i32(jitf)(void*, void*);
 
 #define GOTOBB(idx) {                                                       \
     if ((idx) > end || (idx) < start) {                                     \
@@ -217,8 +218,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
     consts[i] = LLVMConstInt(llvm_u64, func->consts[i], FALSE);
   }
   for (i = 0; i < func->max_stack; i++) {
-    sprintf(name, "reg%d", i);
-    regs[i] = LLVMBuildAlloca(builder, llvm_u64, name);
+    regs[i] = LLVMBuildAlloca(builder, llvm_u64, "");
   }
 
   /* Calculate stacki, and LSTATE */
@@ -246,7 +246,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
 
   /* Copy the lua stack onto the C stack */
   for (i = 0; i < func->max_stack; i++) {
-    Value off  = LLVMConstInt(llvm_u64, i, 0);
+    Value off  = LLVMConstInt(llvm_u32, i, 0);
     Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
     Value val  = LLVMBuildLoad(builder, addr, "");
     LLVMBuildStore(builder, val, regs[i]);
@@ -352,7 +352,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         /* Create blocks for all return values, bailing out as soon as possible
            to the end when no more return values are wanted */
         LLVMPositionBuilderAtEnd(builder, blocks[i - 1]);
-        for (j = A(code); j < B(code) - 1; j++) {
+        for (j = 0; j < num_ret; j++) {
           /* Test whether this argument should be returned */
           Value offset = LLVMConstInt(llvm_u32, j, FALSE);
           LLVMBasicBlockRef curbb = LLVMAppendBasicBlock(function, "ret");
@@ -362,7 +362,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
           /* Return the argument */
           LLVMPositionBuilderAtEnd(builder, curbb);
           Value addr = LLVMBuildInBoundsGEP(builder, ret_stack, &offset, 1, "");
-          Value val  = LLVMBuildLoad(builder, regs[j], "");
+          Value val  = LLVMBuildLoad(builder, regs[A(code) + j], "");
           LLVMBuildStore(builder, val, addr);
         }
 
@@ -446,7 +446,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
 
   LLVMRunFunctionPassManager(pass_manager, function);
   //LLVMDumpModule(module);
-  return function;
+  return LLVMGetPointerToGlobal(ex_engine, function);
 }
 
 /**
@@ -459,14 +459,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
  * @return the program counter which was bailed out on, or TODO: MORE HERE
  */
 i32 llvm_run(jfunc_t *function, lclosure_t *closure, u32 *args) {
-  LLVMGenericValueRef jargs[2] = {
-    LLVMCreateGenericValueOfPointer(closure),
-    LLVMCreateGenericValueOfPointer(args)
-  };
-  LLVMGenericValueRef val = LLVMRunFunction(ex_engine, function, 2, jargs);
-  LLVMDisposeGenericValue(jargs[0]);
-  LLVMDisposeGenericValue(jargs[1]);
-  i32 ret = (i32) LLVMGenericValueToInt(val, TRUE);
-  LLVMDisposeGenericValue(val);
-  return ret;
+  // jitf *f = LLVMGetPointerToGlobal(ex_engine, function);
+  jitf *f = function;
+  return f(closure, args);
 }
