@@ -329,7 +329,7 @@ top:
 
     // increase the run count and check if we should compile
     if (instrs->count++ > 0 && instrs->jfunc == NULL) {
-      u32 instr_index = ((u32) instrs - (u32) func->instrs) / sizeof(instr_t);
+      u32 instr_index = ((u32) (instrs - func->instrs)) / sizeof(instr_t);
       instrs->jfunc = llvm_compile(func, instr_index, (u32) func->num_instrs-1);
     }
 
