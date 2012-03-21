@@ -296,6 +296,28 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         build_binop(code, consts, regs, LLVMBuildFSub);
         GOTOBB(i);
         break;
+      case OP_MUL:
+        build_binop(code, consts, regs, LLVMBuildFMul);
+        GOTOBB(i);
+        break;
+      case OP_DIV:
+        build_binop(code, consts, regs, LLVMBuildFDiv);
+        GOTOBB(i);
+        break;
+      case OP_MOD:
+        build_binop(code, consts, regs, LLVMBuildFRem);
+        GOTOBB(i);
+        break;
+
+      case OP_UNM: {
+        Value bv = LLVMBuildLoad(builder, regs[B(code)], "");
+        bv = LLVMBuildBitCast(builder, bv, llvm_double, "");
+        Value res = LLVMBuildFNeg(builder, bv, "");
+        res = LLVMBuildBitCast(builder, res, llvm_u64, "");
+        LLVMBuildStore(builder, res, regs[A(code)]);
+        GOTOBB(i);
+        break;
+      }
 
       case OP_LT: {
         /* TODO: assumes floats */
@@ -448,10 +470,35 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         break;
       }
 
-      default: {
+      /* TODO - here are all the unimplemented opcodes */
+      case OP_LOADBOOL:
+      case OP_GETUPVAL:
+      case OP_GETTABLE:
+      case OP_SETGLOBAL:
+      case OP_SETUPVAL:
+      case OP_SETTABLE:
+      case OP_NEWTABLE:
+      case OP_SELF:
+      case OP_POW:
+      case OP_NOT:
+      case OP_LEN:
+      case OP_CONCAT:
+      case OP_EQ:
+      case OP_LE:
+      case OP_TEST:
+      case OP_TESTSET:
+      case OP_TAILCALL:
+      case OP_FORLOOP:
+      case OP_FORPREP:
+      case OP_TFORLOOP:
+      case OP_SETLIST:
+      case OP_CLOSE:
+      case OP_CLOSURE:
+      case OP_VARARG:
+
+      default:
         // TODO cleanup
         return NULL;
-      }
     }
   }
 
