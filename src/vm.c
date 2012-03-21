@@ -329,13 +329,13 @@ top:
 
     // increase the run count and check if we should compile
     if (instrs->count++ > 0 && instrs->jfunc == NULL) {
-      u32 instr_index = (u32) (instrs - func->instrs) / sizeof(instr_t);
-      instrs->jfunc = llvm_compile(func, instr_index, (u32) func->num_instrs);
+      u32 instr_index = ((u32) instrs - (u32) func->instrs) / sizeof(instr_t);
+      instrs->jfunc = llvm_compile(func, instr_index, (u32) func->num_instrs-1);
     }
 
     // check if there's a compiled version available
     if (instrs->jfunc != NULL) {
-      u32 stack_stuff[] = {
+      u32 stack_stuff[JARGS] = {
         [JSTACKI] = stack,
         [JARGC]   = argc,
         [JARGVI]  = argvi,
@@ -346,7 +346,7 @@ top:
       if (ret < 0) {
         // the function returned
         u32 rcount = (u32) (-ret) - 1;
-        vm_running = parent; // reset the currently running frame 
+        vm_running = parent; // reset the currently running frame
         /* make sure we don't deallocate past the arguments returned */
         vm_stack_dealloc(vm_stack, MAX(retvi + rcount, stack_orig));
         return rcount;
