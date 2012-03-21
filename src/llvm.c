@@ -22,30 +22,19 @@ typedef LLVMBasicBlockRef BasicBlock;
 typedef LLVMValueRef(Binop)(LLVMBuilderRef, Value, Value, const char*);
 typedef i32(jitf)(void*, void*);
 
-#define GOTOBB(idx) {                                                          \
-    if ((idx) > end || (idx) < start) {                                        \
-      build_return((i32) (idx), func->max_stack, regs, base_addr, stacki);     \
-    } else {                                                                   \
-      LLVMBuildBr(builder, blocks[idx]);                                       \
-    }                                                                          \
-  }
-#define DSTBB(idx) ({                                                          \
-    BasicBlock tmp = blocks[idx];                                              \
-    if ((idx) > end || (idx) < start) {                                        \
-      BasicBlock cur = LLVMGetInsertBlock(builder);                            \
-      tmp = LLVMAppendBasicBlock(function, "");                                \
-      LLVMPositionBuilderAtEnd(builder, tmp);                                  \
-      build_return((i32) (idx), func->max_stack, regs, base_addr, stacki);     \
-      LLVMPositionBuilderAtEnd(builder, cur);                                  \
-    }                                                                          \
-    tmp;                                                                       \
-  })
+#define GOTOBB(idx) LLVMBuildBr(builder, dest_bb(blocks, idx))
 
 /* Global contexts for LLVM compilation */
 static LLVMModuleRef module;
 static LLVMPassManagerRef pass_manager;
 static LLVMExecutionEngineRef ex_engine;
 static LLVMBuilderRef builder;
+
+static Value function;
+static Value ret_val;
+static BasicBlock ret_block;
+
+static Type llvm_i32;
 static Type llvm_u32;
 static Type llvm_u64;
 static Type llvm_u64_ptr;
@@ -100,7 +89,8 @@ void llvm_init() {
   xassert(builder != NULL);
 
   /* Useful types used in lots of places */
-  llvm_u32          = LLVMInt32Type();
+  llvm_i32          = LLVMInt32Type();
+  llvm_u32          = llvm_i32;
   llvm_u64          = LLVMInt64Type();
   llvm_u64_ptr      = LLVMPointerType(llvm_u64, 0);
   llvm_double       = LLVMDoubleType();
@@ -162,23 +152,30 @@ static Value get_stack_base(Value base_addr, Value offset, char *name) {
  * @brief Builds a "bail out"
  *
  * @param ret the value to return
- * @param num_regs the number of registers to restore
- * @param regs the registers to restore
- * @param base_addr the address which when dereferenced will point to the
- *        base of the lua stack.
  */
-static void build_return(i32 ret, u32 num_regs, Value *regs, Value base_addr,
-                         Value stacki) {
-  u32 i;
-  Value base = LLVMBuildLoad(builder, base_addr, "");
-  Value stack = LLVMBuildInBoundsGEP(builder, base, &stacki, 1, "");
-  for (i = 0; i < num_regs; i++) {
-    Value off  = LLVMConstInt(llvm_u32, i, FALSE);
-    Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
-    Value val  = LLVMBuildLoad(builder, regs[i], "");
-    LLVMBuildStore(builder, val, addr);
-  }
-  LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (u32) ret, TRUE));
+static void build_return(i32 ret) {
+  Value r = LLVMConstInt(llvm_i32, (long long unsigned) ret, TRUE);
+  LLVMBuildStore(builder, r, ret_val);
+  LLVMBuildBr(builder, ret_block);
+}
+
+/**
+ * @brief Figures which basic block corresponds to the given instruction
+ *
+ * @param blocks  the array of blocks
+ * @param idx     the instruction to lookup
+ * @return the correct basic block
+ */
+BasicBlock dest_bb(BasicBlock *blocks, u32 idx) {
+  BasicBlock tmp = blocks[idx];
+  if (tmp != NULL)
+    return tmp;
+  BasicBlock current = LLVMGetInsertBlock(builder);
+  tmp = LLVMAppendBasicBlock(function, "");
+  LLVMPositionBuilderAtEnd(builder, tmp);
+  build_return((i32) idx);
+  LLVMPositionBuilderAtEnd(builder, current);
+  return tmp;
 }
 
 /**
@@ -230,7 +227,7 @@ static void build_binop(u32 code, Value *consts, Value *regs, Binop operation) {
  *         to llvm_run()
  */
 jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
-  BasicBlock blocks[func->num_instrs];
+  BasicBlock blocks[end]; // 'start' blocks wasted
   Value regs[func->max_stack];
   Value consts[func->num_consts];
   char name[20];
@@ -238,7 +235,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
 
   Type  funtyp   = LLVMFunctionType(llvm_u32, params, 2, FALSE);
-  Value function = LLVMAddFunction(module, "test", funtyp);
+  function = LLVMAddFunction(module, "test", funtyp);
   Value closure  = LLVMGetParam(function, 0);
   Value jargs    = LLVMGetParam(function, 1);
 
@@ -256,6 +253,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   for (i = 0; i < func->max_stack; i++) {
     regs[i] = LLVMBuildAlloca(builder, llvm_u64, "");
   }
+  ret_val = LLVMBuildAlloca(builder, llvm_i32, "ret_val");
 
   /* Calculate stacki, and LSTATE */
   Value stackio = LLVMConstInt(llvm_u32, JSTACKI, FALSE);
@@ -289,6 +287,20 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   }
 
   LLVMBuildBr(builder, blocks[start]);
+
+  /* Create exit block */
+  ret_block = LLVMAppendBasicBlock(function, "exit");
+  LLVMPositionBuilderAtEnd(builder, ret_block);
+  Value stack_ptr = LLVMBuildLoad(builder, base_addr, "");
+  stack_ptr = LLVMBuildInBoundsGEP(builder, stack_ptr, &stacki, 1, "");
+  for (i = 0; i < func->max_stack; i++) {
+    Value off  = LLVMConstInt(llvm_u32, i, FALSE);
+    Value addr = LLVMBuildInBoundsGEP(builder, stack_ptr, &off, 1, "");
+    Value val  = LLVMBuildLoad(builder, regs[i], "");
+    LLVMBuildStore(builder, val, addr);
+  }
+  Value r = LLVMBuildLoad(builder, ret_val, "");
+  LLVMBuildRet(builder, r);
 
   /* Translate! */
   for (i = start; i <= end;) {
@@ -367,8 +379,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         Value cv  = build_reg(C(code), consts, regs);
         Value cond = LLVMBuildFCmp(builder, A(code) ? LLVMRealUNE : LLVMRealUEQ,
                                    bv, cv, "");
-        BasicBlock truebb  = DSTBB(i + 1);
-        BasicBlock falsebb = DSTBB(i);
+        BasicBlock truebb  = dest_bb(blocks, i + 1);
+        BasicBlock falsebb = dest_bb(blocks, i);
         LLVMBuildCondBr(builder, cond, truebb, falsebb);
         break;
       }
@@ -383,8 +395,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         /* If a destination block is out of bounds, then create a new basic
            block which just returns the given integer of the basic block which
            is out of bounds. */
-        BasicBlock truebb  = DSTBB(i + 1);
-        BasicBlock falsebb = DSTBB(i);
+        BasicBlock truebb  = dest_bb(blocks, i + 1);
+        BasicBlock falsebb = dest_bb(blocks, i);
         LLVMBuildCondBr(builder, cond, truebb, falsebb);
         break;
       }
