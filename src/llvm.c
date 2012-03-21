@@ -47,6 +47,8 @@ static Value lvc_u32_one;
 static Value lvc_data_mask;
 static Value lvc_nil;
 
+Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name);
+
 /**
  * @brief Initialize LLVM globals and engines needed for JIT compilation
  */
@@ -101,16 +103,23 @@ void llvm_init() {
   lvc_nil       = LLVMConstInt(llvm_u64, LUAV_NIL, FALSE);
 
   /* Adding functions */
+  // lhash_get
   Type lhash_get_args[2] = {llvm_void_ptr, llvm_u64};
   Type lhash_get_type = LLVMFunctionType(llvm_u64, lhash_get_args, 2, 0);
   LLVMAddFunction(module, "lhash_get", lhash_get_type);
+  // vm_fun
   Type vm_fun_args[6] = {llvm_void_ptr, llvm_void_ptr, llvm_u32,
                                 llvm_u32, llvm_u32, llvm_u32};
   Type vm_fun_type = LLVMFunctionType(llvm_u32, vm_fun_args, 6, 0);
   LLVMAddFunction(module, "vm_fun", vm_fun_type);
+  // memset
   Type memset_args[3] = {llvm_void_ptr, llvm_u32, llvm_u64};
   Type memset_type = LLVMFunctionType(llvm_void_ptr, memset_args, 3, 0);
   LLVMAddFunction(module, "memset", memset_type);
+  // pow
+  Type pow_args[2] = {llvm_double, llvm_double};
+  Type pow_type = LLVMFunctionType(llvm_double, pow_args, 2, 0);
+  LLVMAddFunction(module, "pow", pow_type);
 }
 
 /**
@@ -317,6 +326,10 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         build_binop(code, consts, regs, LLVMBuildFRem);
         GOTOBB(i);
         break;
+      case OP_POW:
+        build_binop(code, consts, regs, build_pow);
+        GOTOBB(i);
+        break;
 
       case OP_UNM: {
         Value bv = LLVMBuildLoad(builder, regs[B(code)], "");
@@ -477,7 +490,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       case OP_SETTABLE:
       case OP_NEWTABLE:
       case OP_SELF:
-      case OP_POW:
       case OP_NOT:
       case OP_LEN:
       case OP_CONCAT:
@@ -503,6 +515,13 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   LLVMRunFunctionPassManager(pass_manager, function);
   // LLVMDumpValue(function);
   return LLVMGetPointerToGlobal(ex_engine, function);
+}
+
+Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name) {
+  Value fn = LLVMGetNamedFunction(module, "pow");
+  xassert(fn != NULL);
+  Value args[] = {bv, cv};
+  return LLVMBuildCall(builder, fn, args, 2, "");
 }
 
 /**
