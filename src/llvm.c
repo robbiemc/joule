@@ -65,6 +65,7 @@ void llvm_init() {
   LLVMAddDeadStoreEliminationPass(pass_manager);
   LLVMAddAggressiveDCEPass(pass_manager);
   LLVMAddLoopRotatePass(pass_manager);
+  LLVMAddIndVarSimplifyPass(pass_manager);
   LLVMAddLoopUnrollPass(pass_manager);
   LLVMAddIndVarSimplifyPass(pass_manager);
   LLVMAddLICMPass(pass_manager);
@@ -113,14 +114,18 @@ void llvm_destroy() {
   LLVMDisposeExecutionEngine(ex_engine);
 }
 
+static Value get_stack_base(Value base_addr, Value offset, char *name) {
+  Value stack = LLVMBuildLoad(builder, base_addr, "");
+  return LLVMBuildInBoundsGEP(builder, stack, &offset, 1, name);
+}
+
 static void llvm_build_return(i32 ret, u32 num_regs, Value *regs,
-                              Value stack_base_addr) {
+                              Value base_addr) {
   u32 i;
-  Value indices[2] = {LLVMConstInt(llvm_u32, 0, FALSE), NULL};
-  Value stack_base = LLVMBuildLoad(builder, stack_base_addr, "");
+  Value base = LLVMBuildLoad(builder, base_addr, "");
   for (i = 0; i < num_regs; i++) {
-    indices[1] = LLVMConstInt(llvm_u32, i, FALSE);
-    Value addr = LLVMBuildInBoundsGEP(builder, stack_base, indices, 2, "");
+    Value off  = LLVMConstInt(llvm_u32, i, FALSE);
+    Value addr = LLVMBuildInBoundsGEP(builder, base, &off, 1, "");
     Value val  = LLVMBuildLoad(builder, regs[i], "");
     LLVMBuildStore(builder, val, addr);
   }
@@ -144,11 +149,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   Value consts[func->num_consts];
   char name[20];
   u32 i, j;
-  Value indices[2] = {LLVMConstInt(llvm_u32, 0, 0), NULL};
-  Type params[2] = {
-    llvm_void_ptr,
-    LLVMPointerType(LLVMArrayType(llvm_u32, JARGS), 0)
-  };
+  Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
 
   Type  funtyp   = LLVMFunctionType(llvm_u32, params, 2, FALSE);
   Value function = LLVMAddFunction(module, "test", funtyp);
@@ -172,9 +173,15 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   }
 
   /* Calculate stacki, and LSTATE */
-  indices[1] = LLVMConstInt(llvm_u32, JSTACKI, FALSE);
-  Value stackia  = LLVMBuildInBoundsGEP(builder, jargs, indices, 2, "");
-  Value stacki   = LLVMBuildLoad(builder, stackia, "");
+  Value stackio = LLVMConstInt(llvm_u32, JSTACKI, FALSE);
+  Value stackia = LLVMBuildInBoundsGEP(builder, jargs, &stackio, 1, "");
+  Value stacki  = LLVMBuildLoad(builder, stackia, "stacki");
+  Value retco   = LLVMConstInt(llvm_u32, JRETC, FALSE);
+  Value retca   = LLVMBuildInBoundsGEP(builder, jargs, &retco, 1, "");
+  Value retc    = LLVMBuildLoad(builder, retca, "retc");
+  Value retvio  = LLVMConstInt(llvm_u32, JRETVI, FALSE);
+  Value retvia  = LLVMBuildInBoundsGEP(builder, jargs, &retvio, 1, "");
+  Value retvi   = LLVMBuildLoad(builder, retvia, "retvi");
 
   /* Calculate closure->env */
   Value offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
@@ -184,16 +191,14 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
 
   /* Calculate stack base */
   Value base_addr = LLVMConstInt(llvm_u64, (size_t) &vm_stack->base, 0);
-  Type arr_typ   = LLVMArrayType(llvm_u64, func->max_stack);
-  Type base_typ  = LLVMPointerType(LLVMPointerType(arr_typ, 0), 0);
-  base_addr = LLVMBuildIntToPtr(builder, base_addr, base_typ, "");
-  Value stack = LLVMBuildLoad(builder, base_addr, "");
-  stack = LLVMBuildInBoundsGEP(builder, stack, &stacki, 1, "stack");
+  Type base_typ   = LLVMPointerType(LLVMPointerType(llvm_u64, 0), 0);
+  base_addr       = LLVMBuildIntToPtr(builder, base_addr, base_typ, "base");
+  Value stack     = get_stack_base(base_addr, stacki, "stack");
 
   /* Copy the lua stack onto the C stack */
   for (i = 0; i < func->max_stack; i++) {
-    indices[1] = LLVMConstInt(llvm_u64, i, 0);
-    Value addr = LLVMBuildInBoundsGEP(builder, stack, indices, 2, "");
+    Value off  = LLVMConstInt(llvm_u64, i, 0);
+    Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
     Value val  = LLVMBuildLoad(builder, addr, "");
     LLVMBuildStore(builder, val, regs[i]);
   }
@@ -209,7 +214,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       case OP_MOVE: {
         Value val = LLVMBuildLoad(builder, regs[B(code)], "mv");
         LLVMBuildStore(builder, val, regs[A(code)]);
-
         GOTOBB(i);
         break;
       }
@@ -300,9 +304,35 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       }
 
       case OP_RETURN: {
-        /* TODO: specify number of return values actually */
-        /* TODO: put return values into return locations */
-        LLVMBuildRet(builder, LLVMConstAllOnes(llvm_u32));
+        /* TODO: variable numer of returns */
+        Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
+        xassert(B(code) > 0);
+
+        /* Create actual return first, so everything can jump to it */
+        LLVMBasicBlockRef endbb = LLVMAppendBasicBlock(function, "end");
+        LLVMPositionBuilderAtEnd(builder, endbb);
+        u32 num_ret = B(code) - 1;
+        LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (u32)(-num_ret - 1),
+                                           TRUE));
+
+        /* Create blocks for all return values, bailing out as soon as possible
+           to the end when no more return values are wanted */
+        LLVMPositionBuilderAtEnd(builder, blocks[i - 1]);
+        for (j = A(code); j < B(code) - 1; j++) {
+          /* Test whether this argument should be returned */
+          Value offset = LLVMConstInt(llvm_u32, j, FALSE);
+          LLVMBasicBlockRef curbb = LLVMAppendBasicBlock(function, "ret");
+          Value cond = LLVMBuildICmp(builder, LLVMIntULT, offset, retc, "");
+          LLVMBuildCondBr(builder, cond, curbb, endbb);
+
+          /* Return the argument */
+          LLVMPositionBuilderAtEnd(builder, curbb);
+          Value addr = LLVMBuildInBoundsGEP(builder, ret_stack, &offset, 1, "");
+          Value val  = LLVMBuildLoad(builder, regs[j], "");
+          LLVMBuildStore(builder, val, addr);
+        }
+
+        LLVMBuildBr(builder, endbb);
         break;
       }
 
@@ -328,8 +358,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         // copy things from c stack to lua stack
         u32 a = A(code);
         for (j = a + 1; j < a + 1 + num_args; j++) {
-          indices[1] = LLVMConstInt(llvm_u64, j, 0);
-          Value addr = LLVMBuildInBoundsGEP(builder, stack, indices, 2, "");
+          Value off  = LLVMConstInt(llvm_u64, j, 0);
+          Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = LLVMBuildLoad(builder, regs[j], "");
           LLVMBuildStore(builder, val, addr);
         }
@@ -362,9 +392,10 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         */
 
         // copy things from lua stack back to c stack
+        stack = get_stack_base(base_addr, stacki, "stack");
         for (j = a; j < a + num_rets; j++) {
-          indices[1] = LLVMConstInt(llvm_u64, j, 0);
-          Value addr = LLVMBuildInBoundsGEP(builder, stack, indices, 2, "");
+          Value off  = LLVMConstInt(llvm_u64, j, 0);
+          Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = LLVMBuildLoad(builder, addr, "");
           LLVMBuildStore(builder, val, regs[j]);
         }
