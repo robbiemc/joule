@@ -373,8 +373,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       }
 
       default: {
-        GOTOBB(i);
-        break;
+        // TODO cleanup
+        return NULL;
       }
     }
   }
