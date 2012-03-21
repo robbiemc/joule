@@ -305,6 +305,14 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         break;
       }
 
+      case OP_LOADBOOL: {
+        Value bv = LLVMConstReal(llvm_double, !!B(code) ? 1.0 : 0.0);
+        LLVMBuildStore(builder, bv, regs[A(code)]);
+        u32 next = C(code) ? i+1 : i;
+        GOTOBB(next);
+        break;
+      }
+
       /* TODO: assumes floats */
       case OP_ADD:
         build_binop(code, consts, regs, LLVMBuildFAdd);
@@ -482,7 +490,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       }
 
       /* TODO - here are all the unimplemented opcodes */
-      case OP_LOADBOOL:
       case OP_GETUPVAL:
       case OP_GETTABLE:
       case OP_SETGLOBAL:
