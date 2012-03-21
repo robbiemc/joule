@@ -328,32 +328,38 @@ top:
     assert(instrs < func->instrs + func->num_instrs);
 
     // increase the run count and check if we should compile
-    if (instrs->count++ > 0 && instrs->jfunc == NULL) {
-      u32 instr_index = (u32) (instrs - func->instrs);
-      instrs->jfunc = llvm_compile(func, instr_index, (u32) func->num_instrs-1);
-    }
-
-    // check if there's a compiled version available
-    if (instrs->jfunc != NULL) {
-      u32 stack_stuff[JARGS] = {
-        [JSTACKI] = stack,
-        [JARGC]   = argc,
-        [JARGVI]  = argvi,
-        [JRETC]   = retc,
-        [JRETVI]  = retvi
-      };
-      i32 ret = llvm_run(instrs->jfunc, closure, stack_stuff);
-      if (ret < 0) {
-        // the function returned
-        u32 rcount = (u32) (-ret) - 1;
-        vm_running = parent; // reset the currently running frame
-        /* make sure we don't deallocate past the arguments returned */
-        vm_stack_dealloc(vm_stack, MAX(retvi + rcount, stack_orig));
-        return rcount;
+    if (instrs->count < 128) {
+      if (instrs->count++ > 0 && instrs->jfunc == NULL) {
+        u32 instr_index = (u32) (instrs - func->instrs);
+        instrs->jfunc = llvm_compile(func, instr_index,
+                                     (u32) func->num_instrs - 1);
+        if (instrs->jfunc == NULL) {
+          instrs->count = 128;
+        }
       }
-      // the function ended, but it's still in this lfunc
-      instrs = &func->instrs[ret];
-      continue;
+
+      // check if there's a compiled version available
+      if (instrs->jfunc != NULL) {
+        u32 stack_stuff[JARGS] = {
+          [JSTACKI] = stack,
+          [JARGC]   = argc,
+          [JARGVI]  = argvi,
+          [JRETC]   = retc,
+          [JRETVI]  = retvi
+        };
+        i32 ret = llvm_run(instrs->jfunc, closure, stack_stuff);
+        if (ret < 0) {
+          // the function returned
+          u32 rcount = (u32) (-ret) - 1;
+          vm_running = parent; // reset the currently running frame
+          /* make sure we don't deallocate past the arguments returned */
+          vm_stack_dealloc(vm_stack, MAX(retvi + rcount, stack_orig));
+          return rcount;
+        }
+        // the function ended, but it's still in this lfunc
+        instrs = &func->instrs[ret];
+        continue;
+      }
     }
 
     u32 code = (instrs++)->instr;
