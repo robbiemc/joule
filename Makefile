@@ -88,7 +88,7 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.S
 
 $(OBJDIR)/%.dep: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
-	gcc $(CFLAGS) -M -MT $(@:.dep=.o) -MF $@ $<
+	gcc $(CFLAGS) -MM -MT $(@:.dep=.o) -MF $@ $<
 
 $(OBJDIR)/llvm.%: CFLAGS += $(shell llvm-config --cflags)
 
