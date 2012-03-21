@@ -366,7 +366,7 @@ top:
 
 #ifndef NDEBUG
     if (flags.print) {
-      size_t idx = ((size_t) instrs - (size_t) func->instrs) / sizeof(u32);
+      size_t idx = (size_t)(instrs - func->instrs);
       printf("[%d] ", func->lines[idx]);
       opcode_dump(stdout, code);
       printf("\n");
