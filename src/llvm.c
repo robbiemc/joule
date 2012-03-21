@@ -34,7 +34,7 @@ typedef i32(jitf)(void*, void*);
     if ((idx) > end || (idx) < start) {                                        \
       BasicBlock cur = LLVMGetInsertBlock(builder);                            \
       tmp = LLVMAppendBasicBlock(function, "");                                \
-      LLVMPositionBuilderAtEnd(builder, truebb);                               \
+      LLVMPositionBuilderAtEnd(builder, tmp);                                  \
       build_return((i32) (idx), func->max_stack, regs, base_addr, stacki);     \
       LLVMPositionBuilderAtEnd(builder, cur);                                  \
     }                                                                          \
