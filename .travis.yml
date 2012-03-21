@@ -1,6 +1,6 @@
 before_script: "sudo apt-get install lua5.1 llvm llvm-dev"
 language: lua
-script: "make test"
+script: "make && ./joule tests/fib2.lua"
 
 env:
   - CC=gcc BUILD=opt
