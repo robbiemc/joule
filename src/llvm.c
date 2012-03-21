@@ -172,13 +172,13 @@ static void llvm_build_return(i32 ret, u32 num_regs, Value *regs,
 static void build_binop(u32 code, Value *consts, Value *regs, Binop operation) {
   Value bv, cv;
   if (B(code) >= 256) {
-    bv = LLVMBuildBitCast(builder, consts[B(code) - 256], llvm_double, "");
+    bv = LLVMConstBitCast(consts[B(code) - 256], llvm_double);
   } else {
     bv = LLVMBuildLoad(builder, regs[B(code)], "");
     bv = LLVMBuildBitCast(builder, bv, llvm_double, "");
   }
   if (C(code) >= 256) {
-    cv = LLVMBuildBitCast(builder, consts[C(code) - 256], llvm_double, "");
+    cv = LLVMConstBitCast(consts[C(code) - 256], llvm_double);
   } else {
     cv = LLVMBuildLoad(builder, regs[C(code)], "");
     cv = LLVMBuildBitCast(builder, cv, llvm_double, "");
@@ -247,7 +247,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   /* Calculate stack base */
   Value base_addr = LLVMConstInt(llvm_u64, (size_t) &vm_stack->base, 0);
   Type base_typ   = LLVMPointerType(LLVMPointerType(llvm_u64, 0), 0);
-  base_addr       = LLVMBuildIntToPtr(builder, base_addr, base_typ, "base");
+  base_addr       = LLVMConstIntToPtr(base_addr, base_typ);
 
   /* Copy the lua stack onto the C stack */
   Value lstack = get_stack_base(base_addr, stacki, "lstack");
@@ -301,15 +301,13 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         /* TODO: assumes floats */
         Value bv, cv;
         if (B(code) >= 256) {
-          bv = LLVMBuildBitCast(builder, consts[B(code) - 256],
-                               llvm_double, "lt_bf");
+          bv = LLVMConstBitCast(consts[B(code) - 256], llvm_double);
         } else {
           bv = LLVMBuildLoad(builder, regs[B(code)], "lt_b64");
           bv = LLVMBuildBitCast(builder, bv, llvm_double, "lt_bf");
         }
         if (C(code) >= 256) {
-          cv = LLVMBuildBitCast(builder, consts[C(code) - 256],
-                               llvm_double, "lt_cf");
+          cv = LLVMConstBitCast(consts[C(code) - 256], llvm_double);
         } else {
           cv = LLVMBuildLoad(builder, regs[C(code)], "lt_c64");
           cv = LLVMBuildBitCast(builder, cv, llvm_double, "lt_cf");
@@ -411,13 +409,18 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         closure = LLVMBuildAnd(builder, closure, lvc_data_mask, "");
         closure = LLVMBuildIntToPtr(builder, closure, llvm_void_ptr, "");
 
+        // get the currently running frame
+        Value parent = LLVMConstInt(llvm_u64, (u64) vm_running, FALSE);
+        parent = LLVMConstIntToPtr(parent, llvm_void_ptr_ptr);
+        parent = LLVMBuildLoad(builder, parent, "");
+
         // call the function
         Value av = LLVMConstInt(llvm_u32, A(code), FALSE);
         Value fn = LLVMGetNamedFunction(module, "vm_fun");
         xassert(fn != NULL);
         Value args[] = {
           closure,
-          lvc_null,
+          parent,
           LLVMConstInt(llvm_u32, num_args, FALSE),
           LLVMBuildAdd(builder, stacki, LLVMConstAdd(av, lvc_u32_one), ""),
           LLVMConstInt(llvm_u32, num_rets, FALSE),
