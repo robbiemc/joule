@@ -59,7 +59,10 @@ void err_explain(int err, lframe_t *frame) {
   func   = caller->function.lua;
 
   int len = 0;
-  u32 pc = GETPC(caller_frame, func) - 1;
+  u32 pc = GETPC(caller_frame, func);
+  /* TODO: this is a result of JIT code not updating its PC, we should change
+           in the JIT code? */
+  pc -= !!pc;
 
   /* Figure out debug information from the luac file of where the call came
      from (source line) */
