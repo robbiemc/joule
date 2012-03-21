@@ -410,7 +410,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         closure = LLVMBuildIntToPtr(builder, closure, llvm_void_ptr, "");
 
         // get the currently running frame
-        Value parent = LLVMConstInt(llvm_u64, (u64) vm_running, FALSE);
+        Value parent = LLVMConstInt(llvm_u64, (size_t) vm_running, FALSE);
         parent = LLVMConstIntToPtr(parent, llvm_void_ptr_ptr);
         parent = LLVMBuildLoad(builder, parent, "");
 
