@@ -2,34 +2,10 @@
  * @file luav.h
  * @brief Headers for definitions related to manipulating Lua values
  *
- * NaN boxing ensues, 64 bits for a double --
- *
- *  |s|  11 bits - e | 52 bits - f |
- *
- * Infinity is when e = 0x7ff and f = 0.
- * NaN is when e = 0x7ff and f != 0.
- * Must avoid hardware NaN, however, which is e = 0x7ff, f = 0x8000000000000.
- *
- * Basically, we have 52 free bits in a double (possibly 53 if the sign bit is
- * used).
- *
- * Of these 52 bits, the definitions are as follows
- *
- * bits[47: 0] - 48 bits to hold a value, defined below
- * bits[51:48] - type information
- *
- * LSTRING, LTABLE - 48 bits are for the pointer to the data. It turns out that
- *                   although we have a 64-bit address space possibly, only 48
- *                   bits of memory are actually allocated. The virtual address
- *                   is the sign-extended version of these 64 bits. Hence, we
- *                   can use 48 bits to completely store the memory address.
- *
- * LNUMBER - this type is a bit special because numbers are all implemented
- *           as doubles. If the double is NOT NaN, then the double is the actual
- *           value of the number. Otherwise, if it is NaN, then it should
- *           literally be NaN.
- *
- * LBOOLEAN - 0 for false, 1 for true in 48 bits
+ * A luav is a nan-boxed double interpreted as a u64 everywhere. Encodings of
+ * doubles allow us to encode all types which are not numbers as NaN. This is
+ * because the machine only generates one actual value for NaN, even though
+ * there are many values representing NaN.
  */
 
 #ifndef _LUAV_H_
@@ -58,7 +34,7 @@ struct lthread;
  * 0 could be interpreted as infinity, so it can't be used as a type value
  * 8 could be the actual NaN, so we need this to be the type Number type
  *
- * nil is defined as 15 (1111b), so its value in a luav is 0xFFFF0000...,
+ * nil is defined as 15 (1111b), so its value in a luav is 0xFFFFFFFF...,
  * which can be checked quickly
  */
 #define LBOOLEAN  UINT64_C(1)
