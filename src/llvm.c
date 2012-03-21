@@ -18,6 +18,7 @@
 
 typedef LLVMValueRef Value;
 typedef LLVMTypeRef  Type;
+typedef LLVMValueRef(Binop)(LLVMBuilderRef, Value, Value, const char*);
 
 #define GOTOBB(idx) {                                                       \
     if ((idx) > end || (idx) < start) {                                     \
@@ -114,11 +115,29 @@ void llvm_destroy() {
   LLVMDisposeExecutionEngine(ex_engine);
 }
 
+/**
+ * @brief Calculates a stack pointer which is relative to the base of the lua
+ *        stack
+ *
+ * @param base_addr the address which when dereferenced will point to the base
+ *        of the lua stack
+ * @param offset the offset into the lua stack to calculate as an address
+ * @param name the name of the variable to make
+ */
 static Value get_stack_base(Value base_addr, Value offset, char *name) {
   Value stack = LLVMBuildLoad(builder, base_addr, "");
   return LLVMBuildInBoundsGEP(builder, stack, &offset, 1, name);
 }
 
+/**
+ * @brief Builds a "bail out"
+ *
+ * @param ret the value to return
+ * @param num_regs the number of registers to restore
+ * @param regs the registers to restore
+ * @param base_addr the address which when dereferenced will point to the
+ *        base of the lua stack.
+ */
 static void llvm_build_return(i32 ret, u32 num_regs, Value *regs,
                               Value base_addr) {
   u32 i;
@@ -130,6 +149,36 @@ static void llvm_build_return(i32 ret, u32 num_regs, Value *regs,
     LLVMBuildStore(builder, val, addr);
   }
   LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (u32) ret, TRUE));
+}
+
+/**
+ * @brief Build a binary operation of two values for a function
+ *
+ * Builds the LLVM instructions necessary to load the operands, perform the
+ * operation, and then store the result.
+ *
+ * @param code the lua opcode
+ * @param consts the constants array
+ * @param regs the array of registers
+ * @param operation the LLVM binary operation to perform
+ */
+static void build_binop(u32 code, Value *consts, Value *regs, Binop operation) {
+  Value bv, cv;
+  if (B(code) >= 256) {
+    bv = LLVMBuildBitCast(builder, consts[B(code) - 256], llvm_double, "");
+  } else {
+    bv = LLVMBuildLoad(builder, regs[B(code)], "");
+    bv = LLVMBuildBitCast(builder, bv, llvm_double, "");
+  }
+  if (C(code) >= 256) {
+    cv = LLVMBuildBitCast(builder, consts[C(code) - 256], llvm_double, "");
+  } else {
+    cv = LLVMBuildLoad(builder, regs[C(code)], "");
+    cv = LLVMBuildBitCast(builder, cv, llvm_double, "");
+  }
+  Value res = operation(builder, bv, cv, "");
+  res = LLVMBuildBitCast(builder, res, llvm_u64, "");
+  LLVMBuildStore(builder, res, regs[A(code)]);
 }
 
 /**
@@ -232,30 +281,15 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         break;
       }
 
-      case OP_ADD: {
-        /* TODO: assumes floats */
-        Value bv, cv;
-        if (B(code) >= 256) {
-          bv = LLVMBuildBitCast(builder, consts[B(code) - 256],
-                               llvm_double, "add_bf");
-        } else {
-          bv = LLVMBuildLoad(builder, regs[B(code)], "add_b64");
-          bv = LLVMBuildBitCast(builder, bv, llvm_double, "add_bf");
-        }
-        if (C(code) >= 256) {
-          cv = LLVMBuildBitCast(builder, consts[C(code) - 256],
-                               llvm_double, "add_cf");
-        } else {
-          cv = LLVMBuildLoad(builder, regs[C(code)], "add_c64");
-          cv = LLVMBuildBitCast(builder, cv, llvm_double, "add_cf");
-        }
-        Value res = LLVMBuildFAdd(builder, bv, cv, "add_resf");
-        res = LLVMBuildBitCast(builder, res, llvm_u64, "add_res64");
-        LLVMBuildStore(builder, res, regs[A(code)]);
-
+      /* TODO: assumes floats */
+      case OP_ADD:
+        build_binop(code, consts, regs, LLVMBuildFAdd);
         GOTOBB(i);
         break;
-      }
+      case OP_SUB:
+        build_binop(code, consts, regs, LLVMBuildFSub);
+        GOTOBB(i);
+        break;
 
       case OP_LT: {
         /* TODO: assumes floats */
