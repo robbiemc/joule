@@ -340,7 +340,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       case OP_RETURN: {
         /* TODO: variable numer of returns */
         Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
-        xassert(B(code) > 0);
+        if (B(code) == 0) { return NULL; }
 
         /* Create actual return first, so everything can jump to it */
         LLVMBasicBlockRef endbb = LLVMAppendBasicBlock(function, "end");
@@ -386,7 +386,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
 
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
-        xassert(B(code) > 0 && C(code) > 0);
+        if (B(code) == 0 || C(code) == 0) { return NULL; }
         u32 num_args = B(code) - 1;
         u32 num_rets = C(code) - 1;
         // copy things from c stack to lua stack
