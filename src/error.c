@@ -49,6 +49,7 @@ void err_explain(int err, lframe_t *frame) {
   lclosure_t *caller;
   lfunc_t *func;
   lframe_t *caller_frame = frame;
+  assert(frame != NULL);
   while (caller_frame->closure->type != LUAF_LUA) {
     assert(caller_frame->caller != NULL);
     assert(caller_frame->caller != caller_frame);
