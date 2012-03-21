@@ -23,7 +23,7 @@ typedef i32(jitf)(void*, void*);
 
 #define GOTOBB(idx) {                                                       \
     if ((idx) > end || (idx) < start) {                                     \
-      llvm_build_return((i32) (idx), func->max_stack, regs, base_addr);     \
+      build_return((i32) (idx), func->max_stack, regs, base_addr, stacki);  \
     } else {                                                                \
       LLVMBuildBr(builder, blocks[idx]);                                    \
     }                                                                       \
@@ -75,6 +75,7 @@ void llvm_init() {
   LLVMAddLoopUnswitchPass(pass_manager);
   LLVMAddSCCPPass(pass_manager);
   LLVMAddInstructionCombiningPass(pass_manager);
+  LLVMAddMemCpyOptPass(pass_manager);
   LLVMInitializeFunctionPassManager(pass_manager);
 
   /* Builder and execution engine */
@@ -145,19 +146,29 @@ static Value get_stack_base(Value base_addr, Value offset, char *name) {
  * @param base_addr the address which when dereferenced will point to the
  *        base of the lua stack.
  */
-static void llvm_build_return(i32 ret, u32 num_regs, Value *regs,
-                              Value base_addr) {
+static void build_return(i32 ret, u32 num_regs, Value *regs, Value base_addr,
+                         Value stacki) {
   u32 i;
   Value base = LLVMBuildLoad(builder, base_addr, "");
+  Value stack = LLVMBuildInBoundsGEP(builder, base, &stacki, 1, "");
   for (i = 0; i < num_regs; i++) {
     Value off  = LLVMConstInt(llvm_u32, i, FALSE);
-    Value addr = LLVMBuildInBoundsGEP(builder, base, &off, 1, "");
+    Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
     Value val  = LLVMBuildLoad(builder, regs[i], "");
     LLVMBuildStore(builder, val, addr);
   }
   LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (u32) ret, TRUE));
 }
 
+/**
+ * @brief Build a register access, which could actually be a constant access
+ *
+ * @param reg the number of the register to access
+ * @param consts the array of constants
+ * @param regs the array of registers
+ *
+ * @return the corresponding register value
+ */
 static Value build_reg(u32 reg, Value *consts, Value *regs) {
   if (reg >= 256) {
     return LLVMConstBitCast(consts[reg - 256], llvm_double);
@@ -332,12 +343,12 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         if (i + 1 > end || i + 1 < start) {
           truebb = LLVMAppendBasicBlock(function, "retblock");
           LLVMPositionBuilderAtEnd(builder, truebb);
-          llvm_build_return((i32) i + 1, func->max_stack, regs, base_addr);
+          build_return((i32) i + 1, func->max_stack, regs, base_addr, stacki);
         }
         if (i > end || i < start) {
           truebb = LLVMAppendBasicBlock(function, "retblock");
           LLVMPositionBuilderAtEnd(builder, truebb);
-          llvm_build_return((i32) i, func->max_stack, regs, base_addr);
+          build_return((i32) i, func->max_stack, regs, base_addr, stacki);
         }
         LLVMPositionBuilderAtEnd(builder, blocks[i - 1]);
 
@@ -352,8 +363,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
 
       case OP_RETURN: {
         /* TODO: variable numer of returns */
-        Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
         if (B(code) == 0) { return NULL; }
+        Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
 
         /* Create actual return first, so everything can jump to it */
         LLVMBasicBlockRef endbb = LLVMAppendBasicBlock(function, "end");
@@ -490,7 +501,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   }
 
   LLVMRunFunctionPassManager(pass_manager, function);
-  //LLVMDumpModule(module);
+  // LLVMDumpValue(function);
   return LLVMGetPointerToGlobal(ex_engine, function);
 }
 
@@ -504,7 +515,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
  * @return the program counter which was bailed out on, or TODO: MORE HERE
  */
 i32 llvm_run(jfunc_t *function, lclosure_t *closure, u32 *args) {
-  // jitf *f = LLVMGetPointerToGlobal(ex_engine, function);
   jitf *f = function;
   return f(closure, args);
 }
