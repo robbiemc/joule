@@ -158,6 +158,15 @@ static void llvm_build_return(i32 ret, u32 num_regs, Value *regs,
   LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (u32) ret, TRUE));
 }
 
+static Value build_reg(u32 reg, Value *consts, Value *regs) {
+  if (reg >= 256) {
+    return LLVMConstBitCast(consts[reg - 256], llvm_double);
+  } else {
+    Value tmp = LLVMBuildLoad(builder, regs[reg], "");
+    return LLVMBuildBitCast(builder, tmp, llvm_double, "");
+  }
+}
+
 /**
  * @brief Build a binary operation of two values for a function
  *
@@ -170,19 +179,8 @@ static void llvm_build_return(i32 ret, u32 num_regs, Value *regs,
  * @param operation the LLVM binary operation to perform
  */
 static void build_binop(u32 code, Value *consts, Value *regs, Binop operation) {
-  Value bv, cv;
-  if (B(code) >= 256) {
-    bv = LLVMConstBitCast(consts[B(code) - 256], llvm_double);
-  } else {
-    bv = LLVMBuildLoad(builder, regs[B(code)], "");
-    bv = LLVMBuildBitCast(builder, bv, llvm_double, "");
-  }
-  if (C(code) >= 256) {
-    cv = LLVMConstBitCast(consts[C(code) - 256], llvm_double);
-  } else {
-    cv = LLVMBuildLoad(builder, regs[C(code)], "");
-    cv = LLVMBuildBitCast(builder, cv, llvm_double, "");
-  }
+  Value bv = build_reg(B(code), consts, regs);
+  Value cv = build_reg(C(code), consts, regs);
   Value res = operation(builder, bv, cv, "");
   res = LLVMBuildBitCast(builder, res, llvm_u64, "");
   LLVMBuildStore(builder, res, regs[A(code)]);
@@ -321,19 +319,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
 
       case OP_LT: {
         /* TODO: assumes floats */
-        Value bv, cv;
-        if (B(code) >= 256) {
-          bv = LLVMConstBitCast(consts[B(code) - 256], llvm_double);
-        } else {
-          bv = LLVMBuildLoad(builder, regs[B(code)], "lt_b64");
-          bv = LLVMBuildBitCast(builder, bv, llvm_double, "lt_bf");
-        }
-        if (C(code) >= 256) {
-          cv = LLVMConstBitCast(consts[C(code) - 256], llvm_double);
-        } else {
-          cv = LLVMBuildLoad(builder, regs[C(code)], "lt_c64");
-          cv = LLVMBuildBitCast(builder, cv, llvm_double, "lt_cf");
-        }
+        Value bv = build_reg(B(code), consts, regs);
+        Value cv = build_reg(C(code), consts, regs);
         LLVMRealPredicate pred = A(code) ? LLVMRealUGE : LLVMRealULT;
         Value res = LLVMBuildFCmp(builder, pred, bv, cv, "lt");
 
