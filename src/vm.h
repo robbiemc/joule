@@ -13,6 +13,7 @@
 #include "lstate.h"
 #include "lstring.h"
 #include "luav.h"
+#include "trace.h"
 
 #define VM_STACK_INIT 1024
 
@@ -48,6 +49,7 @@ typedef struct lfunc {
   /* debug information */
   u32           num_lines;      //<! Number of debug lines reported
   u32           *lines;         //<! Corresponding line number for each inst
+  trace_t       trace;          //<! JIT tracing information
 } lfunc_t;
 
 /* Package for representing a C function */

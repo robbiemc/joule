@@ -297,7 +297,7 @@ top:
     return ret;
   }
 
-  u32 i, a, b, c, bx, limit;
+  u32 i, a, b, c, bx, limit, pc;
   u32 last_ret = 0;
   u32 upvalues = 0;
   lfunc_t *func = closure->function.lua;
@@ -326,13 +326,14 @@ top:
   /* Core VM loop, also really slow VM loop... */
   while (1) {
     assert(instrs < func->instrs + func->num_instrs);
+    pc = (u32) (instrs - func->instrs);
 
     // increase the run count and check if we should compile
     if (instrs->count < 128) {
       if (instrs->count++ > 0 && instrs->jfunc == NULL) {
         u32 instr_index = (u32) (instrs - func->instrs);
         instrs->jfunc = llvm_compile(func, instr_index,
-                                     (u32) func->num_instrs - 1);
+                                     (u32) func->num_instrs - 1, &STACK(0));
         if (instrs->jfunc == NULL) {
           instrs->count = 128;
         }
@@ -366,8 +367,7 @@ top:
 
 #ifndef NDEBUG
     if (flags.print) {
-      size_t idx = (size_t)(instrs - func->instrs);
-      printf("[%d] ", func->lines[idx]);
+      printf("[%d] ", func->lines[pc]);
       opcode_dump(stdout, code);
       printf("\n");
     }
@@ -381,6 +381,7 @@ top:
         assert(lv_isstring(key));
         luav val = meta_lhash_get(lv_table(closure->env), key, &frame);
         SETREG(A(code), val);
+        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(val));
         break;
       }
 
@@ -397,7 +398,9 @@ top:
       case OP_GETTABLE: {
         luav table = REG(B(code));
         luav key = KREG(C(code));
-        SETREG(A(code), meta_lhash_get(table, key, &frame));
+        luav val = meta_lhash_get(table, key, &frame);
+        SETREG(A(code), val);
+        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(val));
         break;
       }
 
@@ -414,7 +417,9 @@ top:
       /* R[A] = UPVALUES[B], see OP_CLOSURE */
       case OP_GETUPVAL:
         temp = UPVALUE(closure, B(code));
-        SETREG(A(code), *lv_getupvalue(temp));
+        luav val = *lv_getupvalue(temp);
+        SETREG(A(code), val);
+        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(val));
         break;
 
       /* UPVALUES[B] = R[A], see OP_CLOSURE */
@@ -424,9 +429,11 @@ top:
         break;
 
       /* R[A] = CONST[BX] */
-      case OP_LOADK:
-        SETREG(A(code), CONST(BX(code)));
+      case OP_LOADK: {
+        luav val = CONST(BX(code));
+        SETREG(A(code), val);
         break;
+      }
 
       /* R[A..B] = nil */
       case OP_LOADNIL:
@@ -436,13 +443,16 @@ top:
         break;
 
       /* R[A] = R[B] */
-      case OP_MOVE:
-        SETREG(A(code), REG(B(code)));
+      case OP_MOVE: {
+        luav val = REG(B(code));
+        SETREG(A(code), val);
         break;
+      }
 
       /* Call a closure in a register, with a glob of parameters, receiving a
          glob of return values */
       case OP_CALL: {
+        /* TODO: trace information... */
         a = A(code); b = B(code); c = C(code);
         /* If we don't know how many arguments we're giving, then it's the last
            number of arguments received from some previous instruction */
@@ -560,7 +570,6 @@ top:
         lfunc_t *function = func->funcs[bx];
         lclosure_t *closure2 = gc_alloc(CLOSURE_SIZE(function->num_upvalues),
                                         LFUNCTION);
-        SETREG(A(code), lv_function(closure2));
         closure2->type = LUAF_LUA;
         closure2->function.lua = function;
         closure2->env = closure->env;
@@ -594,6 +603,7 @@ top:
           /* The allocated closure needs a reference to the upvalue */
           closure2->upvalues[i] = upvalue;
         }
+        SETREG(A(code), lv_function(closure2));
         gc_check();
         break;
       }
@@ -636,6 +646,7 @@ top:
         } else {
           instrs++;
         }
+        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(REG(A(code))));
         break;
 
       case OP_LOADBOOL:
@@ -728,6 +739,7 @@ top:
           value = meta_concat(value, REG(i));
         }
 
+        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(value));
         SETREG(A(code), value);
         gc_check();
         break;
@@ -750,6 +762,7 @@ top:
       }
 
       case OP_VARARG: {
+        /* TODO: trace information */
         a = A(code);
         b = B(code);
         u32 limit = b > 0 ? b - 1 : argc - func->num_parameters;
@@ -771,10 +784,13 @@ top:
         SETREG(A(code) + 1, bv);
         luav val = meta_lhash_get(bv, KREG(C(code)), &frame);
         SETREG(A(code), val);
+        func->trace.instrs[pc] = BUILD_TRACEINFO2(lv_gettype(val),
+                                                  lv_gettype(bv));
         break;
       }
 
       case OP_TFORLOOP:
+        /* TODO: trace information */
         a = A(code); c = C(code);
         lclosure_t *closure2 = lv_getfunction(REG(a), 0);
         u32 got = vm_fun(closure2, &frame, 2, STACKI(a + 1),

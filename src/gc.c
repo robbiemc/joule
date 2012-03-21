@@ -296,6 +296,7 @@ void gc_traverse_pointer(void *_ptr, int type) {
       if (func->consts != NULL) GC_SETBLACK(func->consts);
       if (func->funcs != NULL)  GC_SETBLACK(func->funcs);
       if (func->lines != NULL)  GC_SETBLACK(func->lines);
+      if (func->trace.instrs != NULL) GC_SETBLACK(func->trace.instrs);
       u32 i;
       for (i = 0; i < func->num_consts; i++) {
         gc_traverse(func->consts[i]);

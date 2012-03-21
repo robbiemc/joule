@@ -18,7 +18,7 @@ typedef void jfunc_t;
 void llvm_init();
 void llvm_destroy();
 
-jfunc_t* llvm_compile(struct lfunc *func, u32 start, u32 end);
+jfunc_t* llvm_compile(struct lfunc *func, u32 start, u32 end, luav *stack);
 i32      llvm_run(jfunc_t *func, struct lclosure *closure, u32 *args);
 
 #endif /* _LLVM_H_ */

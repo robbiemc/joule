@@ -24,7 +24,7 @@ endif
 # initializers run first, and destructors run last.
 OBJS := gc.o lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
 	lib/base.o lib/io.o lib/math.o lib/os.o lib/string.o error.o       \
-	lib/coroutine.o arch.o lib/table.o llvm.o
+	lib/coroutine.o arch.o lib/table.o llvm.o trace.o
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...

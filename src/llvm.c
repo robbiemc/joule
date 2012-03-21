@@ -38,7 +38,9 @@ typedef i32(jitf)(void*, void*);
   Value r = LLVMConstInt(llvm_i32, (long long unsigned) (ret), TRUE); \
   LLVMBuildStore(builder, r, ret_val);                                \
   LLVMBuildBr(builder, ret_block);
-
+#define TYPE(idx) \
+  ((u8) ((idx) >= 256 ? lv_gettype(func->consts[(idx) - 256]) : regtyps[idx]))
+#define warn(fmt, ...) fprintf(stderr, fmt "\n", ## __VA_ARGS__)
 
 /* Global contexts for LLVM compilation */
 static LLVMModuleRef module;
@@ -167,15 +169,28 @@ static Value get_stack_base(Value base_addr, Value offset, char *name) {
  * @param consts the array of constants
  * @param regs the array of registers
  *
+ * @return the corresponding register value, as a u64
+ */
+static Value build_regu(u32 reg, Value *consts, Value *regs) {
+  if (reg >= 256) {
+    return consts[reg - 256];
+  } else {
+    return LLVMBuildLoad(builder, regs[reg], "");
+  }
+}
+
+/**
+ * @brief Build a register access, which could actually be a constant access
+ *
+ * @param reg the number of the register to access
+ * @param consts the array of constants
+ * @param regs the array of registers
+ *
  * @return the corresponding register value, as a double
  */
-static Value build_reg(u32 reg, Value *consts, Value *regs) {
-  if (reg >= 256) {
-    return LLVMConstBitCast(consts[reg - 256], llvm_double);
-  } else {
-    Value tmp = LLVMBuildLoad(builder, regs[reg], "");
-    return LLVMBuildBitCast(builder, tmp, llvm_double, "");
-  }
+static Value build_regf(u32 reg, Value *consts, Value *regs) {
+  return LLVMBuildBitCast(builder, build_regu(reg, consts, regs),
+                          llvm_double, "");
 }
 
 /**
@@ -190,8 +205,8 @@ static Value build_reg(u32 reg, Value *consts, Value *regs) {
  * @param operation the LLVM binary operation to perform
  */
 static void build_binop(u32 code, Value *consts, Value *regs, Binop operation) {
-  Value bv = build_reg(B(code), consts, regs);
-  Value cv = build_reg(C(code), consts, regs);
+  Value bv = build_regf(B(code), consts, regs);
+  Value cv = build_regf(C(code), consts, regs);
   Value res = operation(builder, bv, cv, "");
   res = LLVMBuildBitCast(builder, res, llvm_u64, "");
   LLVMBuildStore(builder, res, regs[A(code)]);
@@ -204,16 +219,18 @@ static void build_binop(u32 code, Value *consts, Value *regs, Binop operation) {
  * @param start the beginning program counter to compile at
  * @param end the ending program counter to compile. The opcode at this
  *        counter will be compiled.
+ * @param stack the current stack of the lua function
  *
  * @return the compiled function, which can be run by passing it over
  *         to llvm_run()
  */
-jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
+jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   BasicBlock blocks[end]; // 'start' blocks wasted
   Value regs[func->max_stack];
   Value consts[func->num_consts];
   Value ret_val;
   BasicBlock ret_block;
+  u8    regtyps[func->max_stack];
   char name[20];
   u32 i, j;
   Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
@@ -286,6 +303,11 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   Value r = LLVMBuildLoad(builder, ret_val, "");
   LLVMBuildRet(builder, r);
 
+  /* Initialize the types of all stack members */
+  for (i = 0; i < func->max_stack; i++) {
+    regtyps[i] = lv_gettype(stack[i]);
+  }
+
   /* Translate! */
   for (i = start; i <= end;) {
     LLVMPositionBuilderAtEnd(builder, blocks[i]);
@@ -295,12 +317,14 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       case OP_MOVE: {
         Value val = LLVMBuildLoad(builder, regs[B(code)], "mv");
         LLVMBuildStore(builder, val, regs[A(code)]);
+        regtyps[A(code)] = regtyps[B(code)];
         GOTOBB(i);
         break;
       }
 
       case OP_LOADK: {
         LLVMBuildStore(builder, consts[BX(code)], regs[A(code)]);
+        regtyps[A(code)] = lv_gettype(func->consts[BX(code)]);
         GOTOBB(i);
         break;
       }
@@ -308,6 +332,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       case OP_LOADNIL: {
         for (j = A(code); j <= B(code); j++) {
           LLVMBuildStore(builder, lvc_nil, regs[j]);
+          regtyps[j] = LNIL;
         }
         GOTOBB(i);
         break;
@@ -316,53 +341,60 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       case OP_LOADBOOL: {
         Value bv = LLVMConstInt(llvm_u64, B(code) ? LUAV_TRUE : LUAV_FALSE, 0);
         LLVMBuildStore(builder, bv, regs[A(code)]);
+        regtyps[A(code)] = LBOOLEAN;
         u32 next = C(code) ? i + 1 : i;
         GOTOBB(next);
         break;
       }
 
       /* TODO: assumes floats */
-      case OP_ADD:
-        build_binop(code, consts, regs, LLVMBuildFAdd);
+      #define BINIMPL(f)                                                  \
+        if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {       \
+          warn("bad arith: %d", __LINE__);                                \
+          return NULL;                                                    \
+        }                                                                 \
+        build_binop(code, consts, regs, f);                               \
+        regtyps[A(code)] = LNUMBER;                                       \
         GOTOBB(i);
-        break;
-      case OP_SUB:
-        build_binop(code, consts, regs, LLVMBuildFSub);
-        GOTOBB(i);
-        break;
-      case OP_MUL:
-        build_binop(code, consts, regs, LLVMBuildFMul);
-        GOTOBB(i);
-        break;
-      case OP_DIV:
-        build_binop(code, consts, regs, LLVMBuildFDiv);
-        GOTOBB(i);
-        break;
-      case OP_MOD:
-        build_binop(code, consts, regs, LLVMBuildFRem);
-        GOTOBB(i);
-        break;
-      case OP_POW:
-        build_binop(code, consts, regs, build_pow);
-        GOTOBB(i);
-        break;
+      case OP_ADD: BINIMPL(LLVMBuildFAdd)   break;
+      case OP_SUB: BINIMPL(LLVMBuildFSub);  break;
+      case OP_MUL: BINIMPL(LLVMBuildFMul);  break;
+      case OP_DIV: BINIMPL(LLVMBuildFDiv);  break;
+      case OP_MOD: BINIMPL(LLVMBuildFRem);  break;
+      case OP_POW: BINIMPL(build_pow);      break;
 
       case OP_UNM: {
+        if (regtyps[B(code)] != LNUMBER) { warn("bad UNM"); return NULL; }
         Value bv = LLVMBuildLoad(builder, regs[B(code)], "");
         bv = LLVMBuildBitCast(builder, bv, llvm_double, "");
         Value res = LLVMBuildFNeg(builder, bv, "");
         res = LLVMBuildBitCast(builder, res, llvm_u64, "");
         LLVMBuildStore(builder, res, regs[A(code)]);
+        regtyps[A(code)] = LNUMBER;
         GOTOBB(i);
         break;
       }
 
       case OP_EQ: {
-        /* TODO: support objects */
-        Value bv  = build_reg(B(code), consts, regs);
-        Value cv  = build_reg(C(code), consts, regs);
-        Value cond = LLVMBuildFCmp(builder, A(code) ? LLVMRealUNE : LLVMRealUEQ,
-                                   bv, cv, "");
+        u8 btyp = TYPE(B(code));
+        u8 ctyp = TYPE(C(code));
+        Value cond;
+        if (btyp == LNUMBER && ctyp == LNUMBER) {
+          Value bv  = build_regf(B(code), consts, regs);
+          Value cv  = build_regf(C(code), consts, regs);
+          cond      = LLVMBuildFCmp(builder,
+                                     A(code) ? LLVMRealUNE : LLVMRealUEQ,
+                                     bv, cv, "");
+        } else if (btyp != LANY && ctyp != LANY) {
+          Value bv  = build_regu(B(code), consts, regs);
+          Value cv  = build_regu(C(code), consts, regs);
+          cond      = LLVMBuildICmp(builder,
+                                     A(code) ? LLVMIntNE : LLVMIntEQ,
+                                     bv, cv, "");
+        } else {
+          warn("bad EQ");
+          return NULL;
+        }
         BasicBlock truebb  = DSTBB(i + 1);
         BasicBlock falsebb = DSTBB(i);
         LLVMBuildCondBr(builder, cond, truebb, falsebb);
@@ -370,9 +402,12 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       }
 
       case OP_LT: {
-        /* TODO: assumes floats */
-        Value bv = build_reg(B(code), consts, regs);
-        Value cv = build_reg(C(code), consts, regs);
+        if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {
+          warn("bad LT");
+          return NULL;
+        }
+        Value bv = build_regf(B(code), consts, regs);
+        Value cv = build_regf(C(code), consts, regs);
         LLVMRealPredicate pred = A(code) ? LLVMRealUGE : LLVMRealULT;
         Value cond = LLVMBuildFCmp(builder, pred, bv, cv, "lt");
 
@@ -391,8 +426,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       }
 
       case OP_RETURN: {
-        /* TODO: variable numer of returns */
-        if (B(code) == 0) { return NULL; }
+        if (B(code) == 0) { warn("bad RETURN"); return NULL; }
         Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
 
         /* Create actual return first, so everything can jump to it */
@@ -528,8 +562,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
     }
   }
 
-  LLVMRunFunctionPassManager(pass_manager, function);
   // LLVMDumpValue(function);
+  LLVMRunFunctionPassManager(pass_manager, function);
+  // warn("compiled %d => %d", start, end);
   return LLVMGetPointerToGlobal(ex_engine, function);
 }
 
