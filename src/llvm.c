@@ -23,20 +23,20 @@ typedef LLVMValueRef(Binop)(LLVMBuilderRef, Value, Value, const char*);
 typedef i32(jitf)(void*, void*);
 
 #define GOTOBB(idx) LLVMBuildBr(builder, DSTBB(idx))
-#define DSTBB(idx) ({                                               \
-    BasicBlock tmp = blocks[idx];                                   \
-    if ((idx) > end || (idx) < start) {                             \
-      BasicBlock cur = LLVMGetInsertBlock(builder);                 \
-      tmp = LLVMAppendBasicBlock(function, "");                     \
-      LLVMPositionBuilderAtEnd(builder, tmp);                       \
-      RETURN((i32) (idx));                                          \
-      LLVMPositionBuilderAtEnd(builder, cur);                       \
-    }                                                               \
-    tmp;                                                            \
+#define DSTBB(idx) ({                                                 \
+    BasicBlock tmp = blocks[idx];                                     \
+    if ((idx) > end || (idx) < start) {                               \
+      BasicBlock cur = LLVMGetInsertBlock(builder);                   \
+      tmp = LLVMAppendBasicBlock(function, "");                       \
+      LLVMPositionBuilderAtEnd(builder, tmp);                         \
+      RETURN((i32) (idx));                                            \
+      LLVMPositionBuilderAtEnd(builder, cur);                         \
+    }                                                                 \
+    tmp;                                                              \
   })
-#define RETURN(ret)                                                 \
-  Value r = LLVMConstInt(llvm_i32, (long long unsigned) ret, TRUE); \
-  LLVMBuildStore(builder, r, ret_val);                              \
+#define RETURN(ret)                                                   \
+  Value r = LLVMConstInt(llvm_i32, (long long unsigned) (ret), TRUE); \
+  LLVMBuildStore(builder, r, ret_val);                                \
   LLVMBuildBr(builder, ret_block);
 
 
