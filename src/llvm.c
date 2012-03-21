@@ -61,16 +61,21 @@ void llvm_init() {
   xassert(pass_manager != NULL);
   LLVMAddVerifierPass(pass_manager);
   LLVMAddCFGSimplificationPass(pass_manager);
+  LLVMAddJumpThreadingPass(pass_manager);
   LLVMAddPromoteMemoryToRegisterPass(pass_manager);
+  LLVMAddReassociatePass(pass_manager);
   LLVMAddGVNPass(pass_manager);
   LLVMAddConstantPropagationPass(pass_manager);
   LLVMAddDeadStoreEliminationPass(pass_manager);
   LLVMAddAggressiveDCEPass(pass_manager);
+  LLVMAddIndVarSimplifyPass(pass_manager);
   LLVMAddLoopRotatePass(pass_manager);
-  LLVMAddIndVarSimplifyPass(pass_manager);
-  LLVMAddLoopUnrollPass(pass_manager);
-  LLVMAddIndVarSimplifyPass(pass_manager);
   LLVMAddLICMPass(pass_manager);
+  LLVMAddLoopUnrollPass(pass_manager);
+  LLVMAddLoopUnswitchPass(pass_manager);
+  LLVMAddSCCPPass(pass_manager);
+  LLVMAddInstructionCombiningPass(pass_manager);
+  LLVMInitializeFunctionPassManager(pass_manager);
 
   /* Builder and execution engine */
   char *errs;
@@ -111,6 +116,7 @@ void llvm_init() {
  * @brief Deallocates all memory associated with LLVM allocated on startup
  */
 void llvm_destroy() {
+  LLVMFinalizeFunctionPassManager(pass_manager);
   LLVMDisposePassManager(pass_manager);
   LLVMDisposeBuilder(builder);
   LLVMDisposeExecutionEngine(ex_engine);
