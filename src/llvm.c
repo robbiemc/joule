@@ -306,7 +306,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
       }
 
       case OP_LOADBOOL: {
-        Value bv = LLVMConstReal(llvm_double, !!B(code) ? 1.0 : 0.0);
+        Value bv = LLVMConstInt(llvm_u64, !!B(code) ? LUAV_TRUE : LUAV_FALSE,0);
         LLVMBuildStore(builder, bv, regs[A(code)]);
         u32 next = C(code) ? i+1 : i;
         GOTOBB(next);
