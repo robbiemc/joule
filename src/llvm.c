@@ -248,12 +248,12 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
   Value base_addr = LLVMConstInt(llvm_u64, (size_t) &vm_stack->base, 0);
   Type base_typ   = LLVMPointerType(LLVMPointerType(llvm_u64, 0), 0);
   base_addr       = LLVMBuildIntToPtr(builder, base_addr, base_typ, "base");
-  Value stack     = get_stack_base(base_addr, stacki, "stack");
 
   /* Copy the lua stack onto the C stack */
+  Value lstack = get_stack_base(base_addr, stacki, "lstack");
   for (i = 0; i < func->max_stack; i++) {
     Value off  = LLVMConstInt(llvm_u32, i, 0);
-    Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
+    Value addr = LLVMBuildInBoundsGEP(builder, lstack, &off, 1, "");
     Value val  = LLVMBuildLoad(builder, addr, "");
     LLVMBuildStore(builder, val, regs[i]);
   }
@@ -395,8 +395,10 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         if (B(code) == 0 || C(code) == 0) { return NULL; }
         u32 num_args = B(code) - 1;
         u32 num_rets = C(code) - 1;
-        // copy things from c stack to lua stack
+
+        // copy arguments from c stack to lua stack
         u32 a = A(code);
+        Value stack = get_stack_base(base_addr, stacki, "");
         for (j = a + 1; j < a + 1 + num_args; j++) {
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
@@ -431,8 +433,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end) {
         LLVMBuildCall(builder, memset_fn, memset_argvs, 3, "memset");
         */
 
-        // copy things from lua stack back to c stack
-        stack = get_stack_base(base_addr, stacki, "stack");
+        // copy return values from lua stack back to c stack
+        stack = get_stack_base(base_addr, stacki, "");
         for (j = a; j < a + num_rets; j++) {
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
