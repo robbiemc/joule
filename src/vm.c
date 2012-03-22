@@ -467,6 +467,11 @@ top:
         for (i = got; i < c - 1 && &STACK(a + i) < vm_stack->top; i++) {
           SETREG(a + i, LUAV_NIL);
         }
+        traceinfo_t trace = TRACEINFO_NONE;
+        for (i = a; i < a + got && i - a < TRACELIMIT; i++) {
+          trace = SET_TRACEINFO(trace, lv_gettype(REG(i)), i - a);
+        }
+        func->trace.instrs[pc] = trace;
         /* Save how many things we just got, in case the next instruction
            doesn't know how many things it wants */
         last_ret = a + got;

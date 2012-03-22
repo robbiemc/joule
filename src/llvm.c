@@ -531,6 +531,12 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = LLVMBuildLoad(builder, addr, "");
           LLVMBuildStore(builder, val, regs[j]);
+          if (j - a < TRACELIMIT) {
+            /* TODO: guard? */
+            regtyps[j] = GET_TRACETYPE(func->trace.instrs[i - 1], j - a);
+          } else {
+            regtyps[j] = LANY;
+          }
         }
         GOTOBB(i);
         break;
