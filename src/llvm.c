@@ -25,12 +25,13 @@ typedef i32(jitf)(void*, void*);
 #define GOTOBB(idx) LLVMBuildBr(builder, DSTBB(idx))
 #define DSTBB(idx) ({                                                 \
     BasicBlock tmp = blocks[idx];                                     \
-    if ((idx) > end || (idx) < start) {                               \
+    if (tmp == NULL) {                                                \
       BasicBlock cur = LLVMGetInsertBlock(builder);                   \
       tmp = LLVMAppendBasicBlock(function, "");                       \
       LLVMPositionBuilderAtEnd(builder, tmp);                         \
       RETURN((i32) (idx));                                            \
       LLVMPositionBuilderAtEnd(builder, cur);                         \
+      blocks[idx] = tmp;                                              \
     }                                                                 \
     tmp;                                                              \
   })
