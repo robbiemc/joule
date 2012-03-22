@@ -468,6 +468,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         };
         Value val = LLVMBuildCall(builder, fn, args, 2, "");
         LLVMBuildStore(builder, val, regs[A(code)]);
+        /* TODO: guard this */
+        regtyps[A(code)] = GET_TRACETYPE(func->trace.instrs[i - 1], 0);
         GOTOBB(i);
         break;
       }

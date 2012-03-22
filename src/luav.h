@@ -46,7 +46,7 @@ struct lthread;
 #define LUPVALUE  UINT64_C(7)
 #define LNUMBER   UINT64_C(8)
 #define LNIL      UINT64_C(15)
-#define LANY      UINT64_C(16)
+#define LANY      UINT64_C(14)
 /* Used for garbage collection, not in types */
 #define LFUNC     100
 #define LCFUNC    101
