@@ -124,6 +124,10 @@ void llvm_init() {
   Type lhash_get_args[2] = {llvm_void_ptr, llvm_u64};
   Type lhash_get_type = LLVMFunctionType(llvm_u64, lhash_get_args, 2, 0);
   LLVMAddFunction(module, "lhash_get", lhash_get_type);
+  // lhash_set
+  Type lhash_set_args[3] = {llvm_void_ptr, llvm_u64, llvm_u64};
+  Type lhash_set_type = LLVMFunctionType(LLVMVoidType(), lhash_set_args, 3, 0);
+  LLVMAddFunction(module, "lhash_set", lhash_set_type);
   // vm_fun
   Type vm_fun_args[6] = {llvm_void_ptr, llvm_void_ptr, llvm_u32,
                                 llvm_u32, llvm_u32, llvm_u32};
@@ -480,6 +484,21 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_SETGLOBAL: {
+        /* TODO: metatable? */
+        Value fn = LLVMGetNamedFunction(module, "lhash_set");
+        xassert(fn != NULL);
+        Value args[3] = {
+          closure_env,
+          consts[BX(code)],
+          LLVMBuildLoad(builder, regs[A(code)], "")
+        };
+        LLVMBuildCall(builder, fn, args, 3, "");
+        /* TODO: gc_check() */
+        GOTOBB(i);
+        break;
+      }
+
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
         if (B(code) == 0 || C(code) == 0) { warn("bad CALL"); return NULL; }
@@ -546,7 +565,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       /* TODO - here are all the unimplemented opcodes */
       case OP_GETUPVAL:
       case OP_GETTABLE:
-      case OP_SETGLOBAL:
       case OP_SETUPVAL:
       case OP_SETTABLE:
       case OP_NEWTABLE:
