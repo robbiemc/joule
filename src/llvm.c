@@ -279,6 +279,11 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   Type base_typ   = LLVMPointerType(LLVMPointerType(llvm_u64, 0), 0);
   base_addr       = LLVMConstIntToPtr(base_addr, base_typ);
 
+  /* Calculate the currently running frame (parent of all other invocations) */
+  Value parent = LLVMConstInt(llvm_u64, (size_t) &vm_running, FALSE);
+  parent = LLVMConstIntToPtr(parent, llvm_void_ptr_ptr);
+  parent = LLVMBuildLoad(builder, parent, "parent");
+
   /* Copy the lua stack onto the C stack */
   Value lstack = get_stack_base(base_addr, stacki, "lstack");
   for (i = 0; i < func->max_stack; i++) {
@@ -462,7 +467,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_get");
         xassert(fn != NULL);
-        Value args[] = {
+        Value args[2] = {
           closure_env,
           consts[BX(code)]
         };
@@ -494,11 +499,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value closure = LLVMBuildLoad(builder, regs[A(code)], "f");
         closure = LLVMBuildAnd(builder, closure, lvc_data_mask, "");
         closure = LLVMBuildIntToPtr(builder, closure, llvm_void_ptr, "");
-
-        // get the currently running frame
-        Value parent = LLVMConstInt(llvm_u64, (size_t) &vm_running, FALSE);
-        parent = LLVMConstIntToPtr(parent, llvm_void_ptr_ptr);
-        parent = LLVMBuildLoad(builder, parent, "");
 
         // call the function
         Value av = LLVMConstInt(llvm_u32, A(code), FALSE);
