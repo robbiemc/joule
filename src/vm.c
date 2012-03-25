@@ -809,12 +809,12 @@ top:
     }
 
     // increase the run count and check if we should compile
-    if (instrs->count < 128 && instrs->count++ > 0 && instrs->jfunc == NULL) {
-      u32 instr_index = (u32) (instrs - func->instrs);
-      instrs->jfunc = llvm_compile(func, instr_index,
+    instr_t *previ = &func->instrs[pc];
+    if (previ->count < 128 && previ->count++ > 0 && previ->jfunc == NULL) {
+      previ->jfunc = llvm_compile(func, pc,
                                     (u32) func->num_instrs - 1, &STACK(0));
-      if (instrs->jfunc == NULL) {
-        instrs->count = 128;
+      if (previ->jfunc == NULL) {
+        previ->count = 128;
       }
     }
   } /* End of massive VM loop */
