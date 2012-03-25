@@ -23,17 +23,18 @@ typedef LLVMValueRef(Binop)(LLVMBuilderRef, Value, Value, const char*);
 typedef i32(jitf)(void*, void*);
 
 #define GOTOBB(idx) LLVMBuildBr(builder, DSTBB(idx))
-#define DSTBB(idx) ({                                                 \
-    BasicBlock tmp = blocks[idx];                                     \
-    if (tmp == NULL) {                                                \
-      BasicBlock cur = LLVMGetInsertBlock(builder);                   \
-      tmp = LLVMInsertBasicBlock(ret_block, "");                      \
-      LLVMPositionBuilderAtEnd(builder, tmp);                         \
-      RETURN((i32) (idx));                                            \
-      LLVMPositionBuilderAtEnd(builder, cur);                         \
-      blocks[idx] = tmp;                                              \
-    }                                                                 \
-    tmp;                                                              \
+#define DSTBB(idx) (blocks[idx] == NULL ? BAILBB(idx) : blocks[idx])
+#define BAILBB(idx) ({                                              \
+    BasicBlock tmp = bail_blocks[idx];                              \
+    if (tmp == NULL) {                                              \
+      BasicBlock cur = LLVMGetInsertBlock(builder);                 \
+      tmp = LLVMInsertBasicBlock(ret_block, "");                    \
+      LLVMPositionBuilderAtEnd(builder, tmp);                       \
+      RETURN((i32) (idx));                                          \
+      LLVMPositionBuilderAtEnd(builder, cur);                       \
+      bail_blocks[idx] = tmp;                                       \
+    }                                                               \
+    tmp;                                                            \
   })
 #define RETURN(ret)                                                   \
   Value r = LLVMConstInt(llvm_i32, (long long unsigned) (ret), TRUE); \
@@ -52,7 +53,6 @@ static LLVMBuilderRef builder;
 static Type llvm_i32;
 static Type llvm_u32;
 static Type llvm_u64;
-static Type llvm_u64_ptr;
 static Type llvm_double;
 static Type llvm_double_ptr;
 static Type llvm_void_ptr;
@@ -61,6 +61,8 @@ static Type llvm_void_ptr_ptr;
 static Value lvc_null;
 static Value lvc_u32_one;
 static Value lvc_data_mask;
+static Value lvc_type_mask;
+static Value lvc_nan_mask;
 static Value lvc_nil;
 
 Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name);
@@ -107,7 +109,6 @@ void llvm_init() {
   llvm_i32          = LLVMInt32Type();
   llvm_u32          = llvm_i32;
   llvm_u64          = LLVMInt64Type();
-  llvm_u64_ptr      = LLVMPointerType(llvm_u64, 0);
   llvm_double       = LLVMDoubleType();
   llvm_double_ptr   = LLVMPointerType(llvm_double, 0);
   llvm_void_ptr     = LLVMPointerType(LLVMInt8Type(), 0);
@@ -117,6 +118,8 @@ void llvm_init() {
   lvc_null      = LLVMConstNull(llvm_void_ptr);
   lvc_u32_one   = LLVMConstInt(llvm_u32, 1, FALSE);
   lvc_data_mask = LLVMConstInt(llvm_u64, LUAV_DATA_MASK, FALSE);
+  lvc_type_mask = LLVMConstInt(llvm_u64, LUAV_TYPE_MASK, FALSE);
+  lvc_nan_mask  = LLVMConstInt(llvm_u64, LUAV_NAN_MASK, FALSE);
   lvc_nil       = LLVMConstInt(llvm_u64, LUAV_NIL, FALSE);
 
   /* Adding functions */
@@ -231,6 +234,7 @@ static void build_binop(u32 code, Value *consts, Value *regs, Binop operation) {
  */
 jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   BasicBlock blocks[end + 1]; // 'start' blocks wasted
+  BasicBlock bail_blocks[end + 1];
   Value regs[func->max_stack];
   Value consts[func->num_consts];
   Value ret_val;
@@ -249,6 +253,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   LLVMPositionBuilderAtEnd(builder, startbb);
   /* Create the blocks and allocas */
   memset(blocks, 0, sizeof(blocks));
+  memset(bail_blocks, 0, sizeof(bail_blocks));
   for (i = start; i <= end; i++) {
     sprintf(name, "block%d", i);
     blocks[i] = LLVMAppendBasicBlock(function, name);
@@ -278,15 +283,20 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   env_addr = LLVMBuildBitCast(builder, env_addr, llvm_void_ptr_ptr, "");
   Value closure_env = LLVMBuildLoad(builder, env_addr, "env");
 
-  /* Calculate stack base */
-  Value base_addr = LLVMConstInt(llvm_u64, (size_t) &vm_stack->base, 0);
-  Type base_typ   = LLVMPointerType(LLVMPointerType(llvm_u64, 0), 0);
-  base_addr       = LLVMConstIntToPtr(base_addr, base_typ);
-
   /* Calculate the currently running frame (parent of all other invocations) */
   Value parent = LLVMConstInt(llvm_u64, (size_t) &vm_running, FALSE);
   parent = LLVMConstIntToPtr(parent, llvm_void_ptr_ptr);
   parent = LLVMBuildLoad(builder, parent, "parent");
+
+  /* Load address of vm_stack->base points to */
+  Value vm_stack_ptr = LLVMConstInt(llvm_u64, (size_t) &vm_stack, FALSE);
+  vm_stack_ptr       = LLVMConstIntToPtr(vm_stack_ptr, llvm_void_ptr_ptr);
+  Value base_addr    = LLVMBuildLoad(builder, vm_stack_ptr, "");
+  Value base_offset  = LLVMConstInt(llvm_u32, offsetof(lstack_t, base), FALSE);
+  base_addr          = LLVMBuildInBoundsGEP(builder, base_addr, &base_offset, 1,
+                                            "");
+  Type stack_typ     = LLVMPointerType(LLVMPointerType(llvm_u64, 0), 0);
+  base_addr          = LLVMBuildBitCast(builder, base_addr, stack_typ, "");
 
   /* Copy the lua stack onto the C stack */
   Value lstack = get_stack_base(base_addr, stacki, "lstack");
@@ -534,30 +544,84 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           num_rets == 0 ? lvc_u32_one :
             LLVMBuildAdd(builder, stacki, av, "")
         };
-        /*Value ret =*/ LLVMBuildCall(builder, fn, args, 6, "");
-        // nilify unused return parameters
-        /* TODO
-        Value memset_fn = LLVMGetNamedFunction(module, "memset");
-        Value memset_argvs = {
-          //
-        };
-        LLVMBuildCall(builder, memset_fn, memset_argvs, 3, "memset");
-        */
+        Value ret = LLVMBuildCall(builder, fn, args, 6, "");
 
-        // copy return values from lua stack back to c stack
+        /* Set all remaining parameters to nil with a loop */
+        Value reta = LLVMBuildAlloca(builder, llvm_u32, "ret");
+        LLVMBuildStore(builder, ret, reta);
         stack = get_stack_base(base_addr, stacki, "");
+
+        BasicBlock load_regs = LLVMAppendBasicBlock(function, "");
+        BasicBlock loop_cond = LLVMAppendBasicBlock(function, "");
+        BasicBlock loop = LLVMAppendBasicBlock(function, "");
+        LLVMBuildBr(builder, loop_cond);
+
+        /* Check if we've reached the desired number of params */
+        LLVMPositionBuilderAtEnd(builder, loop_cond);
+        Value match = LLVMBuildICmp(builder, LLVMIntUGE,
+                                    LLVMBuildLoad(builder, reta, ""),
+                                    LLVMConstInt(llvm_u32, num_rets, FALSE),
+                                    "");
+        LLVMBuildCondBr(builder, match, load_regs, loop);
+
+        /* Store a nil, increment the number of returns, and loop back */
+        LLVMPositionBuilderAtEnd(builder, loop);
+        Value cur = LLVMBuildLoad(builder, reta, "");
+        Value addr = LLVMBuildInBoundsGEP(builder, stack, &cur, 1, "");
+        LLVMBuildStore(builder, lvc_nil, addr);
+        LLVMBuildStore(builder, LLVMBuildAdd(builder, cur, lvc_u32_one, ""),
+                       reta);
+        LLVMBuildBr(builder, loop_cond);
+
+        /* copy return values from lua stack back to c stack */
+        LLVMPositionBuilderAtEnd(builder, load_regs);
         for (j = a; j < a + num_rets; j++) {
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = LLVMBuildLoad(builder, addr, "");
           LLVMBuildStore(builder, val, regs[j]);
-          if (j - a < TRACELIMIT) {
-            /* TODO: guard? */
-            regtyps[j] = GET_TRACETYPE(func->trace.instrs[i - 1], j - a);
-          } else {
+        }
+
+        /* Guard return values and bail out if we're wrong */
+        for (j = a; j < a + num_rets; j++) {
+          if (j - a >= TRACELIMIT) {
             regtyps[j] = LANY;
           }
+
+          Value      cond = NULL;
+          Value      reg  = LLVMBuildLoad(builder, regs[j], "");
+          BasicBlock next = LLVMInsertBasicBlock(DSTBB(i), "");
+          u8         typ  = GET_TRACETYPE(func->trace.instrs[i - 1], j - a);
+
+          if (typ == LNUMBER) {
+            /* First, check if any NaN bits aren't set */
+            Value bits = LLVMBuildAnd(builder, reg, lvc_nan_mask, "");
+            Value not_nan = LLVMBuildICmp(builder, LLVMIntNE, bits,
+                                          lvc_nan_mask, "");
+
+            /* Next, check if this is the machine NaN or inf */
+            Value mask = LLVMConstInt(llvm_u64, UINT64_C(7) << LUAV_DATA_SIZE,
+                                      FALSE);
+            bits = LLVMBuildAnd(builder, reg, mask, "");
+            Value isnt_other = LLVMBuildICmp(builder, LLVMIntEQ, bits,
+                                             LLVMConstInt(llvm_u64, 0, FALSE),
+                                             "");
+            cond = LLVMBuildOr(builder, not_nan, isnt_other, "");
+          } else if (typ != LANY) {
+            Value bits = LLVMBuildAnd(builder, reg, lvc_type_mask, "");
+            Value want = LLVMConstInt(llvm_u64, LUAV_PACK(typ, 0), FALSE);
+            cond       = LLVMBuildICmp(builder, LLVMIntEQ, bits, want, "");
+          }
+          regtyps[j] = typ;
+
+          if (cond != NULL) {
+            LLVMBuildCondBr(builder, cond, next, BAILBB(i));
+          } else {
+            LLVMBuildBr(builder, next);
+          }
+          LLVMPositionBuilderAtEnd(builder, next);
         }
+
         GOTOBB(i);
         break;
       }
@@ -590,8 +654,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
     }
   }
 
-  // LLVMDumpValue(function);
   LLVMRunFunctionPassManager(pass_manager, function);
+  // LLVMDumpValue(function);
   // warn("compiled %d => %d", start, end);
   return LLVMGetPointerToGlobal(ex_engine, function);
 }
