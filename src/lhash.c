@@ -61,6 +61,21 @@ lhash_t* lhash_alloc() {
 }
 
 /**
+ * @brief Allocate a new hash on the heap and initialize it with given size
+ *        hints about the array and hash portions.
+ *
+ * @param arr_size the initial size of the array portion
+ * @param table_size the initial size of the table portion
+ *
+ * @return an initialized hash that's GC-allocated
+ */
+lhash_t* lhash_hint(u32 arr_size, u32 table_size) {
+  lhash_t *hash = gc_alloc(sizeof(lhash_t), LTABLE);
+  lhash_init(hash, arr_size, table_size);
+  return hash;
+}
+
+/**
  * @brief Initialize a hash, using some sizing hints for the intial portions
  *        of the hash
  *

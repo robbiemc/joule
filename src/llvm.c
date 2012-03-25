@@ -136,6 +136,7 @@ void llvm_init() {
   ADD_FUNCTION(memset, llvm_void_ptr, 3, llvm_void_ptr, llvm_u32, llvm_u64);
   ADD_FUNCTION2(llvm_pow, "llvm.pow.f64", llvm_double, 2, llvm_double,
                 llvm_double);
+  ADD_FUNCTION(lhash_hint, llvm_void_ptr, 2, llvm_u32, llvm_u32);
 }
 
 /**
@@ -507,6 +508,28 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_NEWTABLE: {
+        /* Call lhash_hint */
+        Value fn = LLVMGetNamedFunction(module, "lhash_hint");
+        Value args[2] = {
+          LLVMConstInt(llvm_u32, B(code), FALSE),
+          LLVMConstInt(llvm_u32, C(code), FALSE)
+        };
+        Value ret = LLVMBuildCall(builder, fn, args, 2, "");
+
+        /* Build the luav by or-ing in the type bits */
+        ret = LLVMBuildPtrToInt(builder, ret, llvm_u64, "");
+        Value tybits = LLVMConstInt(llvm_u64, LUAV_PACK(LTABLE, 0), FALSE);
+        ret = LLVMBuildOr(builder, ret, tybits, "");
+
+        /* Store and record the type */
+        LLVMBuildStore(builder, ret, regs[A(code)]);
+        regtyps[A(code)] = LTABLE;
+        /* TODO: gc_check() */
+        GOTOBB(i);
+        break;
+      }
+
       case OP_SETTABLE: {
         if (regtyps[A(code)] != LTABLE) { warn("bad SETTABLE"); return NULL; }
         /* TODO: metatable? */
@@ -662,7 +685,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       /* TODO - here are all the unimplemented opcodes */
       case OP_GETUPVAL:
       case OP_SETUPVAL:
-      case OP_NEWTABLE:
       case OP_SELF:
       case OP_LEN:
       case OP_CONCAT:
