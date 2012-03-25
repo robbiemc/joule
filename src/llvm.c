@@ -424,24 +424,22 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
-      case OP_LT: {
-        if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {
-          warn("bad LT");
-          return NULL;
+      #define CMP_OP(cond1, cond2) {                                        \
+          if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {       \
+            warn("bad LT/LE");                                              \
+            return NULL;                                                    \
+          }                                                                 \
+          Value bv = build_regf(B(code), consts, regs);                     \
+          Value cv = build_regf(C(code), consts, regs);                     \
+          LLVMRealPredicate pred = A(code) ? cond1 : cond2;                 \
+          Value cond = LLVMBuildFCmp(builder, pred, bv, cv, "");            \
+                                                                            \
+          BasicBlock truebb  = DSTBB(i + 1);                                \
+          BasicBlock falsebb = DSTBB(i);                                    \
+          LLVMBuildCondBr(builder, cond, truebb, falsebb);                  \
         }
-        Value bv = build_regf(B(code), consts, regs);
-        Value cv = build_regf(C(code), consts, regs);
-        LLVMRealPredicate pred = A(code) ? LLVMRealUGE : LLVMRealULT;
-        Value cond = LLVMBuildFCmp(builder, pred, bv, cv, "lt");
-
-        /* If a destination block is out of bounds, then create a new basic
-           block which just returns the given integer of the basic block which
-           is out of bounds. */
-        BasicBlock truebb  = DSTBB(i + 1);
-        BasicBlock falsebb = DSTBB(i);
-        LLVMBuildCondBr(builder, cond, truebb, falsebb);
-        break;
-      }
+      case OP_LT: CMP_OP(LLVMRealUGE, LLVMRealULT); break;
+      case OP_LE: CMP_OP(LLVMRealUGT, LLVMRealULE); break;
 
       case OP_JMP: {
         GOTOBB((u32) ((i32) i + SBX(code)));
@@ -668,7 +666,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_SELF:
       case OP_LEN:
       case OP_CONCAT:
-      case OP_LE:
       case OP_TEST:
       case OP_TESTSET:
       case OP_TAILCALL:
