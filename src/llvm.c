@@ -498,6 +498,24 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_SETTABLE: {
+        if (regtyps[A(code)] != LTABLE) { warn("bad SETTABLE"); return NULL; }
+        /* TODO: metatable? */
+        Value fn = LLVMGetNamedFunction(module, "lhash_set");
+        Value av = LLVMBuildLoad(builder, regs[A(code)], "");
+        av = LLVMBuildAnd(builder, av, lvc_data_mask, "");
+        av = LLVMBuildIntToPtr(builder, av, llvm_void_ptr, "");
+        Value args[3] = {
+          av,
+          build_regu(B(code), consts, regs),
+          build_regu(C(code), consts, regs)
+        };
+        LLVMBuildCall(builder, fn, args, 3, "");
+        /* TODO: gc_check() */
+        GOTOBB(i);
+        break;
+      }
+
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
         if (B(code) == 0 || C(code) == 0) { warn("bad CALL"); return NULL; }
@@ -619,7 +637,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_GETUPVAL:
       case OP_GETTABLE:
       case OP_SETUPVAL:
-      case OP_SETTABLE:
       case OP_NEWTABLE:
       case OP_SELF:
       case OP_NOT:
