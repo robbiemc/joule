@@ -482,7 +482,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
-        if (B(code) == 0 || C(code) == 0) { return NULL; }
+        if (B(code) == 0 || C(code) == 0) { warn("bad CALL"); return NULL; }
         u32 num_args = B(code) - 1;
         u32 num_rets = C(code) - 1;
 
