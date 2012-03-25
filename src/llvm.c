@@ -358,6 +358,17 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_NOT: {
+        if (regtyps[B(code)] != LBOOLEAN) { warn("bad NOT"); return NULL; }
+        Value bv = LLVMBuildLoad(builder, regs[B(code)], "");
+        Value one = LLVMConstInt(llvm_u64, 1, FALSE);
+        bv = LLVMBuildXor(builder, bv, one, "");
+        LLVMBuildStore(builder, bv, regs[A(code)]);
+        GOTOBB(i);
+        regtyps[A(code)] = LBOOLEAN;
+        break;
+      }
+
       /* TODO: assumes floats */
       #define BINIMPL(f)                                                \
         if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {     \
@@ -655,7 +666,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_SETUPVAL:
       case OP_NEWTABLE:
       case OP_SELF:
-      case OP_NOT:
       case OP_LEN:
       case OP_CONCAT:
       case OP_LE:
