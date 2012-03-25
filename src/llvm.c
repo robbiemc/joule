@@ -43,6 +43,10 @@ typedef i32(jitf)(void*, void*);
 #define TYPE(idx) \
   ((u8) ((idx) >= 256 ? lv_gettype(func->consts[(idx) - 256]) : regtyps[idx]))
 #define warn(fmt, ...) fprintf(stderr, fmt "\n", ## __VA_ARGS__)
+#define ADD_FUNCTION(name, ret, numa, ...)                        \
+  Type name##_args[numa] = {__VA_ARGS__};                         \
+  Type name##_type = LLVMFunctionType(ret, name##_args, numa, 0); \
+  LLVMAddFunction(module, #name, name##_type)
 
 /* Global contexts for LLVM compilation */
 static LLVMModuleRef module;
@@ -123,27 +127,12 @@ void llvm_init() {
   lvc_nil       = LLVMConstInt(llvm_u64, LUAV_NIL, FALSE);
 
   /* Adding functions */
-  // lhash_get
-  Type lhash_get_args[2] = {llvm_void_ptr, llvm_u64};
-  Type lhash_get_type = LLVMFunctionType(llvm_u64, lhash_get_args, 2, 0);
-  LLVMAddFunction(module, "lhash_get", lhash_get_type);
-  // lhash_set
-  Type lhash_set_args[3] = {llvm_void_ptr, llvm_u64, llvm_u64};
-  Type lhash_set_type = LLVMFunctionType(LLVMVoidType(), lhash_set_args, 3, 0);
-  LLVMAddFunction(module, "lhash_set", lhash_set_type);
-  // vm_fun
-  Type vm_fun_args[6] = {llvm_void_ptr, llvm_void_ptr, llvm_u32,
-                                llvm_u32, llvm_u32, llvm_u32};
-  Type vm_fun_type = LLVMFunctionType(llvm_u32, vm_fun_args, 6, 0);
-  LLVMAddFunction(module, "vm_fun", vm_fun_type);
-  // memset
-  Type memset_args[3] = {llvm_void_ptr, llvm_u32, llvm_u64};
-  Type memset_type = LLVMFunctionType(llvm_void_ptr, memset_args, 3, 0);
-  LLVMAddFunction(module, "memset", memset_type);
-  // pow
-  Type pow_args[2] = {llvm_double, llvm_double};
-  Type pow_type = LLVMFunctionType(llvm_double, pow_args, 2, 0);
-  LLVMAddFunction(module, "pow", pow_type);
+  ADD_FUNCTION(lhash_get, llvm_u64, 2, llvm_void_ptr, llvm_u64);
+  ADD_FUNCTION(lhash_set, LLVMVoidType(), 3, llvm_void_ptr, llvm_u64, llvm_u64);
+  ADD_FUNCTION(vm_fun, llvm_u32, 6, llvm_void_ptr, llvm_void_ptr, llvm_u32,
+                                    llvm_u32, llvm_u32, llvm_u32);
+  ADD_FUNCTION(memset, llvm_void_ptr, 3, llvm_void_ptr, llvm_u32, llvm_u64);
+  ADD_FUNCTION(pow, llvm_double, 2, llvm_double, llvm_double);
 }
 
 /**
