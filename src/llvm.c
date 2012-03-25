@@ -43,10 +43,12 @@ typedef i32(jitf)(void*, void*);
 #define TYPE(idx) \
   ((u8) ((idx) >= 256 ? lv_gettype(func->consts[(idx) - 256]) : regtyps[idx]))
 #define warn(fmt, ...) fprintf(stderr, fmt "\n", ## __VA_ARGS__)
-#define ADD_FUNCTION(name, ret, numa, ...)                        \
+#define ADD_FUNCTION2(name, str, ret, numa, ...)                  \
   Type name##_args[numa] = {__VA_ARGS__};                         \
   Type name##_type = LLVMFunctionType(ret, name##_args, numa, 0); \
-  LLVMAddFunction(module, #name, name##_type)
+  LLVMAddFunction(module, str, name##_type)
+#define ADD_FUNCTION(name, ret, numa, ...) \
+  ADD_FUNCTION2(name, #name, ret, numa, __VA_ARGS__)
 
 /* Global contexts for LLVM compilation */
 static LLVMModuleRef module;
@@ -132,7 +134,8 @@ void llvm_init() {
   ADD_FUNCTION(vm_fun, llvm_u32, 6, llvm_void_ptr, llvm_void_ptr, llvm_u32,
                                     llvm_u32, llvm_u32, llvm_u32);
   ADD_FUNCTION(memset, llvm_void_ptr, 3, llvm_void_ptr, llvm_u32, llvm_u64);
-  ADD_FUNCTION(pow, llvm_double, 2, llvm_double, llvm_double);
+  ADD_FUNCTION2(llvm_pow, "llvm.pow.f64", llvm_double, 2, llvm_double,
+                llvm_double);
 }
 
 /**
@@ -680,7 +683,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 }
 
 Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name) {
-  Value fn = LLVMGetNamedFunction(module, "pow");
+  Value fn = LLVMGetNamedFunction(module, "llvm.pow.f64");
   xassert(fn != NULL);
   Value args[] = {bv, cv};
   return LLVMBuildCall(builder, fn, args, 2, "");
