@@ -27,7 +27,7 @@ typedef i32(jitf)(void*, void*);
     BasicBlock tmp = blocks[idx];                                     \
     if (tmp == NULL) {                                                \
       BasicBlock cur = LLVMGetInsertBlock(builder);                   \
-      tmp = LLVMAppendBasicBlock(function, "");                       \
+      tmp = LLVMInsertBasicBlock(ret_block, "");                      \
       LLVMPositionBuilderAtEnd(builder, tmp);                         \
       RETURN((i32) (idx));                                            \
       LLVMPositionBuilderAtEnd(builder, cur);                         \
@@ -449,7 +449,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         for (j = 0; j < num_ret; j++) {
           /* Test whether this argument should be returned */
           Value offset = LLVMConstInt(llvm_u32, j, FALSE);
-          BasicBlock curbb = LLVMAppendBasicBlock(function, "ret");
+          BasicBlock curbb = LLVMInsertBasicBlock(endbb, "ret");
           Value cond = LLVMBuildICmp(builder, LLVMIntULT, offset, retc, "");
           LLVMBuildCondBr(builder, cond, curbb, endbb);
 
