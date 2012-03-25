@@ -298,8 +298,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   /* Create exit block */
   ret_block = LLVMAppendBasicBlock(function, "exit");
   LLVMPositionBuilderAtEnd(builder, ret_block);
-  Value stack_ptr = LLVMBuildLoad(builder, base_addr, "");
-  stack_ptr = LLVMBuildInBoundsGEP(builder, stack_ptr, &stacki, 1, "");
+  Value stack_ptr = get_stack_base(base_addr, stacki, "stack");
   for (i = 0; i < func->max_stack; i++) {
     Value off  = LLVMConstInt(llvm_u32, i, FALSE);
     Value addr = LLVMBuildInBoundsGEP(builder, stack_ptr, &off, 1, "");
