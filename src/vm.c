@@ -328,6 +328,18 @@ top:
     assert(instrs < func->instrs + func->num_instrs);
     pc = (u32) (instrs - func->instrs);
 
+    // check if we should compile
+    if (instrs->count < 128 && instrs->count > 0 && instrs->jfunc == NULL) {
+      i32 end_index = func->preds[pc];
+      if (end_index < 0) {
+        end_index = (i32) func->num_instrs - 1;
+      }
+      instrs->jfunc = llvm_compile(func, pc, (u32) end_index, &STACK(0));
+      if (instrs->jfunc == NULL) {
+        instrs->count = 128;
+      }
+    }
+
     // check if there's a compiled version available
     if (instrs->jfunc != NULL) {
       u32 stack_stuff[JARGS] = {
@@ -808,15 +820,7 @@ top:
         abort();
     }
 
-    // increase the run count and check if we should compile
-    instr_t *previ = &func->instrs[pc];
-    if (previ->count < 128 && previ->count++ > 0 && previ->jfunc == NULL) {
-      previ->jfunc = llvm_compile(func, pc,
-                                    (u32) func->num_instrs - 1, &STACK(0));
-      if (previ->jfunc == NULL) {
-        previ->count = 128;
-      }
-    }
+    func->instrs[pc].count++;
   } /* End of massive VM loop */
 }
 

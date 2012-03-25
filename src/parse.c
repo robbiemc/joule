@@ -7,6 +7,7 @@
 #include "config.h"
 #include "gc.h"
 #include "luav.h"
+#include "opcode.h"
 #include "panic.h"
 #include "parse.h"
 #include "util.h"
@@ -170,6 +171,25 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size) {
     func->instrs[i].jfunc = NULL;
   }
   trace_init(&func->trace, func->num_instrs);
+
+  // compute the predecessor information
+  i32 pc;
+  func->preds = gc_alloc(func->num_instrs * sizeof(i32), LANY);
+  memset(func->preds, 0xff, func->num_instrs * sizeof(i32));
+  for (pc = 0; (u32) pc < func->num_instrs; pc++) {
+    u32 instr = func->instrs[pc].instr;
+    switch (OP(instr)) {
+      case OP_FORLOOP:
+      case OP_FORPREP:
+      case OP_JMP: {
+        i32 b = SBX(instr);
+        if (b >= 0) break;
+        // it's a back edge - save it
+        func->preds[pc + b + 1] = pc;
+        break;
+      }
+    }
+  }
 
   // constants :(
   func->num_consts = xread4(fd);

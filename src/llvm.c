@@ -230,8 +230,8 @@ static void build_binop(u32 code, Value *consts, Value *regs, Binop operation) {
  *         to llvm_run()
  */
 jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
-  BasicBlock blocks[end + 1]; // 'start' blocks wasted
-  BasicBlock bail_blocks[end + 1];
+  BasicBlock blocks[func->num_instrs];
+  BasicBlock bail_blocks[func->num_instrs];
   Value regs[func->max_stack];
   Value consts[func->num_consts];
   Value ret_val;

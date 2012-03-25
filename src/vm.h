@@ -50,6 +50,7 @@ typedef struct lfunc {
   u32           num_lines;      //<! Number of debug lines reported
   u32           *lines;         //<! Corresponding line number for each inst
   trace_t       trace;          //<! JIT tracing information
+  i32           *preds;         //<! Predecessor array
 } lfunc_t;
 
 /* Package for representing a C function */
