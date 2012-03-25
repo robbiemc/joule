@@ -471,7 +471,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           closure_env,
           consts[BX(code)]
         };
-        Value val = LLVMBuildCall(builder, fn, args, 2, "");
+        lstring_t *str = lv_getptr(func->consts[BX(code)]);
+        Value val = LLVMBuildCall(builder, fn, args, 2, str->data);
         LLVMBuildStore(builder, val, regs[A(code)]);
         /* TODO: guard this */
         regtyps[A(code)] = GET_TRACETYPE(func->trace.instrs[i - 1], 0);
