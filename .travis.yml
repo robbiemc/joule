@@ -5,3 +5,8 @@ script: "make test"
 env:
   - CC=gcc BUILD=opt
   - CC=gcc BUILD=dbg
+
+branches:
+  only:
+    - master
+    - jit
