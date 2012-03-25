@@ -59,6 +59,7 @@ static LLVMBuilderRef builder;
 static Type llvm_i32;
 static Type llvm_u32;
 static Type llvm_u64;
+static Type llvm_u64_ptr;
 static Type llvm_double;
 static Type llvm_double_ptr;
 static Type llvm_void_ptr;
@@ -116,6 +117,7 @@ void llvm_init() {
   llvm_i32          = LLVMInt32Type();
   llvm_u32          = llvm_i32;
   llvm_u64          = LLVMInt64Type();
+  llvm_u64_ptr      = LLVMPointerType(llvm_u64, 0);
   llvm_double       = LLVMDoubleType();
   llvm_double_ptr   = LLVMPointerType(llvm_double, 0);
   llvm_void_ptr     = LLVMPointerType(LLVMInt8Type(), 0);
@@ -609,6 +611,30 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_LEN: {
+        Value offset = NULL;
+        switch (regtyps[B(code)]) {
+          case LSTRING:
+            offset = LLVMConstInt(llvm_u32, offsetof(lstring_t, length), FALSE);
+            break;
+          case LTABLE:
+            offset = LLVMConstInt(llvm_u32, offsetof(lhash_t, length), FALSE);
+            break;
+          default:
+            warn("bad LEN");
+            return NULL;
+        }
+        Value ptr = LLVMBuildLoad(builder, regs[B(code)], "");
+        ptr = LLVMBuildIntToPtr(builder, ptr, llvm_void_ptr, "");
+        ptr = LLVMBuildInBoundsGEP(builder, ptr, &offset, 1, "");
+        ptr = LLVMBuildBitCast(builder, ptr, llvm_u64_ptr, "");
+        Value len = LLVMBuildLoad(builder, ptr, "");
+        LLVMBuildStore(builder, len, regs[A(code)]);
+        regtyps[A(code)] = LNUMBER;
+        GOTOBB(i);
+        break;
+      }
+
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
         if (B(code) == 0 || C(code) == 0) { warn("bad CALL"); return NULL; }
@@ -731,7 +757,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_GETUPVAL:
       case OP_SETUPVAL:
       case OP_SELF:
-      case OP_LEN:
       case OP_CONCAT:
       case OP_TAILCALL:
       case OP_FORLOOP:

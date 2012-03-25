@@ -31,7 +31,7 @@ OBJS := $(OBJS:%=$(OBJDIR)/%)
 LUATESTS :=	tail factorial bool closure multipart bool2 math forint concat   \
 		loop sort func fib select math2 bisect cf printf select smallfun \
 		os strings coroutine2 sieve load pcall metabasic calls coroutine \
-		noglobals fibfor readonly echo constructs errors literals \
+		noglobals fibfor readonly echo constructs errors literals len \
 		closure2 closure3 nextvar cor coroutine-gc locals pow not newtable
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 
