@@ -584,6 +584,31 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_TESTSET: {
+        /* Figure out if regs[B(code)] is considered true, then branch */
+        Value bv         = LLVMBuildLoad(builder, regs[B(code)], "");
+        Value isnt_nil   = LLVMBuildICmp(builder, LLVMIntNE, bv, lvc_nil, "");
+        Value isnt_false = LLVMBuildICmp(builder, LLVMIntNE, bv, lvc_false, "");
+        Value istrue     = LLVMBuildAnd(builder, isnt_nil, isnt_false, "");
+        BasicBlock dst   = LLVMAppendBasicBlock(function, "");
+        BasicBlock skip  = DSTBB(i + 1);
+
+        if (C(code)) {
+          LLVMBuildCondBr(builder, istrue, dst, skip);
+        } else {
+          LLVMBuildCondBr(builder, istrue, skip, dst);
+        }
+
+        /* On the 'not-skipped' branch, store the value */
+        LLVMPositionBuilderAtEnd(builder, dst);
+        LLVMBuildStore(builder, bv, regs[A(code)]);
+        GOTOBB(i);
+
+        /* TODO: guard */
+        regtyps[A(code)] = GET_TRACETYPE(func->trace.instrs[i - 1], 0);
+        break;
+      }
+
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
         if (B(code) == 0 || C(code) == 0) { warn("bad CALL"); return NULL; }
@@ -708,7 +733,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_SELF:
       case OP_LEN:
       case OP_CONCAT:
-      case OP_TESTSET:
       case OP_TAILCALL:
       case OP_FORLOOP:
       case OP_FORPREP:
