@@ -470,10 +470,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_get");
         xassert(fn != NULL);
-        Value args[2] = {
-          closure_env,
-          consts[BX(code)]
-        };
+        Value args[2] = {closure_env, consts[BX(code)]};
         lstring_t *str = lv_getptr(func->consts[BX(code)]);
         Value val = LLVMBuildCall(builder, fn, args, 2, str->data);
         LLVMBuildStore(builder, val, regs[A(code)]);
@@ -511,6 +508,23 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           build_regu(C(code), consts, regs)
         };
         LLVMBuildCall(builder, fn, args, 3, "");
+        /* TODO: gc_check() */
+        GOTOBB(i);
+        break;
+      }
+
+      case OP_GETTABLE: {
+        if (regtyps[B(code)] != LTABLE) { warn("bad GETTABLE"); return NULL; }
+        /* TODO: metatable? */
+        Value fn = LLVMGetNamedFunction(module, "lhash_get");
+        Value bv = LLVMBuildLoad(builder, regs[B(code)], "");
+        bv = LLVMBuildAnd(builder, bv, lvc_data_mask, "");
+        bv = LLVMBuildIntToPtr(builder, bv, llvm_void_ptr, "");
+        Value args[2] = {bv, build_regu(C(code), consts, regs)};
+        Value ref = LLVMBuildCall(builder, fn, args, 2, "");
+        LLVMBuildStore(builder, ref, regs[A(code)]);
+        regtyps[A(code)] = GET_TRACETYPE(func->trace.instrs[i - 1], 0);
+        /* TODO: guard for type of A */
         /* TODO: gc_check() */
         GOTOBB(i);
         break;
@@ -635,7 +649,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       /* TODO - here are all the unimplemented opcodes */
       case OP_GETUPVAL:
-      case OP_GETTABLE:
       case OP_SETUPVAL:
       case OP_NEWTABLE:
       case OP_SELF:
