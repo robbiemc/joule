@@ -70,6 +70,7 @@ static Value lvc_data_mask;
 static Value lvc_type_mask;
 static Value lvc_nan_mask;
 static Value lvc_nil;
+static Value lvc_false;
 
 Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name);
 
@@ -127,6 +128,7 @@ void llvm_init() {
   lvc_type_mask = LLVMConstInt(llvm_u64, LUAV_TYPE_MASK, FALSE);
   lvc_nan_mask  = LLVMConstInt(llvm_u64, LUAV_NAN_MASK, FALSE);
   lvc_nil       = LLVMConstInt(llvm_u64, LUAV_NIL, FALSE);
+  lvc_false     = LLVMConstInt(llvm_u64, LUAV_FALSE, FALSE);
 
   /* Adding functions */
   ADD_FUNCTION(lhash_get, llvm_u64, 2, llvm_void_ptr, llvm_u64);
@@ -565,6 +567,23 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_TEST: {
+        /* Figure out if regs[A(code)] is considered true, then branch */
+        Value av         = LLVMBuildLoad(builder, regs[A(code)], "");
+        Value isnt_nil   = LLVMBuildICmp(builder, LLVMIntNE, av, lvc_nil, "");
+        Value isnt_false = LLVMBuildICmp(builder, LLVMIntNE, av, lvc_false, "");
+        Value istrue     = LLVMBuildAnd(builder, isnt_nil, isnt_false, "");
+        BasicBlock dst   = DSTBB(i);
+        BasicBlock skip  = DSTBB(i + 1);
+
+        if (C(code)) {
+          LLVMBuildCondBr(builder, istrue, dst, skip);
+        } else {
+          LLVMBuildCondBr(builder, istrue, skip, dst);
+        }
+        break;
+      }
+
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
         if (B(code) == 0 || C(code) == 0) { warn("bad CALL"); return NULL; }
@@ -689,7 +708,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_SELF:
       case OP_LEN:
       case OP_CONCAT:
-      case OP_TEST:
       case OP_TESTSET:
       case OP_TAILCALL:
       case OP_FORLOOP:
