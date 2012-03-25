@@ -497,12 +497,12 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         }
 
         // get the function pointer
-        Value closure = LLVMBuildLoad(builder, regs[A(code)], "f");
+        Value closure = LLVMBuildLoad(builder, regs[a], "f");
         closure = LLVMBuildAnd(builder, closure, lvc_data_mask, "");
         closure = LLVMBuildIntToPtr(builder, closure, llvm_void_ptr, "");
 
         // call the function
-        Value av = LLVMConstInt(llvm_u32, A(code), FALSE);
+        Value av = LLVMConstInt(llvm_u32, a, FALSE);
         Value fn = LLVMGetNamedFunction(module, "vm_fun");
         xassert(fn != NULL);
         Value args[] = {
