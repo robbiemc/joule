@@ -623,6 +623,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         /* Store a nil, increment the number of returns, and loop back */
         LLVMPositionBuilderAtEnd(builder, loop);
         Value cur = LLVMBuildLoad(builder, reta, "");
+        cur = LLVMBuildAdd(builder, cur, av, "");
         Value addr = LLVMBuildInBoundsGEP(builder, stack, &cur, 1, "");
         LLVMBuildStore(builder, lvc_nil, addr);
         LLVMBuildStore(builder, LLVMBuildAdd(builder, cur, lvc_u32_one, ""),
