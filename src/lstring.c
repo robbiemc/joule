@@ -126,6 +126,24 @@ lstring_t *lstr_literal(char *cstr, int retain) {
   return actual;
 }
 
+/**
+ * @brief Performs a lexical comparison on two lstrings
+ *
+ * @param s1 the first string
+ * @param s2 the second string
+ * @return what memcmp returns
+ */
+int lstr_compare(lstring_t *s1, lstring_t *s2) {
+  size_t minlen = MIN(s1->length, s2->length);
+  int cmp = memcmp(s1->data, s2->data, minlen);
+  if (cmp != 0) return cmp;
+  if (s1->length < s2->length) return -1;
+  return s1->length > s2->length;
+}
+
+
+// lstring hash map stuff =====================================================
+
 static void smap_insert(lstring_t *str) {
   size_t i;
   // maybe resize the table

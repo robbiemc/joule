@@ -42,6 +42,10 @@ typedef i32(jitf)(void*, void*);
   LLVMBuildBr(builder, ret_block);
 #define TYPE(idx) \
   ((u8) ((idx) >= 256 ? lv_gettype(func->consts[(idx) - 256]) : regtyps[idx]))
+#define TOPTR(v) ({                                           \
+    Value tmp = LLVMBuildAnd(builder, v, lvc_data_mask, "");  \
+    LLVMBuildIntToPtr(builder, tmp, llvm_void_ptr, "");       \
+  })
 #define warn(fmt, ...) fprintf(stderr, fmt "\n", ## __VA_ARGS__)
 #define ADD_FUNCTION2(name, str, ret, numa, ...)                  \
   Type name##_args[numa] = {__VA_ARGS__};                         \
@@ -66,7 +70,8 @@ static Type llvm_void_ptr;
 static Type llvm_void_ptr_ptr;
 
 static Value lvc_null;
-static Value lvc_u32_one;
+static Value lvc_32_zero;
+static Value lvc_32_one;
 static Value lvc_data_mask;
 static Value lvc_type_mask;
 static Value lvc_nan_mask;
@@ -125,7 +130,8 @@ void llvm_init() {
 
   /* Constants */
   lvc_null      = LLVMConstNull(llvm_void_ptr);
-  lvc_u32_one   = LLVMConstInt(llvm_u32, 1, FALSE);
+  lvc_32_zero   = LLVMConstInt(llvm_u32, 0, FALSE);
+  lvc_32_one    = LLVMConstInt(llvm_u32, 1, FALSE);
   lvc_data_mask = LLVMConstInt(llvm_u64, LUAV_DATA_MASK, FALSE);
   lvc_type_mask = LLVMConstInt(llvm_u64, LUAV_TYPE_MASK, FALSE);
   lvc_nan_mask  = LLVMConstInt(llvm_u64, LUAV_NAN_MASK, FALSE);
@@ -141,6 +147,7 @@ void llvm_init() {
   ADD_FUNCTION2(llvm_pow, "llvm.pow.f64", llvm_double, 2, llvm_double,
                 llvm_double);
   ADD_FUNCTION(lhash_hint, llvm_void_ptr, 2, llvm_u32, llvm_u32);
+  ADD_FUNCTION(lstr_compare, llvm_i32, 2, llvm_void_ptr, llvm_void_ptr);
 }
 
 /**
@@ -430,21 +437,34 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       #define CMP_OP(cond1, cond2) {                                        \
-          if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {       \
+          BasicBlock truebb  = DSTBB(i + 1);                                \
+          BasicBlock falsebb = DSTBB(i);                                    \
+          if (TYPE(B(code)) == LNUMBER && TYPE(C(code)) == LNUMBER) {       \
+            Value bv = build_regf(B(code), consts, regs);                   \
+            Value cv = build_regf(C(code), consts, regs);                   \
+            LLVMRealPredicate pred = A(code) ? LLVMRealU##cond1             \
+                                             : LLVMRealU##cond2;            \
+            Value cond = LLVMBuildFCmp(builder, pred, bv, cv, "");          \
+            LLVMBuildCondBr(builder, cond, truebb, falsebb);                \
+          } else if (TYPE(B(code)) == LSTRING && TYPE(C(code)) == LSTRING) {\
+            Value bv = TOPTR(build_regu(B(code), consts, regs));            \
+            Value cv = TOPTR(build_regu(C(code), consts, regs));            \
+            LLVMIntPredicate pred = A(code) ? LLVMIntS##cond1               \
+                                            : LLVMIntS##cond2;              \
+            Value fn = LLVMGetNamedFunction(module, "lstr_compare");        \
+            xassert(fn != NULL);                                            \
+            Value args[2] = {bv, cv};                                       \
+            Value r  = LLVMBuildCall(builder, fn, args, 2, "lstr_compare"); \
+            Value cond = LLVMBuildICmp(builder, pred, r, lvc_32_zero, "");  \
+            LLVMBuildCondBr(builder, cond, truebb, falsebb);                \
+          } else {                                                          \
+            /* TODO - metatable */                                          \
             warn("bad LT/LE");                                              \
             return NULL;                                                    \
           }                                                                 \
-          Value bv = build_regf(B(code), consts, regs);                     \
-          Value cv = build_regf(C(code), consts, regs);                     \
-          LLVMRealPredicate pred = A(code) ? cond1 : cond2;                 \
-          Value cond = LLVMBuildFCmp(builder, pred, bv, cv, "");            \
-                                                                            \
-          BasicBlock truebb  = DSTBB(i + 1);                                \
-          BasicBlock falsebb = DSTBB(i);                                    \
-          LLVMBuildCondBr(builder, cond, truebb, falsebb);                  \
         }
-      case OP_LT: CMP_OP(LLVMRealUGE, LLVMRealULT); break;
-      case OP_LE: CMP_OP(LLVMRealUGT, LLVMRealULE); break;
+      case OP_LT: CMP_OP(GE, LT); break;
+      case OP_LE: CMP_OP(GT, LE); break;
 
       case OP_JMP: {
         GOTOBB((u32) ((i32) i + SBX(code)));
@@ -538,9 +558,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         if (regtyps[A(code)] != LTABLE) { warn("bad SETTABLE"); return NULL; }
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_set");
-        Value av = LLVMBuildLoad(builder, regs[A(code)], "");
-        av = LLVMBuildAnd(builder, av, lvc_data_mask, "");
-        av = LLVMBuildIntToPtr(builder, av, llvm_void_ptr, "");
+        Value av = TOPTR(LLVMBuildLoad(builder, regs[A(code)], ""));
         Value args[3] = {
           av,
           build_regu(B(code), consts, regs),
@@ -556,9 +574,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         if (regtyps[B(code)] != LTABLE) { warn("bad GETTABLE"); return NULL; }
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_get");
-        Value bv = LLVMBuildLoad(builder, regs[B(code)], "");
-        bv = LLVMBuildAnd(builder, bv, lvc_data_mask, "");
-        bv = LLVMBuildIntToPtr(builder, bv, llvm_void_ptr, "");
+        Value bv = TOPTR(LLVMBuildLoad(builder, regs[B(code)], ""));
         Value args[2] = {bv, build_regu(C(code), consts, regs)};
         Value ref = LLVMBuildCall(builder, fn, args, 2, "");
         LLVMBuildStore(builder, ref, regs[A(code)]);
@@ -652,9 +668,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         }
 
         // get the function pointer
-        Value closure = LLVMBuildLoad(builder, regs[a], "f");
-        closure = LLVMBuildAnd(builder, closure, lvc_data_mask, "");
-        closure = LLVMBuildIntToPtr(builder, closure, llvm_void_ptr, "");
+        Value closure = TOPTR(LLVMBuildLoad(builder, regs[a], "f"));
 
         // call the function
         Value av = LLVMConstInt(llvm_u32, a, FALSE);
@@ -664,10 +678,10 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           closure,
           parent,
           LLVMConstInt(llvm_u32, num_args, FALSE),
-          num_args == 0 ? lvc_u32_one :
-            LLVMBuildAdd(builder, stacki, LLVMConstAdd(av, lvc_u32_one), ""),
+          num_args == 0 ? lvc_32_one :
+            LLVMBuildAdd(builder, stacki, LLVMConstAdd(av, lvc_32_one), ""),
           LLVMConstInt(llvm_u32, num_rets, FALSE),
-          num_rets == 0 ? lvc_u32_one :
+          num_rets == 0 ? lvc_32_one :
             LLVMBuildAdd(builder, stacki, av, "")
         };
         Value ret = LLVMBuildCall(builder, fn, args, 6, "");
@@ -696,7 +710,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         cur = LLVMBuildAdd(builder, cur, av, "");
         Value addr = LLVMBuildInBoundsGEP(builder, stack, &cur, 1, "");
         LLVMBuildStore(builder, lvc_nil, addr);
-        LLVMBuildStore(builder, LLVMBuildAdd(builder, cur, lvc_u32_one, ""),
+        LLVMBuildStore(builder, LLVMBuildAdd(builder, cur, lvc_32_one, ""),
                        reta);
         LLVMBuildBr(builder, loop_cond);
 
