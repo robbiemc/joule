@@ -42,10 +42,13 @@ typedef i32(jitf)(void*, void*);
   LLVMBuildStore(builder, r, ret_val);                                \
   LLVMBuildBr(builder, ret_block);
 #define TYPE(idx) \
-  ((u8) ((idx) >= 256 ? lv_gettype(func->consts[(idx) - 256]) : regtyps[idx]))
-#define TOPTR(v) ({                                           \
-    Value tmp = LLVMBuildAnd(builder, v, lvc_data_mask, "");  \
-    LLVMBuildIntToPtr(builder, tmp, llvm_void_ptr, "");       \
+  ((u8) ((idx) >= 256 ? lv_gettype(func->consts[(idx) - 256]) : \
+                        (regtyps[idx] & ~TRACE_UPVAL)))
+#define SETTYPE(idx, typ) \
+  regtyps[idx] = (u8) ((regtyps[idx] & ~TRACE_TYPEMASK) | (typ))
+#define TOPTR(v) ({                                             \
+    Value __tmp = LLVMBuildAnd(builder, v, lvc_data_mask, "");  \
+    LLVMBuildIntToPtr(builder, __tmp, llvm_void_ptr, "");       \
   })
 #define warn(fmt, ...) fprintf(stderr, fmt "\n", ## __VA_ARGS__)
 #define ADD_FUNCTION2(name, str, ret, numa, ...)                  \
@@ -54,6 +57,13 @@ typedef i32(jitf)(void*, void*);
   LLVMAddFunction(module, str, name##_type)
 #define ADD_FUNCTION(name, ret, numa, ...) \
   ADD_FUNCTION2(name, #name, ret, numa, __VA_ARGS__)
+
+typedef struct state {
+  Value   *regs;
+  Value   *consts;
+  u8      *types;
+  lfunc_t *func;
+} state_t;
 
 /* Global contexts for LLVM compilation */
 static LLVMModuleRef module;
@@ -146,7 +156,8 @@ void llvm_init() {
   ADD_FUNCTION(lhash_set, LLVMVoidType(), 3, llvm_void_ptr, llvm_u64, llvm_u64);
   ADD_FUNCTION(vm_fun, llvm_u32, 6, llvm_void_ptr, llvm_void_ptr, llvm_u32,
                                     llvm_u32, llvm_u32, llvm_u32);
-  ADD_FUNCTION(memset, llvm_void_ptr, 3, llvm_void_ptr, llvm_u32, llvm_u64);
+  ADD_FUNCTION2(llvm_memset, "llvm.memset.p0i8.i32", LLVMVoidType(), 5,
+                llvm_void_ptr, LLVMInt8Type(), llvm_u32, llvm_u32, LLVMInt1Type());
   ADD_FUNCTION2(llvm_pow, "llvm.pow.f64", llvm_double, 2, llvm_double,
                 llvm_double);
   ADD_FUNCTION(lhash_hint, llvm_void_ptr, 2, llvm_u32, llvm_u32);
@@ -178,34 +189,64 @@ static Value get_stack_base(Value base_addr, Value offset, char *name) {
 }
 
 /**
+ * @brief Builds a register set
+ *
+ * @param s the current state
+ * @param idx the index of the register to set
+ * @param v the value to set the register to as a u64
+ */
+static void build_regset(state_t *s, u32 idx, Value v) {
+  Value addr = s->regs[idx];
+  if (TRACE_ISUPVAL(s->types[idx])) {
+    addr = TOPTR(LLVMBuildLoad(builder, addr, ""));
+    addr = LLVMBuildBitCast(builder, addr, llvm_u64_ptr, "");
+  }
+  LLVMBuildStore(builder, v, addr);
+}
+
+/**
+ * @brief Builds a register access
+ *
+ * @param s the current state
+ * @param idx the register index
+ *
+ * @return the register as a u64
+ */
+static Value build_reg(state_t *s, u32 idx) {
+  Value tmp = LLVMBuildLoad(builder, s->regs[idx], "");
+  if (TRACE_ISUPVAL(s->types[idx])) {
+    tmp = LLVMBuildBitCast(builder, TOPTR(tmp), llvm_u64_ptr, "");
+    tmp = LLVMBuildLoad(builder, tmp, "");
+  }
+  return tmp;
+}
+
+/**
  * @brief Build a register access, which could actually be a constant access
  *
+ * @param s the current state
  * @param reg the number of the register to access
- * @param consts the array of constants
- * @param regs the array of registers
  *
  * @return the corresponding register value, as a u64
  */
-static Value build_regu(u32 reg, Value *consts, Value *regs) {
+static Value build_kregu(state_t *s, u32 reg) {
   if (reg >= 256) {
-    return consts[reg - 256];
+    return s->consts[reg - 256];
   } else {
-    return LLVMBuildLoad(builder, regs[reg], "");
+    return build_reg(s, reg);
   }
 }
 
 /**
  * @brief Build a register access, which could actually be a constant access
  *
+ * @param s the current state
  * @param reg the number of the register to access
- * @param consts the array of constants
- * @param regs the array of registers
  *
  * @return the corresponding register value, as a double
  */
-static Value build_regf(u32 reg, Value *consts, Value *regs) {
-  return LLVMBuildBitCast(builder, build_regu(reg, consts, regs),
-                          llvm_double, "");
+static Value build_kregf(state_t *s, u32 reg) {
+  return LLVMBuildBitCast(builder, build_kregu(s, reg), llvm_double, "");
 }
 
 /**
@@ -214,17 +255,16 @@ static Value build_regf(u32 reg, Value *consts, Value *regs) {
  * Builds the LLVM instructions necessary to load the operands, perform the
  * operation, and then store the result.
  *
+ * @param s the current state
  * @param code the lua opcode
- * @param consts the constants array
- * @param regs the array of registers
  * @param operation the LLVM binary operation to perform
  */
-static void build_binop(u32 code, Value *consts, Value *regs, Binop operation) {
-  Value bv = build_regf(B(code), consts, regs);
-  Value cv = build_regf(C(code), consts, regs);
+static void build_binop(state_t *s, u32 code, Binop operation) {
+  Value bv = build_kregf(s, B(code));
+  Value cv = build_kregf(s, C(code));
   Value res = operation(builder, bv, cv, "");
   res = LLVMBuildBitCast(builder, res, llvm_u64, "");
-  LLVMBuildStore(builder, res, regs[A(code)]);
+  build_regset(s, A(code), res);
 }
 
 /**
@@ -244,9 +284,15 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   BasicBlock bail_blocks[func->num_instrs];
   Value regs[func->max_stack];
   Value consts[func->num_consts];
+  u8    regtyps[func->max_stack];
+  state_t s = {
+    .regs   = regs,
+    .consts = consts,
+    .types  = regtyps,
+    .func   = func
+  };
   Value ret_val;
   BasicBlock ret_block;
-  u8    regtyps[func->max_stack];
   char name[20];
   u32 i, j;
   Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
@@ -345,24 +391,23 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
     switch (OP(code)) {
       case OP_MOVE: {
-        Value val = LLVMBuildLoad(builder, regs[B(code)], "mv");
-        LLVMBuildStore(builder, val, regs[A(code)]);
-        regtyps[A(code)] = regtyps[B(code)];
+        build_regset(&s, A(code), build_reg(&s, B(code)));
+        SETTYPE(A(code), TYPE(B(code)));
         GOTOBB(i);
         break;
       }
 
       case OP_LOADK: {
-        LLVMBuildStore(builder, consts[BX(code)], regs[A(code)]);
-        regtyps[A(code)] = lv_gettype(func->consts[BX(code)]);
+        build_regset(&s, A(code), consts[BX(code)]);
+        SETTYPE(A(code), lv_gettype(func->consts[BX(code)]));
         GOTOBB(i);
         break;
       }
 
       case OP_LOADNIL: {
         for (j = A(code); j <= B(code); j++) {
-          LLVMBuildStore(builder, lvc_nil, regs[j]);
-          regtyps[j] = LNIL;
+          build_regset(&s, j, lvc_nil);
+          SETTYPE(j, LNIL);
         }
         GOTOBB(i);
         break;
@@ -370,21 +415,21 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       case OP_LOADBOOL: {
         Value bv = LLVMConstInt(llvm_u64, B(code) ? LUAV_TRUE : LUAV_FALSE, 0);
-        LLVMBuildStore(builder, bv, regs[A(code)]);
-        regtyps[A(code)] = LBOOLEAN;
+        build_regset(&s, A(code), bv);
+        SETTYPE(A(code), LBOOLEAN);
         u32 next = C(code) ? i + 1 : i;
         GOTOBB(next);
         break;
       }
 
       case OP_NOT: {
-        if (regtyps[B(code)] != LBOOLEAN) { warn("bad NOT"); return NULL; }
-        Value bv = LLVMBuildLoad(builder, regs[B(code)], "");
+        if (TYPE(B(code)) != LBOOLEAN) { warn("bad NOT"); return NULL; }
+        Value bv = build_reg(&s, B(code));
         Value one = LLVMConstInt(llvm_u64, 1, FALSE);
         bv = LLVMBuildXor(builder, bv, one, "");
-        LLVMBuildStore(builder, bv, regs[A(code)]);
+        build_regset(&s, A(code), bv);
+        SETTYPE(A(code), LBOOLEAN);
         GOTOBB(i);
-        regtyps[A(code)] = LBOOLEAN;
         break;
       }
 
@@ -395,8 +440,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
                                                 __LINE__, i-1);               \
           return NULL;                                                        \
         }                                                                     \
-        build_binop(code, consts, regs, f);                                   \
-        regtyps[A(code)] = LNUMBER;                                           \
+        build_binop(&s, code, f);                                             \
+        SETTYPE(A(code), LNUMBER);                                            \
         GOTOBB(i);
       case OP_ADD: BINIMPL(LLVMBuildFAdd)   break;
       case OP_SUB: BINIMPL(LLVMBuildFSub);  break;
@@ -406,13 +451,13 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_POW: BINIMPL(build_pow);      break;
 
       case OP_UNM: {
-        if (regtyps[B(code)] != LNUMBER) { warn("bad UNM"); return NULL; }
-        Value bv = LLVMBuildLoad(builder, regs[B(code)], "");
+        if (TYPE(B(code)) != LNUMBER) { warn("bad UNM"); return NULL; }
+        Value bv = build_reg(&s, B(code));
         bv = LLVMBuildBitCast(builder, bv, llvm_double, "");
         Value res = LLVMBuildFNeg(builder, bv, "");
         res = LLVMBuildBitCast(builder, res, llvm_u64, "");
-        LLVMBuildStore(builder, res, regs[A(code)]);
-        regtyps[A(code)] = LNUMBER;
+        build_regset(&s, A(code), res);
+        SETTYPE(A(code), LNUMBER);
         GOTOBB(i);
         break;
       }
@@ -422,14 +467,14 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         u8 ctyp = TYPE(C(code));
         Value cond;
         if (btyp == LNUMBER && ctyp == LNUMBER) {
-          Value bv  = build_regf(B(code), consts, regs);
-          Value cv  = build_regf(C(code), consts, regs);
+          Value bv  = build_kregf(&s, B(code));
+          Value cv  = build_kregf(&s, C(code));
           cond      = LLVMBuildFCmp(builder,
                                      A(code) ? LLVMRealUNE : LLVMRealUEQ,
                                      bv, cv, "");
         } else if (btyp != LANY && ctyp != LANY) {
-          Value bv  = build_regu(B(code), consts, regs);
-          Value cv  = build_regu(C(code), consts, regs);
+          Value bv  = build_kregu(&s, B(code));
+          Value cv  = build_kregu(&s, C(code));
           cond      = LLVMBuildICmp(builder,
                                      A(code) ? LLVMIntNE : LLVMIntEQ,
                                      bv, cv, "");
@@ -447,15 +492,15 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           BasicBlock truebb  = DSTBB(i + 1);                                \
           BasicBlock falsebb = DSTBB(i);                                    \
           if (TYPE(B(code)) == LNUMBER && TYPE(C(code)) == LNUMBER) {       \
-            Value bv = build_regf(B(code), consts, regs);                   \
-            Value cv = build_regf(C(code), consts, regs);                   \
+            Value bv = build_kregf(&s, B(code));                            \
+            Value cv = build_kregf(&s, C(code));                            \
             LLVMRealPredicate pred = A(code) ? LLVMRealU##cond1             \
                                              : LLVMRealU##cond2;            \
             Value cond = LLVMBuildFCmp(builder, pred, bv, cv, "");          \
             LLVMBuildCondBr(builder, cond, truebb, falsebb);                \
           } else if (TYPE(B(code)) == LSTRING && TYPE(C(code)) == LSTRING) {\
-            Value bv = TOPTR(build_regu(B(code), consts, regs));            \
-            Value cv = TOPTR(build_regu(C(code), consts, regs));            \
+            Value bv = TOPTR(build_kregu(&s, B(code)));                     \
+            Value cv = TOPTR(build_kregu(&s, C(code)));                     \
             LLVMIntPredicate pred = A(code) ? LLVMIntS##cond1               \
                                             : LLVMIntS##cond2;              \
             Value fn = LLVMGetNamedFunction(module, "lstr_compare");        \
@@ -502,7 +547,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           /* Return the argument */
           LLVMPositionBuilderAtEnd(builder, curbb);
           Value addr = LLVMBuildInBoundsGEP(builder, ret_stack, &offset, 1, "");
-          Value val  = LLVMBuildLoad(builder, regs[A(code) + j], "");
+          Value val  = build_reg(&s, A(code) + j);
           LLVMBuildStore(builder, val, addr);
         }
 
@@ -517,9 +562,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value args[2] = {closure_env, consts[BX(code)]};
         lstring_t *str = lv_getptr(func->consts[BX(code)]);
         Value val = LLVMBuildCall(builder, fn, args, 2, str->data);
-        LLVMBuildStore(builder, val, regs[A(code)]);
+        build_regset(&s, A(code), val);
         /* TODO: guard this */
-        regtyps[A(code)] = func->trace.instrs[i - 1][0];
+        SETTYPE(A(code), func->trace.instrs[i - 1][0]);
         GOTOBB(i);
         break;
       }
@@ -531,7 +576,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value args[3] = {
           closure_env,
           consts[BX(code)],
-          LLVMBuildLoad(builder, regs[A(code)], "")
+          build_reg(&s, A(code))
         };
         LLVMBuildCall(builder, fn, args, 3, "");
         /* TODO: gc_check() */
@@ -554,22 +599,22 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         ret = LLVMBuildOr(builder, ret, tybits, "");
 
         /* Store and record the type */
-        LLVMBuildStore(builder, ret, regs[A(code)]);
-        regtyps[A(code)] = LTABLE;
+        build_regset(&s, A(code), ret);
+        SETTYPE(A(code), LTABLE);
         /* TODO: gc_check() */
         GOTOBB(i);
         break;
       }
 
       case OP_SETTABLE: {
-        if (regtyps[A(code)] != LTABLE) { warn("bad SETTABLE"); return NULL; }
+        if (TYPE(A(code)) != LTABLE) { warn("bad SETTABLE"); return NULL; }
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_set");
         Value av = TOPTR(LLVMBuildLoad(builder, regs[A(code)], ""));
         Value args[3] = {
           av,
-          build_regu(B(code), consts, regs),
-          build_regu(C(code), consts, regs)
+          build_kregu(&s, B(code)),
+          build_kregu(&s, C(code))
         };
         LLVMBuildCall(builder, fn, args, 3, "");
         /* TODO: gc_check() */
@@ -578,14 +623,14 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_GETTABLE: {
-        if (regtyps[B(code)] != LTABLE) { warn("bad GETTABLE"); return NULL; }
+        if (TYPE(B(code)) != LTABLE) { warn("bad GETTABLE"); return NULL; }
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_get");
         Value bv = TOPTR(LLVMBuildLoad(builder, regs[B(code)], ""));
-        Value args[2] = {bv, build_regu(C(code), consts, regs)};
+        Value args[2] = {bv, build_kregu(&s, C(code))};
         Value ref = LLVMBuildCall(builder, fn, args, 2, "");
-        LLVMBuildStore(builder, ref, regs[A(code)]);
-        regtyps[A(code)] = func->trace.instrs[i - 1][0];
+        build_regset(&s, A(code), ref);
+        SETTYPE(A(code), func->trace.instrs[i - 1][0]);
         /* TODO: guard for type of A */
         /* TODO: gc_check() */
         GOTOBB(i);
@@ -594,7 +639,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       case OP_TEST: {
         /* Figure out if regs[A(code)] is considered true, then branch */
-        Value av         = LLVMBuildLoad(builder, regs[A(code)], "");
+        Value av         = build_reg(&s, A(code));
         Value isnt_nil   = LLVMBuildICmp(builder, LLVMIntNE, av, lvc_nil, "");
         Value isnt_false = LLVMBuildICmp(builder, LLVMIntNE, av, lvc_false, "");
         Value istrue     = LLVMBuildAnd(builder, isnt_nil, isnt_false, "");
@@ -611,7 +656,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       case OP_TESTSET: {
         /* Figure out if regs[B(code)] is considered true, then branch */
-        Value bv         = LLVMBuildLoad(builder, regs[B(code)], "");
+        Value bv         = build_reg(&s, B(code));
         Value isnt_nil   = LLVMBuildICmp(builder, LLVMIntNE, bv, lvc_nil, "");
         Value isnt_false = LLVMBuildICmp(builder, LLVMIntNE, bv, lvc_false, "");
         Value istrue     = LLVMBuildAnd(builder, isnt_nil, isnt_false, "");
@@ -626,17 +671,17 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
         /* On the 'not-skipped' branch, store the value */
         LLVMPositionBuilderAtEnd(builder, dst);
-        LLVMBuildStore(builder, bv, regs[A(code)]);
+        build_regset(&s, A(code), bv);
         GOTOBB(i);
 
         /* TODO: guard */
-        regtyps[A(code)] = func->trace.instrs[i - 1][0];
+        SETTYPE(A(code), func->trace.instrs[i - 1][0]);
         break;
       }
 
       case OP_LEN: {
         Value offset = NULL;
-        switch (regtyps[B(code)]) {
+        switch (TYPE(B(code))) {
           case LSTRING:
             offset = LLVMConstInt(llvm_u32, offsetof(lstring_t, length), FALSE);
             break;
@@ -648,7 +693,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             return NULL;
         }
         /* Figure out the address of the 'length' field */
-        Value ptr = TOPTR(LLVMBuildLoad(builder, regs[B(code)], ""));
+        Value ptr = TOPTR(build_reg(&s, B(code)));
         ptr = LLVMBuildInBoundsGEP(builder, ptr, &offset, 1, "");
         /* TODO: there must be a better way to do this... right? */
         Type ptr_type = sizeof(size_t) == 4 ? llvm_u32_ptr : llvm_u64_ptr;
@@ -660,8 +705,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value len = LLVMBuildLoad(builder, ptr, "");
         len = LLVMBuildUIToFP(builder, len, llvm_double, "");
         len = LLVMBuildBitCast(builder, len, llvm_u64, "");
-        LLVMBuildStore(builder, len, regs[A(code)]);
-        regtyps[A(code)] = LNUMBER;
+        build_regset(&s, A(code), len);
+        SETTYPE(A(code), LNUMBER);
         GOTOBB(i);
         break;
       }
@@ -672,18 +717,22 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         u32 num_args = B(code) - 1;
         u32 num_rets = C(code) - 1;
 
+        if (TYPE(A(code)) != LFUNCTION) {
+          warn("really bad CALL (%x)", TYPE(A(code))); return NULL;
+        }
+
         // copy arguments from c stack to lua stack
         u32 a = A(code);
         Value stack = get_stack_base(base_addr, stacki, "");
         for (j = a + 1; j < a + 1 + num_args; j++) {
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
-          Value val  = LLVMBuildLoad(builder, regs[j], "");
+          Value val  = build_reg(&s, j);
           LLVMBuildStore(builder, val, addr);
         }
 
         // get the function pointer
-        Value closure = TOPTR(LLVMBuildLoad(builder, regs[a], "f"));
+        Value closure = TOPTR(build_reg(&s, a));
 
         // call the function
         Value av = LLVMConstInt(llvm_u32, a, FALSE);
@@ -700,48 +749,82 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             LLVMBuildAdd(builder, stacki, av, "")
         };
         Value ret = LLVMBuildCall(builder, fn, args, 6, "");
+        BasicBlock load_regs    = LLVMAppendBasicBlock(function, "");
+        BasicBlock failure_set  = LLVMAppendBasicBlock(function, "");
+        BasicBlock failure_load = LLVMAppendBasicBlock(function, "");
+        BasicBlock failure      = LLVMAppendBasicBlock(function, "");
 
-        /* Set all remaining parameters to nil with a loop */
-        Value reta = LLVMBuildAlloca(builder, llvm_u32, "ret");
-        LLVMBuildStore(builder, ret, reta);
+        /* Figure out if we got the expected number of return values */
         stack = get_stack_base(base_addr, stacki, "");
+        u32 want = func->trace.instrs[i - 1][0];
+        xassert(want != TRACEMAX);
+        Value expected = LLVMConstInt(llvm_u32, want, FALSE);
+        Value cond = LLVMBuildICmp(builder, LLVMIntEQ, ret, expected, "");
+        LLVMBuildCondBr(builder, cond, load_regs, failure);
 
-        BasicBlock load_regs = LLVMAppendBasicBlock(function, "");
-        BasicBlock loop_cond = LLVMAppendBasicBlock(function, "");
-        BasicBlock loop = LLVMAppendBasicBlock(function, "");
-        LLVMBuildBr(builder, loop_cond);
-
-        /* Check if we've reached the desired number of params */
-        LLVMPositionBuilderAtEnd(builder, loop_cond);
-        Value match = LLVMBuildICmp(builder, LLVMIntUGE,
-                                    LLVMBuildLoad(builder, reta, ""),
-                                    LLVMConstInt(llvm_u32, num_rets, FALSE),
-                                    "");
-        LLVMBuildCondBr(builder, match, load_regs, loop);
-
-        /* Store a nil, increment the number of returns, and loop back */
-        LLVMPositionBuilderAtEnd(builder, loop);
-        Value cur = LLVMBuildLoad(builder, reta, "");
-        cur = LLVMBuildAdd(builder, cur, av, "");
-        Value addr = LLVMBuildInBoundsGEP(builder, stack, &cur, 1, "");
-        LLVMBuildStore(builder, lvc_nil, addr);
-        LLVMBuildStore(builder, LLVMBuildAdd(builder, cur, lvc_32_one, ""),
-                       reta);
-        LLVMBuildBr(builder, loop_cond);
-
-        /* copy return values from lua stack back to c stack */
+        /* Load all return values and then go to the next basic block,
+         * nilifying everything we wanted but we didn't get */
         LLVMPositionBuilderAtEnd(builder, load_regs);
+        for (j = 0; j < want && j < num_rets; j++) {
+          Value off  = LLVMConstInt(llvm_u64, a + j, 0);
+          Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
+          Value val  = LLVMBuildLoad(builder, addr, "");
+          build_regset(&s, a + j, val);
+        }
+        for (; j < num_rets; j++) {
+          build_regset(&s, a + j, lvc_nil);
+        }
+        GOTOBB(i);
+
+        /* Figure out if we need to memset */
+        LLVMPositionBuilderAtEnd(builder, failure);
+        cond = LLVMBuildICmp(builder, LLVMIntULT, ret,
+                             LLVMConstInt(llvm_u32, num_rets, FALSE), "");
+        LLVMBuildCondBr(builder, cond, failure_set, failure_load);
+
+        /* Failure case, call memset with the correct arguments */
+        LLVMPositionBuilderAtEnd(builder, failure_set);
+        Value offset      = LLVMBuildAdd(builder, ret, av, "");
+        Value memset_addr = LLVMBuildInBoundsGEP(builder, stack, &offset, 1, "");
+        Value rets_wanted = LLVMConstInt(llvm_u32, num_rets, FALSE);
+        Value memset_cnt  = LLVMBuildSub(builder, rets_wanted, ret, "");
+        Value scalar      = LLVMConstInt(llvm_u32, sizeof(luav), FALSE);
+        memset_cnt        = LLVMBuildMul(builder, memset_cnt, scalar, "");
+        Value memset      = LLVMGetNamedFunction(module, "llvm.memset.p0i8.i32");
+        Value memset_args[5] = {
+          LLVMBuildBitCast(builder, memset_addr, llvm_void_ptr, ""),
+          LLVMConstInt(LLVMInt8Type(), 0xff, FALSE),
+          memset_cnt,
+          LLVMConstInt(llvm_u32, 8, FALSE),
+          LLVMConstInt(LLVMInt1Type(), 0, FALSE)
+        };
+        LLVMBuildCall(builder, memset, memset_args, 5, "");
+        LLVMBuildBr(builder, failure_load);
+
+        /* Load all return values off the stack now */
+        LLVMPositionBuilderAtEnd(builder, failure_load);
         for (j = a; j < a + num_rets; j++) {
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = LLVMBuildLoad(builder, addr, "");
-          LLVMBuildStore(builder, val, regs[j]);
+          build_regset(&s, j, val);
+        }
+        GOTOBB(i);
+
+        for (j = a; j < a + num_rets; j++) {
+          if (j - a >= TRACELIMIT) {
+            SETTYPE(j, LANY);
+          } else {
+            SETTYPE(j, func->trace.instrs[i - 1][j - a + 1]);
+          }
         }
 
+#if 0
         /* Guard return values and bail out if we're wrong */
         for (j = a; j < a + num_rets; j++) {
           if (j - a >= TRACELIMIT) {
             regtyps[j] = LANY;
+            continue;
           }
 
           Value      cond = NULL;
@@ -779,6 +862,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         }
 
         GOTOBB(i);
+#endif
         break;
       }
 
@@ -802,6 +886,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
     }
   }
 
+  // LLVMDumpValue(function);
   LLVMRunFunctionPassManager(pass_manager, function);
   // LLVMDumpValue(function);
   // warn("compiled %d => %d", start, end);

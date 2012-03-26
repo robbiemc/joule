@@ -4,7 +4,10 @@
 #include "config.h"
 
 #define TRACELIMIT 8
+#define TRACEMAX   255
 #define TRACE_UPVAL (1 << 7)
+#define TRACE_ISUPVAL(v) ((v) & TRACE_UPVAL)
+#define TRACE_TYPEMASK 0xf
 
 typedef u8 traceinfo_t[TRACELIMIT];
 

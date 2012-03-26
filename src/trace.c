@@ -18,6 +18,6 @@
 void trace_init(trace_t *trace, size_t instrs) {
   size_t size = instrs * sizeof(traceinfo_t);
   trace->instrs = gc_alloc(size, LANY);
-  memset(&trace->args, (LANY << 4) | LANY, sizeof(traceinfo_t));
-  memset(trace->instrs, (LANY << 4) | LANY, size);
+  memset(&trace->args, LANY, sizeof(traceinfo_t));
+  memset(trace->instrs, LANY, size);
 }

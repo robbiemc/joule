@@ -42,14 +42,8 @@
     assert((n) < (closure)->function.lua->num_upvalues);   \
     (closure)->upvalues[n];                                \
   })
-#define SETTRACE(traceidx, val) {                                            \
-    if (lv_isupvalue(val)) {                                                 \
-      luav upval = *lv_getupvalue(val);                                      \
-      func->trace.instrs[pc][traceidx] = TRACE_UPVAL | (lv_gettype(upval));  \
-    } else {                                                                 \
-      func->trace.instrs[pc][traceidx] = lv_gettype(val);                    \
-    }                                                                        \
-  }
+#define SETTRACE(traceidx, val) \
+      func->trace.instrs[pc][traceidx] = lv_gettype(val)
 
 /* Metatable macros */
 #define BINOP_ADD(a,b) ((a)+(b))
@@ -487,8 +481,9 @@ top:
         for (i = got; i < c - 1 && &STACK(a + i) < vm_stack->top; i++) {
           SETREG(a + i, LUAV_NIL);
         }
-        for (i = a; i < a + got && i - a < TRACELIMIT; i++) {
-          SETTRACE(i - a, REG(i));
+        func->trace.instrs[pc][0] = (u8) MIN(got, TRACEMAX);
+        for (i = a; i < a + got && i - a < TRACELIMIT - 1; i++) {
+          SETTRACE(i - a + 1, REG(i));
         }
         /* Save how many things we just got, in case the next instruction
            doesn't know how many things it wants */
