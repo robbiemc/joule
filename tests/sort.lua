@@ -38,7 +38,7 @@ function selectionsort(x,n,f)
 end
 
 function show(d,m,x)
- --if d then return end
+ if not d then return end
  io.write(m,"\n\t")
  local i=1
  while x[i] do
@@ -65,3 +65,8 @@ end
 x={"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"}
 
 testsorts(x, true)
+local i = 0
+while i < 10000 do
+ i=i+1
+ testsorts(x, false)
+end
