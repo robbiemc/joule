@@ -42,6 +42,14 @@
     assert((n) < (closure)->function.lua->num_upvalues);   \
     (closure)->upvalues[n];                                \
   })
+#define SETTRACE(traceidx, val) {                                            \
+    if (lv_isupvalue(val)) {                                                 \
+      luav upval = *lv_getupvalue(val);                                      \
+      func->trace.instrs[pc][traceidx] = TRACE_UPVAL | (lv_gettype(upval));  \
+    } else {                                                                 \
+      func->trace.instrs[pc][traceidx] = lv_gettype(val);                    \
+    }                                                                        \
+  }
 
 /* Metatable macros */
 #define BINOP_ADD(a,b) ((a)+(b))
@@ -381,7 +389,7 @@ top:
         assert(lv_isstring(key));
         luav val = meta_lhash_get(lv_table(closure->env), key, &frame);
         SETREG(A(code), val);
-        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(val));
+        SETTRACE(0, val);
         break;
       }
 
@@ -400,7 +408,7 @@ top:
         luav key = KREG(C(code));
         luav val = meta_lhash_get(table, key, &frame);
         SETREG(A(code), val);
-        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(val));
+        SETTRACE(0, val);
         break;
       }
 
@@ -419,7 +427,7 @@ top:
         temp = UPVALUE(closure, B(code));
         luav val = *lv_getupvalue(temp);
         SETREG(A(code), val);
-        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(val));
+        SETTRACE(0, val);
         break;
 
       /* UPVALUES[B] = R[A], see OP_CLOSURE */
@@ -479,11 +487,9 @@ top:
         for (i = got; i < c - 1 && &STACK(a + i) < vm_stack->top; i++) {
           SETREG(a + i, LUAV_NIL);
         }
-        traceinfo_t trace = TRACEINFO_NONE;
         for (i = a; i < a + got && i - a < TRACELIMIT; i++) {
-          trace = SET_TRACEINFO(trace, lv_gettype(REG(i)), i - a);
+          SETTRACE(i - a, REG(i));
         }
-        func->trace.instrs[pc] = trace;
         /* Save how many things we just got, in case the next instruction
            doesn't know how many things it wants */
         last_ret = a + got;
@@ -651,7 +657,7 @@ top:
         } else {
           instrs++;
         }
-        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(REG(A(code))));
+        SETTRACE(0, REG(A(code)));
         break;
 
       case OP_LOADBOOL:
@@ -743,8 +749,8 @@ top:
           value = meta_concat(value, REG(i));
         }
 
-        func->trace.instrs[pc] = BUILD_TRACEINFO1(lv_gettype(value));
         SETREG(A(code), value);
+        SETTRACE(0, value);
         gc_check();
         break;
       }
@@ -788,8 +794,8 @@ top:
         SETREG(A(code) + 1, bv);
         luav val = meta_lhash_get(bv, KREG(C(code)), &frame);
         SETREG(A(code), val);
-        func->trace.instrs[pc] = BUILD_TRACEINFO2(lv_gettype(val),
-                                                  lv_gettype(bv));
+        SETTRACE(0, val);
+        SETTRACE(1, bv);
         break;
       }
 

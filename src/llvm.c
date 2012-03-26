@@ -3,6 +3,7 @@
  * @brief Will eventually contain JIT-related compliation tied into LLVM
  */
 
+#include <assert.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/ExecutionEngine.h>
 #include <llvm-c/Transforms/Scalar.h>
@@ -330,7 +331,11 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
   /* Initialize the types of all stack members */
   for (i = 0; i < func->max_stack; i++) {
-    regtyps[i] = lv_gettype(stack[i]);
+    if (lv_isupvalue(stack[i])) {
+      regtyps[i] = TRACE_UPVAL | lv_gettype(*lv_getupvalue(stack[i]));
+    } else {
+      regtyps[i] = lv_gettype(stack[i]);
+    }
   }
 
   /* Translate! */
@@ -514,7 +519,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value val = LLVMBuildCall(builder, fn, args, 2, str->data);
         LLVMBuildStore(builder, val, regs[A(code)]);
         /* TODO: guard this */
-        regtyps[A(code)] = GET_TRACETYPE(func->trace.instrs[i - 1], 0);
+        regtyps[A(code)] = func->trace.instrs[i - 1][0];
         GOTOBB(i);
         break;
       }
@@ -580,7 +585,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value args[2] = {bv, build_regu(C(code), consts, regs)};
         Value ref = LLVMBuildCall(builder, fn, args, 2, "");
         LLVMBuildStore(builder, ref, regs[A(code)]);
-        regtyps[A(code)] = GET_TRACETYPE(func->trace.instrs[i - 1], 0);
+        regtyps[A(code)] = func->trace.instrs[i - 1][0];
         /* TODO: guard for type of A */
         /* TODO: gc_check() */
         GOTOBB(i);
@@ -625,7 +630,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         GOTOBB(i);
 
         /* TODO: guard */
-        regtyps[A(code)] = GET_TRACETYPE(func->trace.instrs[i - 1], 0);
+        regtyps[A(code)] = func->trace.instrs[i - 1][0];
         break;
       }
 
@@ -742,7 +747,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           Value      cond = NULL;
           Value      reg  = LLVMBuildLoad(builder, regs[j], "");
           BasicBlock next = LLVMInsertBasicBlock(DSTBB(i), "");
-          u8         typ  = GET_TRACETYPE(func->trace.instrs[i - 1], j - a);
+          u8         typ  = func->trace.instrs[i - 1][j - a];
 
           if (typ == LNUMBER) {
             /* First, check if any NaN bits aren't set */
