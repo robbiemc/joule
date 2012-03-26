@@ -16,7 +16,7 @@
 
 /* Currently, stacks are fairly large to allow for compiling. LLVM compilation
    has been seen to need at least 64k to avoid stack overflow */
-#define CO_STACK_SIZE (64 * 1024)
+#define CO_STACK_SIZE (128 * 1024)
 
 static lhash_t   *lua_coroutine;
 static lthread_t *main_thread;
