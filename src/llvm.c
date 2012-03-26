@@ -382,14 +382,14 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       /* TODO: assumes floats */
-      #define BINIMPL(f)                                                \
-        if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {     \
-          warn("bad arith: %d,%d at %d", TYPE(B(code)), TYPE(C(code)),  \
-                                         __LINE__);                     \
-          return NULL;                                                  \
-        }                                                               \
-        build_binop(code, consts, regs, f);                             \
-        regtyps[A(code)] = LNUMBER;                                     \
+      #define BINIMPL(f)                                                      \
+        if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {           \
+          warn("bad arith: %d,%d at %d and %d", TYPE(B(code)), TYPE(C(code)), \
+                                                __LINE__, i-1);               \
+          return NULL;                                                        \
+        }                                                                     \
+        build_binop(code, consts, regs, f);                                   \
+        regtyps[A(code)] = LNUMBER;                                           \
         GOTOBB(i);
       case OP_ADD: BINIMPL(LLVMBuildFAdd)   break;
       case OP_SUB: BINIMPL(LLVMBuildFSub);  break;
