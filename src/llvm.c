@@ -427,7 +427,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
                                      A(code) ? LLVMIntNE : LLVMIntEQ,
                                      bv, cv, "");
         } else {
-          warn("bad EQ");
+          warn("bad EQ (%d, %d)", btyp, ctyp);
           return NULL;
         }
         BasicBlock truebb  = DSTBB(i + 1);
