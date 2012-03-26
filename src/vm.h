@@ -23,9 +23,9 @@ typedef u32 cfunction_t(LSTATE);
 
 /* Instructions packaged with extra tracing information */
 typedef struct instr {
-  u32       instr;  //<! The lua opcode for this instruction
-  u32       count;  //<! Number of times the instruction has been run
   jfunc_t   *jfunc; //<! Compiled code starting from this instruction
+  u32       instr;  //<! The lua opcode for this instruction
+  u8        count;  //<! Number of times the instruction has been run
 } instr_t;
 
 /* Package of a parsed function, and lots of metadata about it */
