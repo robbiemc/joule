@@ -63,6 +63,7 @@ static LLVMBuilderRef builder;
 static Type llvm_i32;
 static Type llvm_u32;
 static Type llvm_u64;
+static Type llvm_u32_ptr;
 static Type llvm_u64_ptr;
 static Type llvm_double;
 static Type llvm_double_ptr;
@@ -122,6 +123,7 @@ void llvm_init() {
   llvm_i32          = LLVMInt32Type();
   llvm_u32          = llvm_i32;
   llvm_u64          = LLVMInt64Type();
+  llvm_u32_ptr      = LLVMPointerType(llvm_u32, 0);
   llvm_u64_ptr      = LLVMPointerType(llvm_u64, 0);
   llvm_double       = LLVMDoubleType();
   llvm_double_ptr   = LLVMPointerType(llvm_double, 0);
@@ -640,11 +642,19 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             warn("bad LEN");
             return NULL;
         }
-        Value ptr = LLVMBuildLoad(builder, regs[B(code)], "");
-        ptr = LLVMBuildIntToPtr(builder, ptr, llvm_void_ptr, "");
+        /* Figure out the address of the 'length' field */
+        Value ptr = TOPTR(LLVMBuildLoad(builder, regs[B(code)], ""));
         ptr = LLVMBuildInBoundsGEP(builder, ptr, &offset, 1, "");
-        ptr = LLVMBuildBitCast(builder, ptr, llvm_u64_ptr, "");
+        /* TODO: there must be a better way to do this... right? */
+        Type ptr_type = sizeof(size_t) == 4 ? llvm_u32_ptr : llvm_u64_ptr;
+        ptr = LLVMBuildBitCast(builder, ptr, ptr_type, "");
+
+        /* Lengths are stored as 'u32', but the luav we return must be a double,
+           so cast the u32 do a double, but then back to a u64 so it can go
+           back into the u64 alloca location */
         Value len = LLVMBuildLoad(builder, ptr, "");
+        len = LLVMBuildUIToFP(builder, len, llvm_double, "");
+        len = LLVMBuildBitCast(builder, len, llvm_u64, "");
         LLVMBuildStore(builder, len, regs[A(code)]);
         regtyps[A(code)] = LNUMBER;
         GOTOBB(i);
