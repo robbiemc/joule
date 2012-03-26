@@ -119,9 +119,7 @@ int lv_compare(luav v1, luav v2) {
   if (v1 == v2) return 0;
 
   if (lv_isstring(v1) && lv_isstring(v2)) {
-    lstring_t *s1 = (lstring_t*) lv_getptr(v1);
-    lstring_t *s2 = (lstring_t*) lv_getptr(v2);
-    return lstr_compare(s1, s2);
+    return lstr_compare(lv_getptr(v1), lv_getptr(v2));
   }
 
   static char errbuf[100];
