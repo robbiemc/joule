@@ -37,7 +37,8 @@ function selectionsort(x,n,f)
  end
 end
 
-function show(m,x)
+function show(d,m,x)
+ --if d then return end
  io.write(m,"\n\t")
  local i=1
  while x[i] do
@@ -48,19 +49,19 @@ function show(m,x)
  io.write("\n")
 end
 
-function testsorts(x)
+function testsorts(x,d)
  local n=1
  while x[n] do n=n+1 end; n=n-1		-- count elements
- show("original",x)
+ show(d,"original",x)
  qsort(x,1,n,function (x,y) return x<y end)
- show("after quicksort",x)
+ show(d,"after quicksort",x)
  selectionsort(x,n,function (x,y) return x>y end)
- show("after reverse selection sort",x)
+ show(d,"after reverse selection sort",x)
  qsort(x,1,n,function (x,y) return x<y end)
- show("after quicksort again",x)
+ show(d,"after quicksort again",x)
 end
 
 -- array to be sorted
 x={"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"}
 
-testsorts(x)
+testsorts(x, true)
