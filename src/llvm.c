@@ -336,6 +336,11 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   env_addr = LLVMBuildBitCast(builder, env_addr, llvm_void_ptr_ptr, "");
   Value closure_env = LLVMBuildLoad(builder, env_addr, "env");
 
+  /* Calculate &closure->upvalues */
+  offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, upvalues), 0);
+  Value upv_addr = LLVMBuildInBoundsGEP(builder, closure, &offset, 1,"");
+  Value upvalues = LLVMBuildBitCast(builder, upv_addr, llvm_u64_ptr, "");
+
   /* Calculate the currently running frame (parent of all other invocations) */
   Value parent = LLVMConstInt(llvm_u64, (size_t) &vm_running, FALSE);
   parent = LLVMConstIntToPtr(parent, llvm_void_ptr_ptr);
@@ -711,6 +716,20 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_GETUPVAL: {
+        /* Load the luav of an upvalue */
+        Value offset = LLVMConstInt(llvm_u32, B(code), FALSE);
+        Value addr = LLVMBuildInBoundsGEP(builder, upvalues, &offset, 1, "");
+        Value upv  = TOPTR(LLVMBuildLoad(builder, addr, ""));
+        /* Interpret the luav as an upvalue and load it */
+        upv = LLVMBuildBitCast(builder, upv, llvm_u64_ptr, "");
+        upv = LLVMBuildLoad(builder, upv, "");
+        build_regset(&s, A(code), upv);
+        SETTYPE(A(code), func->trace.instrs[i - 1][0]);
+        GOTOBB(i);
+        break;
+      }
+
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
         if (B(code) == 0 || C(code) == 0) { warn("bad CALL"); return NULL; }
@@ -867,7 +886,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       /* TODO - here are all the unimplemented opcodes */
-      case OP_GETUPVAL:
       case OP_SETUPVAL:
       case OP_SELF:
       case OP_CONCAT:
