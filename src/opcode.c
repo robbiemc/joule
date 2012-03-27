@@ -100,9 +100,9 @@ void opcode_dump(FILE *out, uint32_t code) {
     case OP_RETURN:
       fprintf(out, "RETURN    R%d, ..., R%d", A(code), A(code)+B(code)-2); break;
     case OP_FORLOOP:
-      fprintf(out, "FORPREP   %d %d", A(code), SBX(code)); break;
-    case OP_FORPREP:
       fprintf(out, "FORLOOP   %d %d", A(code), SBX(code)); break;
+    case OP_FORPREP:
+      fprintf(out, "FORPREP   %d %d", A(code), SBX(code)); break;
     case OP_TFORLOOP:
       fprintf(out, "TFORLOOP  %d %d", A(code), C(code)); break;
     case OP_SETLIST:
