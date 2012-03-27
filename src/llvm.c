@@ -157,11 +157,14 @@ void llvm_init() {
   ADD_FUNCTION(vm_fun, llvm_u32, 6, llvm_void_ptr, llvm_void_ptr, llvm_u32,
                                     llvm_u32, llvm_u32, llvm_u32);
   ADD_FUNCTION2(llvm_memset, "llvm.memset.p0i8.i32", LLVMVoidType(), 5,
-                llvm_void_ptr, LLVMInt8Type(), llvm_u32, llvm_u32, LLVMInt1Type());
+                llvm_void_ptr, LLVMInt8Type(), llvm_u32, llvm_u32,
+                LLVMInt1Type());
   ADD_FUNCTION2(llvm_pow, "llvm.pow.f64", llvm_double, 2, llvm_double,
                 llvm_double);
   ADD_FUNCTION(lhash_hint, llvm_void_ptr, 2, llvm_u32, llvm_u32);
   ADD_FUNCTION(lstr_compare, llvm_i32, 2, llvm_void_ptr, llvm_void_ptr);
+  ADD_FUNCTION(lclosure_alloc, llvm_void_ptr, 2, llvm_void_ptr, llvm_u32);
+  ADD_FUNCTION(lupvalue_alloc, llvm_u64, 1, llvm_u64);
 }
 
 /**
@@ -337,8 +340,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   Value closure_env = LLVMBuildLoad(builder, env_addr, "env");
 
   /* Calculate &closure->upvalues */
-  offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, upvalues), 0);
-  Value upv_addr = LLVMBuildInBoundsGEP(builder, closure, &offset, 1,"");
+  Value upv_off  = LLVMConstInt(llvm_u64, offsetof(lclosure_t, upvalues), 0);
+  Value upv_addr = LLVMBuildInBoundsGEP(builder, closure, &upv_off, 1,"");
   Value upvalues = LLVMBuildBitCast(builder, upv_addr, llvm_u64_ptr, "");
 
   /* Calculate the currently running frame (parent of all other invocations) */
@@ -721,7 +724,12 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         if (TYPE(A(code)) != LTABLE) { warn("very bad SETLIST"); return NULL; }
 
         /* Fetch the hash table, and prepare the arguments to lhash_set */
-        u32 c = C(code) == 0 ? func->instrs[i++].instr : C(code);
+        u32 c = C(code);
+        if (c == 0) {
+          LLVMDeleteBasicBlock(blocks[i]);
+          blocks[i] = NULL;
+          c = func->instrs[i++].instr;
+        }
         Value fn  = LLVMGetNamedFunction(module, "lhash_set");
         Value tbl = TOPTR(build_reg(&s, A(code)));
         Value args[3] = {tbl, NULL, NULL};
@@ -771,6 +779,55 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             build_regset(&s, j, upv);
           }
         }
+        GOTOBB(i);
+        break;
+      }
+
+      case OP_CLOSURE: {
+        /* First, allocate the new closure */
+        lfunc_t *child = func->funcs[BX(code)];
+        Value fn = LLVMGetNamedFunction(module, "lclosure_alloc");
+        Value args[2] = {closure, LLVMConstInt(llvm_u32, BX(code), FALSE)};
+        Value closure2 = LLVMBuildCall(builder, fn, args, 2, "");
+        Value upvalues2 = LLVMBuildInBoundsGEP(builder, closure2, &upv_off, 1,
+                                               "");
+        upvalues2 = LLVMBuildBitCast(builder, upvalues2, llvm_u64_ptr, "");
+
+        /* Prepare all upvalues */
+        fn = LLVMGetNamedFunction(module, "lupvalue_alloc");
+        for (j = 0; j < child->num_upvalues; j++) {
+          LLVMDeleteBasicBlock(blocks[i]);
+          blocks[i] = NULL;
+          u32 pseudo = func->instrs[i++].instr;
+          Value tostore = NULL;
+          if (OP(pseudo) == OP_MOVE) {
+            /* Using a register */
+            tostore = LLVMBuildLoad(builder, regs[B(pseudo)], "");
+
+            /* If we aren't already an upvalue, make an upvalue for ourselves */
+            if (!TRACE_ISUPVAL(regtyps[B(pseudo)])) {
+              tostore = LLVMBuildCall(builder, fn, &tostore, 1, "");
+              LLVMBuildStore(builder, tostore, regs[B(pseudo)]);
+              regtyps[B(pseudo)] |= TRACE_UPVAL;
+            }
+          } else {
+            /* Using one of our upvalues */
+            Value off = LLVMConstInt(llvm_u32, B(pseudo), FALSE);
+            tostore = LLVMBuildInBoundsGEP(builder, upvalues, &off, 1, "");
+            tostore = LLVMBuildLoad(builder, tostore, "");
+          }
+          /* Shove the upvalue into the closure's memory */
+          Value offset = LLVMConstInt(llvm_u32, j, FALSE);
+          Value addr   = LLVMBuildInBoundsGEP(builder, upvalues2, &offset, 1,
+                                              "");
+          LLVMBuildStore(builder, tostore, addr);
+        }
+
+        /* Pack our pointer and put it in the register */
+        Value tybits = LLVMConstInt(llvm_u64, LUAV_PACK(LFUNCTION, 0), FALSE);
+        closure2 = LLVMBuildPtrToInt(builder, closure2, llvm_u64, "");
+        closure2 = LLVMBuildOr(builder, closure2, tybits, "");
+        build_regset(&s, A(code), closure2);
         GOTOBB(i);
         break;
       }
@@ -937,7 +994,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_FORLOOP:
       case OP_FORPREP:
       case OP_TFORLOOP:
-      case OP_CLOSURE:
       case OP_VARARG:
 
       default:

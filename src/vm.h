@@ -118,4 +118,7 @@ void vm_stack_grow(lstack_t *stack, u32 size);
 u32 vm_stack_alloc(lstack_t *stack, u32 size);
 void vm_stack_dealloc(lstack_t *stack, u32 base);
 
+lclosure_t* lclosure_alloc(lclosure_t *parent, u32 idx);
+luav        lupvalue_alloc(luav val);
+
 #endif /* _VM_H_ */

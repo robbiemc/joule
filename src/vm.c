@@ -45,7 +45,6 @@
 #define SETTRACE(traceidx, val) \
       func->trace.instrs[pc][traceidx] = lv_gettype(val)
 
-
 lhash_t *userdata_meta;      //<! metatables for all existing userdata
 lhash_t *lua_globals;        //<! default global environment
 lhash_t *global_env = NULL;  //<! current global environment
@@ -203,6 +202,39 @@ void vm_stack_dealloc(lstack_t *stack, u32 base) {
 }
 
 /**
+ * @brief Allocate a new closure from an existing one
+ *
+ * @param parent the parent closure which is creating this one
+ * @param idx the index of the function to create a closure for within the
+ *        parent's function
+ * @return the newly allocated closure, with no upvalues registered
+ */
+lclosure_t* lclosure_alloc(lclosure_t *parent, u32 idx) {
+  assert(parent->type == LUAF_LUA);
+  lfunc_t *func = parent->function.lua;
+  assert(idx < func->num_funcs);
+  lfunc_t *function = func->funcs[idx];
+  lclosure_t *closure = gc_alloc(CLOSURE_SIZE(function->num_upvalues),
+                                  LFUNCTION);
+  closure->type = LUAF_LUA;
+  closure->function.lua = function;
+  closure->env = parent->env;
+  return closure;
+}
+
+/**
+ * @brief Allocate a new upvalue for the given luav
+ *
+ * @param val the luav to create an upvalue for
+ * @return the luav representing the upvalue for the given value
+ */
+luav lupvalue_alloc(luav val) {
+  luav *ptr = gc_alloc(sizeof(luav), LUPVALUE);
+  *ptr = val;
+  return lv_upvalue(ptr);
+}
+
+/**
  * @brief Run a lua function, entry point into the VM
  *
  * @param func the function to run, typically from a parsed lua file.
@@ -257,7 +289,7 @@ top:
     return ret;
   }
 
-  u32 i, a, b, c, bx, limit, pc;
+  u32 i, a, b, c, limit, pc;
   u32 last_ret = 0;
   u32 upvalues = 0;
   lfunc_t *func = closure->function.lua;
@@ -529,17 +561,9 @@ top:
          Hence, the values on the stack that are converted to upvalues are
          replaced on the stack as an upvalue.*/
       case OP_CLOSURE: {
-        bx = BX(code);
-        assert(bx < func->num_funcs);
-        lfunc_t *function = func->funcs[bx];
-        lclosure_t *closure2 = gc_alloc(CLOSURE_SIZE(function->num_upvalues),
-                                        LFUNCTION);
-        closure2->type = LUAF_LUA;
-        closure2->function.lua = function;
-        closure2->env = closure->env;
-        lv_nilify(closure2->upvalues, function->num_upvalues);
+        lclosure_t *closure2 = lclosure_alloc(closure, BX(code));
 
-        for (i = 0; i < function->num_upvalues; i++) {
+        for (i = 0; i < closure2->function.lua->num_upvalues; i++) {
           u32 pseudo = (instrs++)->instr;
           luav upvalue;
           if (OP(pseudo) == OP_MOVE) {
@@ -554,9 +578,7 @@ top:
               /* If the stack register is not an upvalue, we need to promote it
                  to an upvalue, thereby scribbling over our stack variable so
                  it's now considered an upvalue */
-              luav *ptr = gc_alloc(sizeof(luav), LUPVALUE);
-              *ptr = temp;
-              upvalue = lv_upvalue(ptr);
+              upvalue = lupvalue_alloc(temp);
               STACK(B(pseudo)) = upvalue;
             }
             upvalues++;
