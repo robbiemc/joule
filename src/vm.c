@@ -737,7 +737,7 @@ top:
       case OP_FORPREP:
         a = A(code);
         SETREG(a, lv_number(lv_castnumber(REG(a), 0) -
-                                  lv_castnumber(REG(a + 2), 0)));
+                            lv_castnumber(REG(a + 2), 0)));
         instrs += SBX(code);
         break;
 
@@ -752,6 +752,7 @@ top:
           SETREG(a + 3, lv_number(d1));
           instrs += SBX(code);
         }
+        func->trace.instrs[pc][0] = (step < 0);
         break;
       }
 

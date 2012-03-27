@@ -531,6 +531,37 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_FORLOOP: {
+        /* TODO - guard that R(A), R(A+1), R(A+2) are numbers */
+        Value a2v = build_kregf(&s, A(code) + 2);
+        Value av  = LLVMBuildFAdd(builder, build_kregf(&s, A(code)), a2v, "");
+        build_regset(&s, A(code), LLVMBuildBitCast(builder, av, llvm_u64, ""));
+
+        /* TODO - guard that the sign of R(A+2) is the same as in the trace */
+        BasicBlock endbb = LLVMAppendBasicBlock(function, "endfor");
+        Value a1v  = build_kregf(&s, A(code) + 1);
+        LLVMRealPredicate pred = func->trace.instrs[i - 1][0] ? LLVMRealUGE
+                                                              : LLVMRealULE;
+        Value cond = LLVMBuildFCmp(builder, pred, av, a1v, "");
+        LLVMBuildCondBr(builder, cond, endbb, DSTBB(i));
+
+        LLVMPositionBuilderAtEnd(builder, endbb);
+        av = LLVMBuildBitCast(builder, av, llvm_u64, "");
+        build_regset(&s, A(code) + 3, av);
+        GOTOBB((u32) ((i32) i + SBX(code)));
+        break;
+      }
+
+      case OP_FORPREP: {
+        /* TODO - guard that R(A) and R(A+2) are numbers */
+        Value a2v = build_kregf(&s, A(code) + 2);
+        Value av  = build_kregf(&s, A(code));
+        av = LLVMBuildFSub(builder, av, a2v, "");
+        build_regset(&s, A(code), LLVMBuildBitCast(builder, av, llvm_u64, ""));
+        GOTOBB((u32) ((i32) i + SBX(code)));
+        break;
+      }
+
       case OP_RETURN: {
         if (B(code) == 0) { warn("bad RETURN"); return NULL; }
         Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
@@ -839,7 +870,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         u32 num_rets = C(code) - 1;
 
         if (TYPE(A(code)) != LFUNCTION) {
-          warn("really bad CALL (%x)", TYPE(A(code))); return NULL;
+          warn("really bad CALL (%x) at %d", TYPE(A(code)), i - 1); return NULL;
         }
 
         // copy arguments from c stack to lua stack
@@ -991,8 +1022,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_SELF:
       case OP_CONCAT:
       case OP_TAILCALL:
-      case OP_FORLOOP:
-      case OP_FORPREP:
       case OP_TFORLOOP:
       case OP_VARARG:
 
