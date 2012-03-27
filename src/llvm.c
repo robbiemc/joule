@@ -719,13 +719,25 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_GETUPVAL: {
         /* Load the luav of an upvalue */
         Value offset = LLVMConstInt(llvm_u32, B(code), FALSE);
-        Value addr = LLVMBuildInBoundsGEP(builder, upvalues, &offset, 1, "");
-        Value upv  = TOPTR(LLVMBuildLoad(builder, addr, ""));
+        Value addr   = LLVMBuildInBoundsGEP(builder, upvalues, &offset, 1, "");
+        Value upv    = TOPTR(LLVMBuildLoad(builder, addr, ""));
         /* Interpret the luav as an upvalue and load it */
         upv = LLVMBuildBitCast(builder, upv, llvm_u64_ptr, "");
         upv = LLVMBuildLoad(builder, upv, "");
         build_regset(&s, A(code), upv);
         SETTYPE(A(code), func->trace.instrs[i - 1][0]);
+        GOTOBB(i);
+        break;
+      }
+
+      case OP_SETUPVAL: {
+        /* Load the luav of an upvalue */
+        Value offset = LLVMConstInt(llvm_u32, B(code), FALSE);
+        Value addr   = LLVMBuildInBoundsGEP(builder, upvalues, &offset, 1, "");
+        Value upv    = TOPTR(LLVMBuildLoad(builder, addr, ""));
+        /* Store register A into the pointer pointed to */
+        upv = LLVMBuildBitCast(builder, upv, llvm_u64_ptr, "");
+        LLVMBuildStore(builder, build_reg(&s, A(code)), upv);
         GOTOBB(i);
         break;
       }
@@ -886,7 +898,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       /* TODO - here are all the unimplemented opcodes */
-      case OP_SETUPVAL:
       case OP_SELF:
       case OP_CONCAT:
       case OP_TAILCALL:
