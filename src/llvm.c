@@ -742,6 +742,18 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_CLOSE: {
+        for (j = A(code); j < func->max_stack; j++) {
+          if (TRACE_ISUPVAL(regtyps[j])) {
+            Value upv = build_reg(&s, j);
+            regtyps[j] = TYPE(j); /* Clear the upvalue information */
+            build_regset(&s, j, upv);
+          }
+        }
+        GOTOBB(i);
+        break;
+      }
+
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
         if (B(code) == 0 || C(code) == 0) { warn("bad CALL"); return NULL; }
@@ -905,7 +917,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_FORPREP:
       case OP_TFORLOOP:
       case OP_SETLIST:
-      case OP_CLOSE:
       case OP_CLOSURE:
       case OP_VARARG:
 
