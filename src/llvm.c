@@ -445,8 +445,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       /* TODO: assumes floats */
       #define BINIMPL(f)                                                      \
         if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {           \
-          warn("bad arith: %d,%d at %d and %d", TYPE(B(code)), TYPE(C(code)), \
-                                                __LINE__, i-1);               \
+          warn("bad arith: %d,%d", TYPE(B(code)), TYPE(C(code)));             \
           return NULL;                                                        \
         }                                                                     \
         build_binop(&s, code, f);                                             \
@@ -520,7 +519,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             LLVMBuildCondBr(builder, cond, truebb, falsebb);                \
           } else {                                                          \
             /* TODO - metatable */                                          \
-            warn("bad LT/LE");                                              \
+            warn("bad LT/LE (%d, %d)", TYPE(B(code)), TYPE(C(code)));       \
             return NULL;                                                    \
           }                                                                 \
         }
@@ -664,7 +663,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       case OP_GETTABLE: {
         if (TYPE(B(code)) != LTABLE) {
-          warn("bad GETTABLE (pc:%d, typ:%d)", i - 1, TYPE(B(code)));
+          warn("bad GETTABLE (typ:%d)", TYPE(B(code)));
           return NULL;
         }
         /* TODO: metatable? */
@@ -874,7 +873,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         u32 num_rets = C(code) - 1;
 
         if (TYPE(A(code)) != LFUNCTION) {
-          warn("really bad CALL (%x) at %d", TYPE(A(code)), i - 1); return NULL;
+          warn("really bad CALL (%x)", TYPE(A(code))); return NULL;
         }
 
         // copy arguments from c stack to lua stack
