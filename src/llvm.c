@@ -716,6 +716,27 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_SETLIST: {
+        if (B(code) == 0) { warn("bad SETLIST"); return NULL; }
+        if (TYPE(A(code)) != LTABLE) { warn("very bad SETLIST"); return NULL; }
+
+        /* Fetch the hash table, and prepare the arguments to lhash_set */
+        u32 c = C(code) == 0 ? func->instrs[i++].instr : C(code);
+        Value fn  = LLVMGetNamedFunction(module, "lhash_set");
+        Value tbl = TOPTR(build_reg(&s, A(code)));
+        Value args[3] = {tbl, NULL, NULL};
+
+        /* Call lhash_set, once per entry */
+        for (j = 1; j <= B(code); j++) {
+          u32 key = (c - 1) * LFIELDS_PER_FLUSH + j;
+          args[1] = LLVMConstBitCast(LLVMConstReal(llvm_double, key), llvm_u64);
+          args[2] = build_reg(&s, A(code) + j);
+          LLVMBuildCall(builder, fn, args, 3, "");
+        }
+        GOTOBB(i);
+        break;
+      }
+
       case OP_GETUPVAL: {
         /* Load the luav of an upvalue */
         Value offset = LLVMConstInt(llvm_u32, B(code), FALSE);
@@ -916,7 +937,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_FORLOOP:
       case OP_FORPREP:
       case OP_TFORLOOP:
-      case OP_SETLIST:
       case OP_CLOSURE:
       case OP_VARARG:
 
