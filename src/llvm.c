@@ -50,7 +50,8 @@ typedef i32(jitf)(void*, void*);
     Value __tmp = LLVMBuildAnd(builder, v, lvc_data_mask, "");  \
     LLVMBuildIntToPtr(builder, __tmp, llvm_void_ptr, "");       \
   })
-#define warn(fmt, ...) fprintf(stderr, fmt "\n", ## __VA_ARGS__)
+#define warn(fmt, ...) fprintf(stderr, "[%d](%d => %d) " fmt "\n", \
+                               i - 1, start, end, ## __VA_ARGS__)
 #define ADD_FUNCTION2(name, str, ret, numa, ...)                  \
   Type name##_args[numa] = {__VA_ARGS__};                         \
   Type name##_type = LLVMFunctionType(ret, name##_args, numa, 0); \
@@ -662,7 +663,10 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_GETTABLE: {
-        if (TYPE(B(code)) != LTABLE) { warn("bad GETTABLE"); return NULL; }
+        if (TYPE(B(code)) != LTABLE) {
+          warn("bad GETTABLE (pc:%d, typ:%d)", i - 1, TYPE(B(code)));
+          return NULL;
+        }
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_get");
         Value bv = TOPTR(LLVMBuildLoad(builder, regs[B(code)], ""));
