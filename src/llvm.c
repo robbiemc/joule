@@ -295,8 +295,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
     .types  = regtyps,
     .func   = func
   };
-  Value ret_val;
-  BasicBlock ret_block;
   char name[20];
   u32 i, j;
   Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
@@ -321,7 +319,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   for (i = 0; i < func->max_stack; i++) {
     regs[i] = LLVMBuildAlloca(builder, llvm_u64, "");
   }
-  ret_val = LLVMBuildAlloca(builder, llvm_i32, "ret_val");
+  Value ret_val  = LLVMBuildAlloca(builder, llvm_i32, "ret_val");
+  Value last_ret = LLVMBuildAlloca(builder, llvm_i32, "last_ret");
 
   /* Calculate stacki, and LSTATE */
   Value stackio = LLVMConstInt(llvm_u32, JSTACKI, FALSE);
@@ -339,6 +338,12 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   Value env_addr = LLVMBuildInBoundsGEP(builder, closure, &offset, 1,"");
   env_addr = LLVMBuildBitCast(builder, env_addr, llvm_void_ptr_ptr, "");
   Value closure_env = LLVMBuildLoad(builder, env_addr, "env");
+
+  /* Load last_ret */
+  offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, last_ret), 0);
+  Value last_ret_addr = LLVMBuildInBoundsGEP(builder, closure, &offset, 1,"");
+  last_ret_addr = LLVMBuildBitCast(builder, last_ret_addr, llvm_u32_ptr, "");
+  LLVMBuildStore(builder, LLVMBuildLoad(builder, last_ret_addr, ""), last_ret);
 
   /* Calculate &closure->upvalues */
   Value upv_off  = LLVMConstInt(llvm_u64, offsetof(lclosure_t, upvalues), 0);
@@ -372,7 +377,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   LLVMBuildBr(builder, blocks[start]);
 
   /* Create exit block */
-  ret_block = LLVMAppendBasicBlock(function, "exit");
+  BasicBlock ret_block = LLVMAppendBasicBlock(function, "exit");
   LLVMPositionBuilderAtEnd(builder, ret_block);
   Value stack_ptr = get_stack_base(base_addr, stacki, "stack");
   for (i = 0; i < func->max_stack; i++) {
@@ -381,6 +386,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
     Value val  = LLVMBuildLoad(builder, regs[i], "");
     LLVMBuildStore(builder, val, addr);
   }
+  LLVMBuildStore(builder, LLVMBuildLoad(builder, last_ret, ""), last_ret_addr);
   Value r = LLVMBuildLoad(builder, ret_val, "");
   LLVMBuildRet(builder, r);
 
