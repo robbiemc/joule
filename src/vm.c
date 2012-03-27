@@ -45,48 +45,6 @@
 #define SETTRACE(traceidx, val) \
       func->trace.instrs[pc][traceidx] = lv_gettype(val)
 
-/* Metatable macros */
-#define BINOP_ADD(a,b) ((a)+(b))
-#define BINOP_SUB(a,b) ((a)-(b))
-#define BINOP_MUL(a,b) ((a)*(b))
-#define BINOP_DIV(a,b) ((a)/(b))
-#define BINOP_MOD(a,b) ((a) - floor((a)/(b))*(b))
-#define BINOP_POW(a,b) (pow((a), (b)))
-#define BINOP_EQ(a,b)  ((a) == (b))
-#define BINOP_LT(a,b)  ((a) <  (b))
-#define BINOP_LE(a,b)  ((a) <= (b))
-#define META_ARITH_BINARY(op, idx) {                                \
-          a = A(code);                                              \
-          luav bv = KREG(B(code));                                  \
-          luav cv = KREG(C(code));                                  \
-          if (lv_isnumber(bv) && lv_isnumber(cv)) {                 \
-            SETREG(a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));       \
-            break;                                                  \
-          }                                                         \
-          if (meta_binary(bv, idx, bv, cv, STACKI(a), &frame) ||    \
-              meta_binary(cv, idx, bv, cv, STACKI(a), &frame))      \
-            break;                                                  \
-          double bd = lv_castnumber(bv, 0);                         \
-          double cd = lv_castnumber(cv, 1);                         \
-          SETREG(a, lv_number(op(bd, cd)));                         \
-        }
-#define META_COMPARE(op, idx) {                                           \
-          u32 lt; luav res;                                               \
-          luav bv = KREG(B(code)); luav cv = KREG(C(code));               \
-          if (lv_sametyp(bv, cv) &&                                       \
-              (lv_isnumber(bv) || lv_isstring(bv))) {                     \
-            lt = (u8) op(lv_compare(bv, cv), 0);                          \
-          } else if (meta_eq(bv, cv, idx, &res)) {                        \
-            lt = lv_getbool(res, 0);                                      \
-          } else if (idx == META_LE && meta_eq(cv, bv, META_LT, &res)) {  \
-            lt = (u8) !lv_getbool(res, 0);                                \
-          } else {                                                        \
-            lt = (u8) op(lv_compare(bv, cv), 0);                          \
-          }                                                               \
-          if (lt != A(code)) {                                            \
-            instrs++;                                                     \
-          }                                                               \
-        }
 
 lhash_t *userdata_meta;      //<! metatables for all existing userdata
 lhash_t *lua_globals;        //<! default global environment
@@ -635,6 +593,25 @@ top:
         break;
       }
 
+      #define BINOP_LT(a,b)  ((a) <  (b))
+      #define BINOP_LE(a,b)  ((a) <= (b))
+      #define META_COMPARE(op, idx) {                                   \
+        u32 lt; luav res;                                               \
+        luav bv = KREG(B(code)); luav cv = KREG(C(code));               \
+        if (lv_sametyp(bv, cv) &&                                       \
+            (lv_isnumber(bv) || lv_isstring(bv))) {                     \
+          lt = (u8) op(lv_compare(bv, cv), 0);                          \
+        } else if (meta_eq(bv, cv, idx, &res)) {                        \
+          lt = lv_getbool(res, 0);                                      \
+        } else if (idx == META_LE && meta_eq(cv, bv, META_LT, &res)) {  \
+          lt = (u8) !lv_getbool(res, 0);                                \
+        } else {                                                        \
+          lt = (u8) op(lv_compare(bv, cv), 0);                          \
+        }                                                               \
+        if (lt != A(code)) {                                            \
+          instrs++;                                                     \
+        }                                                               \
+      }
       case OP_LT: META_COMPARE(BINOP_LT, META_LT); break;
       case OP_LE: META_COMPARE(BINOP_LE, META_LE); break;
 
@@ -662,6 +639,27 @@ top:
         }
         break;
 
+      #define BINOP_ADD(a,b) ((a)+(b))
+      #define BINOP_SUB(a,b) ((a)-(b))
+      #define BINOP_MUL(a,b) ((a)*(b))
+      #define BINOP_DIV(a,b) ((a)/(b))
+      #define BINOP_MOD(a,b) ((a) - floor((a)/(b))*(b))
+      #define BINOP_POW(a,b) (pow((a), (b)))
+      #define META_ARITH_BINARY(op, idx) {                        \
+        a = A(code);                                              \
+        luav bv = KREG(B(code));                                  \
+        luav cv = KREG(C(code));                                  \
+        if (lv_isnumber(bv) && lv_isnumber(cv)) {                 \
+          SETREG(a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));       \
+          break;                                                  \
+        }                                                         \
+        if (meta_binary(bv, idx, bv, cv, STACKI(a), &frame) ||    \
+            meta_binary(cv, idx, bv, cv, STACKI(a), &frame))      \
+          break;                                                  \
+        double bd = lv_castnumber(bv, 0);                         \
+        double cd = lv_castnumber(cv, 1);                         \
+        SETREG(a, lv_number(op(bd, cd)));                         \
+      }
       case OP_ADD: META_ARITH_BINARY(BINOP_ADD, META_ADD); break;
       case OP_SUB: META_ARITH_BINARY(BINOP_SUB, META_SUB); break;
       case OP_MUL: META_ARITH_BINARY(BINOP_MUL, META_MUL); break;
