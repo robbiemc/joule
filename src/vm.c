@@ -753,6 +753,8 @@ top:
           instrs += SBX(code);
         }
         func->trace.instrs[pc][0] = (step < 0);
+        /* Don't ever start compilation at a FORLOOP opcode */
+        func->instrs[pc].count--;
         break;
       }
 
