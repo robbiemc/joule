@@ -50,8 +50,8 @@ typedef i32(jitf)(void*, void*);
     Value __tmp = LLVMBuildAnd(builder, v, lvc_data_mask, "");  \
     LLVMBuildIntToPtr(builder, __tmp, llvm_void_ptr, "");       \
   })
-#define warn(fmt, ...) fprintf(stderr, "[%d](%d => %d) " fmt "\n", \
-                               i - 1, start, end, ## __VA_ARGS__)
+#define warn(fmt, ...) fprintf(stderr, "[pc:%d, line:%d](%d => %d) " fmt "\n", \
+                               i - 1, func->lines[i - 1], start, end, ## __VA_ARGS__)
 #define ADD_FUNCTION2(name, str, ret, numa, ...)                  \
   Type name##_args[numa] = {__VA_ARGS__};                         \
   Type name##_type = LLVMFunctionType(ret, name##_args, numa, 0); \
