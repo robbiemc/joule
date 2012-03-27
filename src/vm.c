@@ -290,13 +290,13 @@ top:
   }
 
   u32 i, a, b, c, limit, pc;
-  u32 last_ret = 0;
   u32 upvalues = 0;
   lfunc_t *func = closure->function.lua;
   instr_t *instrs = func->instrs;
   frame.pc = &instrs;
   luav temp;
   assert(closure->env != NULL);
+  closure->last_ret = 0;
 
   /* Copy all arguments onto our stack, located in the lowest registers.
      Might need to grow the stack if we're a VARARG function, and otherwise
@@ -448,7 +448,7 @@ top:
         a = A(code); b = B(code); c = C(code);
         /* If we don't know how many arguments we're giving, then it's the last
            number of arguments received from some previous instruction */
-        u32 num_args = b == 0 ? last_ret - a - 1 : b - 1;
+        u32 num_args = b == 0 ? closure->last_ret - a - 1 : b - 1;
         /* If we don't know how many return values we want, just say we want
            everything ever, our stack will be grown for us by whomever is
            returning value to us */
@@ -477,7 +477,7 @@ top:
         }
         /* Save how many things we just got, in case the next instruction
            doesn't know how many things it wants */
-        last_ret = a + got;
+        closure->last_ret = a + got;
         break;
       }
 
@@ -487,7 +487,7 @@ top:
         b = B(code);
         /* If we don't know what we're returning, then some previous instruction
            received a glob of parameters and kept track of what it got */
-        limit = b == 0 ? last_ret - a : b - 1;
+        limit = b == 0 ? closure->last_ret - a : b - 1;
         /* the RETURN opcode implicitly performs a CLOSE operation */
         if (upvalues > 0) {
           upvalues -= op_close(vm_stack->size - stack, vm_stack->base + stack);
@@ -517,7 +517,7 @@ top:
         b = B(code);
         assert(C(code) == 0);
         /* Figure out how big our glob is and where it's located */
-        argc = (b == 0 ? last_ret : a + b) - a - 1;
+        argc = (b == 0 ? closure->last_ret : a + b) - a - 1;
         argvi = STACKI(a + 1);
         luav av = REG(a);
         lhash_t *meta = getmetatable(av);
@@ -780,7 +780,7 @@ top:
         if (c == 0) {
           c = (instrs++)->instr;
         }
-        if (b == 0) { b = last_ret - a - 1; }
+        if (b == 0) { b = closure->last_ret - a - 1; }
         lhash_t *hash = lv_gettable(REG(a), 0);
         for (i = 1; i <= b; i++) {
           lhash_set(hash, lv_number((c - 1) * LFIELDS_PER_FLUSH + i),
@@ -803,7 +803,7 @@ top:
         for (; i < limit; i++) {
           SETREG(a + i, LUAV_NIL);
         }
-        last_ret = a + i;
+        closure->last_ret = a + i;
         break;
       }
 

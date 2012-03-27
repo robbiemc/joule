@@ -65,6 +65,7 @@ enum lclosure_type { LUAF_C, LUAF_LUA };
 /* Package for representing a closure in lua */
 typedef struct lclosure {
   enum lclosure_type type;  //<! The type of the closure (lua/c/etc.)
+  u32  last_ret;
   struct lhash *env;        //<! Lua environment for the closure
   union {
     lfunc_t *lua;
