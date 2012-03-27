@@ -874,9 +874,23 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
-        if (B(code) == 0 || C(code) == 0) { warn("bad CALL"); return NULL; }
         u32 num_args = B(code) - 1;
         u32 num_rets = C(code) - 1;
+        u32 end_stores;
+        if (B(code) == 0) {
+          if (i - 1 == start) { warn("B0 call on first instr"); return NULL; }
+          if (OP(func->instrs[i - 2].instr) != OP_CALL) {
+            warn("B0 call where prev wasn't CALL");
+            return NULL;
+          }
+          if (C(func->instrs[i - 2].instr) != 0) {
+            warn("B0 CALL wasn't preceded with a C0 CALL");
+            return NULL;
+          }
+          end_stores = A(func->instrs[i - 2].instr);
+        } else {
+          end_stores = A(code) + 1 + num_args;
+        }
 
         if (TYPE(A(code)) != LFUNCTION) {
           warn("really bad CALL (%x)", TYPE(A(code))); return NULL;
@@ -885,7 +899,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         // copy arguments from c stack to lua stack
         u32 a = A(code);
         Value stack = get_stack_base(base_addr, stacki, "");
-        for (j = a + 1; j < a + 1 + num_args; j++) {
+        for (j = a + 1; j < end_stores; j++) {
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = build_reg(&s, j);
@@ -899,10 +913,18 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value av = LLVMConstInt(llvm_u32, a, FALSE);
         Value fn = LLVMGetNamedFunction(module, "vm_fun");
         xassert(fn != NULL);
+        Value lnumargs;
+        if (B(code) == 0) {
+          Value tmp = LLVMBuildLoad(builder, last_ret, "");
+          lnumargs = LLVMBuildSub(builder, tmp, av, "");
+          lnumargs = LLVMBuildSub(builder, lnumargs, lvc_32_one, "");
+        } else {
+          lnumargs = LLVMConstInt(llvm_u32, num_args, FALSE);
+        }
         Value args[] = {
           closure,
           parent,
-          LLVMConstInt(llvm_u32, num_args, FALSE),
+          lnumargs,
           num_args == 0 ? lvc_32_one :
             LLVMBuildAdd(builder, stacki, LLVMConstAdd(av, lvc_32_one), ""),
           LLVMConstInt(llvm_u32, num_rets, FALSE),
@@ -910,6 +932,13 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             LLVMBuildAdd(builder, stacki, av, "")
         };
         Value ret = LLVMBuildCall(builder, fn, args, 6, "");
+
+        if (C(code) == 0) {
+          LLVMBuildStore(builder, LLVMBuildAdd(builder, ret, av, ""), last_ret);
+          GOTOBB(i);
+          break;
+        }
+
         BasicBlock load_regs    = LLVMAppendBasicBlock(function, "");
         BasicBlock failure_set  = LLVMAppendBasicBlock(function, "");
         BasicBlock failure_load = LLVMAppendBasicBlock(function, "");
@@ -1043,7 +1072,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   // LLVMDumpValue(function);
   LLVMRunFunctionPassManager(pass_manager, function);
   // LLVMDumpValue(function);
-  // warn("compiled %d => %d", start, end);
+  // warn("compiled");
   return LLVMGetPointerToGlobal(ex_engine, function);
 }
 
