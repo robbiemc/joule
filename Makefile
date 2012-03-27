@@ -28,13 +28,13 @@ OBJS := gc.o lstring.o vm.o opcode.o util.o luav.o parse.o lhash.o debug.o \
 OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
-LUATESTS :=	tail factorial bool closure multipart bool2 math forint concat   \
-		loop sort func fib select math2 bisect cf printf select smallfun \
-		os strings coroutine2 sieve load pcall metabasic calls \
-		noglobals fibfor readonly echo constructs errors literals len \
-		closure2 closure3 coroutine-gc locals pow not \
-		newtable c upvalues while
-# not passing: cor nextvar coroutine
+LUATESTS :=	tail factorial bool closure multipart bool2 math forint	\
+		concat loop sort func fib select math2 bisect cf printf \
+		select smallfun nextvar os strings coroutine2 sieve	\
+		load pcall metabasic calls noglobals fibfor readonly	\
+		echo constructs errors literals len closure2 closure3	\
+		coroutine-gc locals pow not newtable c upvalues while
+# not passing: cor coroutine
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 
 BENCHTESTS :=	ackermann.lua-2 ary nbody nbody.lua-2 nbody.lua-4 hash fibo \

@@ -538,6 +538,11 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_FORLOOP: {
+        if (TYPE(A(code)) != LNUMBER || TYPE(A(code) + 1) != LNUMBER ||
+                                        TYPE(A(code) + 2) != LNUMBER) {
+          warn("bad FORLOOP");
+          return NULL;
+        }
         /* TODO - guard that R(A), R(A+1), R(A+2) are numbers */
         Value a2v = build_kregf(&s, A(code) + 2);
         Value av  = LLVMBuildFAdd(builder, build_kregf(&s, A(code)), a2v, "");
@@ -559,6 +564,10 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_FORPREP: {
+        if (TYPE(A(code)) != LNUMBER || TYPE(A(code) + 2) != LNUMBER) {
+          warn("bad FORPREP");
+          return NULL;
+        }
         /* TODO - guard that R(A) and R(A+2) are numbers */
         Value a2v = build_kregf(&s, A(code) + 2);
         Value av  = build_kregf(&s, A(code));
