@@ -804,7 +804,7 @@ top:
           SETREG(a + i, LUAV_NIL);
         }
         closure->last_ret = a + i;
-        func->trace.instrs[pc][0] = (u8) MAX(argc, TRACEMAX);
+        func->trace.instrs[pc][0] = (u8) MIN(argc, TRACEMAX);
         for (i = 1; i < TRACELIMIT && i < limit + 1; i++) {
           SETTRACE(i, REG(a + i - 1));
         }
