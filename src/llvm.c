@@ -25,15 +25,18 @@ typedef i32(jitf)(void*, void*);
 
 #define GOTOBB(idx) LLVMBuildBr(builder, DSTBB(idx))
 #define DSTBB(idx) (blocks[idx] == NULL ? BAILBB(idx) : blocks[idx])
-#define BAILBB(idx) ({                                              \
-    BasicBlock tmp = bail_blocks[idx];                              \
+#define BAILBB(idx) NEWBB(idx, bail_blocks, {})
+#define ERRBB(idx)  NEWBB(idx, err_blocks, { ERROR(); })
+#define NEWBB(idx, arr, extra) ({                                   \
+    BasicBlock tmp = arr[idx];                                      \
     if (tmp == NULL) {                                              \
       BasicBlock cur = LLVMGetInsertBlock(builder);                 \
       tmp = LLVMInsertBasicBlock(ret_block, "");                    \
       LLVMPositionBuilderAtEnd(builder, tmp);                       \
+      { extra };                                                    \
       RETURN((i32) (idx));                                          \
       LLVMPositionBuilderAtEnd(builder, cur);                       \
-      bail_blocks[idx] = tmp;                                       \
+      arr[idx] = tmp;                                               \
     }                                                               \
     tmp;                                                            \
   })
@@ -41,6 +44,10 @@ typedef i32(jitf)(void*, void*);
   Value r = LLVMConstInt(llvm_i32, (long long unsigned) (ret), TRUE); \
   LLVMBuildStore(builder, r, ret_val);                                \
   LLVMBuildBr(builder, ret_block);
+#define ERROR() {                                                              \
+    Value ptr = LLVMConstInt(llvm_u64, (size_t) &jit_bailed, FALSE);           \
+    LLVMBuildStore(builder, lvc_32_one, LLVMConstIntToPtr(ptr, llvm_u32_ptr)); \
+  }
 #define TYPE(idx) \
   ((u8) ((idx) >= 256 ? lv_gettype(func->consts[(idx) - 256]) : \
                         (regtyps[idx] & ~TRACE_UPVAL)))
@@ -289,6 +296,7 @@ static void build_binop(state_t *s, u32 code, Binop operation) {
 jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   BasicBlock blocks[func->num_instrs];
   BasicBlock bail_blocks[func->num_instrs];
+  BasicBlock err_blocks[func->num_instrs];
   Value regs[func->max_stack];
   Value consts[func->num_consts];
   u8    regtyps[func->max_stack];
@@ -312,6 +320,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   /* Create the blocks and allocas */
   memset(blocks, 0, sizeof(blocks));
   memset(bail_blocks, 0, sizeof(bail_blocks));
+  memset(err_blocks, 0, sizeof(err_blocks));
   for (i = start; i <= end; i++) {
     sprintf(name, "block%d", i);
     blocks[i] = LLVMAppendBasicBlock(function, name);
@@ -382,7 +391,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
     Value val  = LLVMBuildLoad(builder, addr, "");
     LLVMBuildStore(builder, val, regs[i]);
   }
-
   LLVMBuildBr(builder, blocks[start]);
 
   /* Create exit block */
@@ -1136,7 +1144,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         BasicBlock load = LLVMAppendBasicBlock(function, "");
         Value cond = LLVMBuildICmp(builder, LLVMIntEQ, argc,
                                    LLVMConstInt(llvm_u32, targc, FALSE), "");
-        LLVMBuildCondBr(builder, cond, load, BAILBB(i - 1));
+        LLVMBuildCondBr(builder, cond, load, ERRBB(i - 1));
         u32 tmax = targc < func->num_parameters ? 0 :
                     targc - func->num_parameters;
 

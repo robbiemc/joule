@@ -51,6 +51,7 @@ lhash_t *global_env = NULL;  //<! current global environment
 lframe_t *vm_running = NULL; //<! currently running function's frame
 lstack_t *vm_stack;          //<! current stack, changes on thread switches
 static lstack_t init_stack;  //<! initial stack
+int jit_bailed;              //<! Did the jit just bail out because of error?
 
 static u32 op_close(u32 upc, luav *upv);
 static int meta_unary(luav operand, luav method, u32 reti, lframe_t *frame);
@@ -341,8 +342,10 @@ top:
         [JRETC]   = retc,
         [JRETVI]  = retvi
       };
+      jit_bailed = 0;
       i32 ret = llvm_run(instrs->jfunc, closure, stack_stuff);
       if (ret < 0) {
+        assert(!jit_bailed);
         // the function returned
         u32 rcount = (u32) (-ret) - 1;
         vm_running = parent; // reset the currently running frame
@@ -350,8 +353,10 @@ top:
         vm_stack_dealloc(vm_stack, MAX(retvi + rcount, stack_orig));
         return rcount;
       }
-      instrs->jfunc = NULL;
-      instrs->count = 240;
+      if (jit_bailed) {
+        instrs->jfunc = NULL;
+        instrs->count = 240;
+      }
       // the function ended, but it's still in this lfunc
       instrs = &func->instrs[ret];
       continue;

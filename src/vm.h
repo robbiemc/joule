@@ -106,6 +106,7 @@ extern struct lhash *lua_globals;
 extern lframe_t *vm_running;
 extern lstack_t *vm_stack;
 extern struct lhash *global_env;
+extern int jit_bailed;
 
 lclosure_t* cfunc_alloc(cfunction_t *f, char *name, int upvalues);
 void cfunc_register(struct lhash *table, char *name, cfunction_t *f);
