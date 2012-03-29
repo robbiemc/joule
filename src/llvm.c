@@ -166,6 +166,9 @@ void llvm_init() {
   ADD_FUNCTION(lstr_compare, llvm_i32, 2, llvm_void_ptr, llvm_void_ptr);
   ADD_FUNCTION(lclosure_alloc, llvm_void_ptr, 2, llvm_void_ptr, llvm_u32);
   ADD_FUNCTION(lupvalue_alloc, llvm_u64, 1, llvm_u64);
+  ADD_FUNCTION2(llvm_memmove, "llvm.memmove.p0i8.p0i8.i32", LLVMVoidType(), 5,
+                llvm_void_ptr, llvm_void_ptr, llvm_u32, llvm_u32,
+                LLVMInt1Type());
 }
 
 /**
@@ -578,8 +581,51 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_RETURN: {
-        if (B(code) == 0) { warn("bad RETURN"); return NULL; }
         Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
+        if (B(code) == 0) {
+          Value stack = get_stack_base(base_addr, stacki, "");
+          if (i - 1 == start) { warn("B0 return on first instr"); return NULL; }
+          if (OP(func->instrs[i - 2].instr) != OP_CALL) {
+            warn("B0 return where prev wasn't CALL");
+            return NULL;
+          }
+          if (C(func->instrs[i - 2].instr) != 0) {
+            warn("B0 return wasn't preceded with a C0 CALL");
+            return NULL;
+          }
+          /* Store remaining registers onto our lua stack */
+          u32 end_stores = A(func->instrs[i - 2].instr);
+          for (j = A(code); j < end_stores; j++) {
+            Value offset = LLVMConstInt(llvm_u32, j, FALSE);
+            Value addr = LLVMBuildInBoundsGEP(builder, stack, &offset, 1, "");
+            Value val  = LLVMBuildLoad(builder, regs[j], "");
+            LLVMBuildStore(builder, val, addr);
+          }
+          /* Memcpy our lua stack over to the return stack */
+          Value av = LLVMConstInt(llvm_u32, A(code), FALSE);
+          Value ret_base = LLVMBuildInBoundsGEP(builder, stack, &av, 1, "");
+          Value num_rets = LLVMBuildLoad(builder, last_ret, "");
+          num_rets = LLVMBuildSub(builder, num_rets, av, "");
+          Value cond = LLVMBuildICmp(builder, LLVMIntULE, num_rets, retc, "");
+          Value amt = LLVMBuildSelect(builder, cond, num_rets, retc, "");
+
+          /* memmove(ret_base, ret_stack, min(num_rets, retc) * sizeof(luav)) */
+          Value memmove = LLVMGetNamedFunction(module,
+                                               "llvm.memmove.p0i8.p0i8.i32");
+          Value args[5] = {
+            LLVMBuildBitCast(builder, ret_stack, llvm_void_ptr, ""),
+            LLVMBuildBitCast(builder, ret_base, llvm_void_ptr, ""),
+            LLVMBuildMul(builder, amt,
+                         LLVMConstInt(llvm_u32, sizeof(luav), FALSE), ""),
+            LLVMConstInt(llvm_u32, 8, FALSE),
+            LLVMConstInt(LLVMInt1Type(), 0, FALSE)
+          };
+          LLVMBuildCall(builder, memmove, args, 5, "");
+          num_rets = LLVMBuildNeg(builder, num_rets, "");
+          num_rets = LLVMBuildSub(builder, num_rets, lvc_32_one, "");
+          LLVMBuildRet(builder, num_rets);
+          break;
+        }
 
         /* Create actual return first, so everything can jump to it */
         BasicBlock endbb = LLVMAppendBasicBlock(function, "end");
