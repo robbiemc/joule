@@ -793,11 +793,12 @@ top:
         /* TODO: trace information */
         a = A(code);
         b = B(code);
-        u32 limit = b > 0 ? b - 1 : argc - func->num_parameters;
+        u32 max = argc < func->num_parameters ? 0 : argc - func->num_parameters;
+        u32 limit = b > 0 ? b - 1 : max;
         if (stack + limit + a > vm_stack->size) {
           vm_stack_grow(vm_stack, stack + limit + a - vm_stack->size);
         }
-        for (i = 0; i < limit && i < argc; i++) {
+        for (i = 0; i < limit && i < max; i++) {
           SETREG(a + i, vm_stack->base[argvi + i + func->num_parameters]);
         }
         for (; i < limit; i++) {
