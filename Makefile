@@ -33,7 +33,8 @@ LUATESTS :=	tail factorial bool closure multipart bool2 math forint	\
 		select smallfun nextvar os strings coroutine2 sieve	\
 		load pcall metabasic calls noglobals fibfor readonly	\
 		echo constructs errors literals len closure2 closure3	\
-		coroutine-gc locals pow not newtable c upvalues while
+		coroutine-gc locals pow not newtable c upvalues while   \
+		vararg
 # not passing: cor coroutine
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 

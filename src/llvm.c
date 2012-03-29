@@ -335,9 +335,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   Value retvio  = LLVMConstInt(llvm_u32, JRETVI, FALSE);
   Value retvia  = LLVMBuildInBoundsGEP(builder, jargs, &retvio, 1, "");
   Value retvi   = LLVMBuildLoad(builder, retvia, "retvi");
-  //Value argco   = LLVMConstInt(llvm_u32, JARGC, FALSE);
-  //Value argca   = LLVMBuildInBoundsGEP(builder, jargs, &argco, 1, "");
-  //Value argc    = LLVMBuildLoad(builder, argca, "argc");
+  Value argco   = LLVMConstInt(llvm_u32, JARGC, FALSE);
+  Value argca   = LLVMBuildInBoundsGEP(builder, jargs, &argco, 1, "");
+  Value argc    = LLVMBuildLoad(builder, argca, "argc");
   Value argvio  = LLVMConstInt(llvm_u32, JARGVI, FALSE);
   Value argvia  = LLVMBuildInBoundsGEP(builder, jargs, &argvio, 1, "");
   Value argvi   = LLVMBuildLoad(builder, argvia, "argvi");
@@ -1118,22 +1118,31 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_VARARG: {
-        /*
-         * TODO - guard return value types
-         * TODO - guard argc
-         */
+        /* TODO - guard return value types */
         if (B(code) == 0) {
           // TODO B == 0 case
           warn("vararg B == 0");
           return NULL;
         }
+
+        /* Figure out where we should load things from */
         xassert(func->trace.instrs[i - 1][0] != TRACEMAX);
         Value num_params = LLVMConstInt(llvm_u32, func->num_parameters, FALSE);
         Value basi = LLVMBuildAdd(builder, argvi, num_params, "");
         Value base = get_stack_base(base_addr, basi, "");
         u32 limit = B(code) - 1;
         u32 targc = func->trace.instrs[i - 1][0];
-        for (j = 0; j < limit && j < targc; j++) {
+
+        BasicBlock load = LLVMAppendBasicBlock(function, "");
+        Value cond = LLVMBuildICmp(builder, LLVMIntEQ, argc,
+                                   LLVMConstInt(llvm_u32, targc, FALSE), "");
+        LLVMBuildCondBr(builder, cond, load, BAILBB(i - 1));
+        u32 tmax = targc < func->num_parameters ? 0 :
+                    targc - func->num_parameters;
+
+        LLVMPositionBuilderAtEnd(builder, load);
+        /* Load all args provided */
+        for (j = 0; j < limit && j < tmax; j++) {
           Value joff = LLVMConstInt(llvm_u32, j, FALSE);
           Value addr = LLVMBuildInBoundsGEP(builder, base, &joff, 1, "");
           Value jval = LLVMBuildLoad(builder, addr, "");
@@ -1144,6 +1153,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             SETTYPE(A(code) + j, LANY);
           }
         }
+        /* Nil-ify all arguments not provided */
         for (; j < limit; j++) {
           build_regset(&s, A(code) + j, lvc_nil);
           SETTYPE(A(code) + j, LNIL);

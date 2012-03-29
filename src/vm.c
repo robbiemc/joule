@@ -350,6 +350,8 @@ top:
         vm_stack_dealloc(vm_stack, MAX(retvi + rcount, stack_orig));
         return rcount;
       }
+      instrs->jfunc = NULL;
+      instrs->count = 240;
       // the function ended, but it's still in this lfunc
       instrs = &func->instrs[ret];
       continue;
