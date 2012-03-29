@@ -335,6 +335,12 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   Value retvio  = LLVMConstInt(llvm_u32, JRETVI, FALSE);
   Value retvia  = LLVMBuildInBoundsGEP(builder, jargs, &retvio, 1, "");
   Value retvi   = LLVMBuildLoad(builder, retvia, "retvi");
+  //Value argco   = LLVMConstInt(llvm_u32, JARGC, FALSE);
+  //Value argca   = LLVMBuildInBoundsGEP(builder, jargs, &argco, 1, "");
+  //Value argc    = LLVMBuildLoad(builder, argca, "argc");
+  Value argvio  = LLVMConstInt(llvm_u32, JARGVI, FALSE);
+  Value argvia  = LLVMBuildInBoundsGEP(builder, jargs, &argvio, 1, "");
+  Value argvi   = LLVMBuildLoad(builder, argvia, "argvi");
 
   /* Calculate closure->env */
   Value offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
@@ -1111,12 +1117,46 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_VARARG: {
+        /*
+         * TODO - guard return value types
+         * TODO - guard argc
+         */
+        if (B(code) == 0) {
+          // TODO B == 0 case
+          warn("vararg B == 0");
+          return NULL;
+        }
+        xassert(func->trace.instrs[i - 1][0] != TRACEMAX);
+        Value num_params = LLVMConstInt(llvm_u32, func->num_parameters, FALSE);
+        Value basi = LLVMBuildAdd(builder, argvi, num_params, "");
+        Value base = get_stack_base(base_addr, basi, "");
+        u32 limit = B(code) - 1;
+        u32 targc = func->trace.instrs[i - 1][0];
+        for (j = 0; j < limit && j < targc; j++) {
+          Value joff = LLVMConstInt(llvm_u32, j, FALSE);
+          Value addr = LLVMBuildInBoundsGEP(builder, base, &joff, 1, "");
+          Value jval = LLVMBuildLoad(builder, addr, "");
+          build_regset(&s, A(code) + j, jval);
+          if (j < TRACELIMIT - 1) {
+            SETTYPE(A(code) + j, func->trace.instrs[i - 1][j + 1]);
+          } else {
+            SETTYPE(A(code) + j, LANY);
+          }
+        }
+        for (; j < limit; j++) {
+          build_regset(&s, A(code) + j, lvc_nil);
+          SETTYPE(A(code) + j, LNIL);
+        }
+        GOTOBB(i);
+        break;
+      }
+
       /* TODO - here are all the unimplemented opcodes */
       case OP_SELF:
       case OP_CONCAT:
       case OP_TAILCALL:
       case OP_TFORLOOP:
-      case OP_VARARG:
 
       default:
         // TODO cleanup
