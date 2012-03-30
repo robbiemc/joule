@@ -19,3 +19,14 @@ for i = 1,2 do
   print(asdf(5,4,3,2,1))
 end
 print(asdf())
+
+local function f(a, ...)
+  return a, ...
+end
+
+for i=1,5 do
+  print(f())
+  print(f(1))
+  print(f(1, 2))
+  print(f(1, 2, 3))
+end

@@ -97,6 +97,7 @@ static Value lvc_type_mask;
 static Value lvc_nan_mask;
 static Value lvc_nil;
 static Value lvc_false;
+static Value lvc_luav;
 
 Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name);
 
@@ -158,6 +159,7 @@ void llvm_init() {
   lvc_nan_mask  = LLVMConstInt(llvm_u64, LUAV_NAN_MASK, FALSE);
   lvc_nil       = LLVMConstInt(llvm_u64, LUAV_NIL, FALSE);
   lvc_false     = LLVMConstInt(llvm_u64, LUAV_FALSE, FALSE);
+  lvc_luav      = LLVMConstInt(llvm_u32, sizeof(luav), FALSE);
 
   /* Adding functions */
   ADD_FUNCTION(lhash_get, llvm_u64, 2, llvm_void_ptr, llvm_u64);
@@ -174,6 +176,9 @@ void llvm_init() {
   ADD_FUNCTION(lclosure_alloc, llvm_void_ptr, 2, llvm_void_ptr, llvm_u32);
   ADD_FUNCTION(lupvalue_alloc, llvm_u64, 1, llvm_u64);
   ADD_FUNCTION2(llvm_memmove, "llvm.memmove.p0i8.p0i8.i32", LLVMVoidType(), 5,
+                llvm_void_ptr, llvm_void_ptr, llvm_u32, llvm_u32,
+                LLVMInt1Type());
+  ADD_FUNCTION2(llvm_memcpy, "llvm.memcpy.p0i8.p0i8.i32", LLVMVoidType(), 5,
                 llvm_void_ptr, llvm_void_ptr, llvm_u32, llvm_u32,
                 LLVMInt1Type());
 }
@@ -279,6 +284,28 @@ static void build_binop(state_t *s, u32 code, Binop operation) {
   Value res = operation(builder, bv, cv, "");
   res = LLVMBuildBitCast(builder, res, llvm_u64, "");
   build_regset(s, A(code), res);
+}
+
+/**
+ * @brief Get the base of the variable number of arguments on the stack, based
+ *        on the previous instruction
+ *
+ * @param s the current state
+ * @param pc the program counter which needs the variable arguments
+ * @return the base of where the variable arguments are located
+ */
+static i32 get_varbase(state_t *s, u32 pc) {
+  if ((i32) pc - 2 < 0) { return -1; }
+  switch (OP(s->func->instrs[pc - 2].instr)) {
+    case OP_CALL:
+      if (C(s->func->instrs[pc - 2].instr) != 0) return -1;
+      return A(s->func->instrs[pc - 2].instr);
+
+    case OP_VARARG:
+      if (B(s->func->instrs[pc - 2].instr) != 0) return -1;
+      return A(s->func->instrs[pc - 2].instr);
+  }
+  return -1;
 }
 
 /**
@@ -598,18 +625,10 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
         if (B(code) == 0) {
           Value stack = get_stack_base(base_addr, stacki, "");
-          if (i - 1 == start) { warn("B0 return on first instr"); return NULL; }
-          if (OP(func->instrs[i - 2].instr) != OP_CALL) {
-            warn("B0 return where prev wasn't CALL");
-            return NULL;
-          }
-          if (C(func->instrs[i - 2].instr) != 0) {
-            warn("B0 return wasn't preceded with a C0 CALL");
-            return NULL;
-          }
           /* Store remaining registers onto our lua stack */
-          u32 end_stores = A(func->instrs[i - 2].instr);
-          for (j = A(code); j < end_stores; j++) {
+          i32 end_stores = get_varbase(&s, i);
+          if (end_stores < 0) { warn("bad B0 OP_RETURN"); return NULL; }
+          for (j = A(code); j < (u32) end_stores; j++) {
             Value offset = LLVMConstInt(llvm_u32, j, FALSE);
             Value addr = LLVMBuildInBoundsGEP(builder, stack, &offset, 1, "");
             Value val  = LLVMBuildLoad(builder, regs[j], "");
@@ -629,8 +648,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           Value args[5] = {
             LLVMBuildBitCast(builder, ret_stack, llvm_void_ptr, ""),
             LLVMBuildBitCast(builder, ret_base, llvm_void_ptr, ""),
-            LLVMBuildMul(builder, amt,
-                         LLVMConstInt(llvm_u32, sizeof(luav), FALSE), ""),
+            LLVMBuildMul(builder, amt, lvc_luav, ""),
             LLVMConstInt(llvm_u32, 8, FALSE),
             LLVMConstInt(LLVMInt1Type(), 0, FALSE)
           };
@@ -947,16 +965,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         u32 num_rets = C(code) - 1;
         u32 end_stores;
         if (B(code) == 0) {
-          if (i - 1 == start) { warn("B0 call on first instr"); return NULL; }
-          if (OP(func->instrs[i - 2].instr) != OP_CALL) {
-            warn("B0 call where prev wasn't CALL");
-            return NULL;
-          }
-          if (C(func->instrs[i - 2].instr) != 0) {
-            warn("B0 CALL wasn't preceded with a C0 CALL");
-            return NULL;
-          }
-          end_stores = A(func->instrs[i - 2].instr);
+          i32 tmp = get_varbase(&s, i);
+          if (tmp < 0) { warn("B0 OP_CALL bad"); return NULL; }
+          end_stores = (u32) tmp;
         } else {
           end_stores = A(code) + 1 + num_args;
         }
@@ -1047,8 +1058,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value memset_addr = LLVMBuildInBoundsGEP(builder, stack, &offset, 1, "");
         Value rets_wanted = LLVMConstInt(llvm_u32, num_rets, FALSE);
         Value memset_cnt  = LLVMBuildSub(builder, rets_wanted, ret, "");
-        Value scalar      = LLVMConstInt(llvm_u32, sizeof(luav), FALSE);
-        memset_cnt        = LLVMBuildMul(builder, memset_cnt, scalar, "");
+        memset_cnt        = LLVMBuildMul(builder, memset_cnt, lvc_luav, "");
         Value memset      = LLVMGetNamedFunction(module, "llvm.memset.p0i8.i32");
         Value memset_args[5] = {
           LLVMBuildBitCast(builder, memset_addr, llvm_void_ptr, ""),
@@ -1127,17 +1137,41 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       case OP_VARARG: {
         /* TODO - guard return value types */
-        if (B(code) == 0) {
-          // TODO B == 0 case
-          warn("vararg B == 0");
-          return NULL;
-        }
 
         /* Figure out where we should load things from */
         xassert(func->trace.instrs[i - 1][0] != TRACEMAX);
-        Value num_params = LLVMConstInt(llvm_u32, func->num_parameters, FALSE);
-        Value basi = LLVMBuildAdd(builder, argvi, num_params, "");
+        Value params = LLVMConstInt(llvm_u32, func->num_parameters, FALSE);
+        Value basi = LLVMBuildAdd(builder, argvi, params, "");
         Value base = get_stack_base(base_addr, basi, "");
+
+        /* B == 0 => memcpy */
+        if (B(code) == 0) {
+          Value stack = get_stack_base(base_addr, stacki, "");
+          Value dest  = LLVMConstInt(llvm_u32, A(code), FALSE);
+          dest        = LLVMBuildInBoundsGEP(builder, stack, &dest, 1, "");
+          Value cnt   = LLVMBuildSub(builder, argc, params, "");
+          Value cond  = LLVMBuildICmp(builder, LLVMIntULT, argc, params, "");
+          cnt         = LLVMBuildSelect(builder, cond, lvc_32_zero, cnt, "");
+
+          /* TODO: conditionally call vm_stack_grow */
+          /* memcpy(dest, base, ...) */
+          Value args[5] = {
+            LLVMBuildBitCast(builder, dest, llvm_void_ptr, ""),
+            LLVMBuildBitCast(builder, base, llvm_void_ptr, ""),
+            LLVMBuildMul(builder, cnt, lvc_luav, ""),
+            LLVMConstInt(llvm_u32, 8, FALSE),
+            LLVMConstInt(LLVMInt1Type(), 0, FALSE)
+          };
+          Value fn = LLVMGetNamedFunction(module, "llvm.memcpy.p0i8.p0i8.i32");
+          LLVMBuildCall(builder, fn, args, 5, "");
+          Value lr = LLVMBuildAdd(builder, cnt,
+                                  LLVMConstInt(llvm_u32, A(code), FALSE), "");
+          LLVMBuildStore(builder, lr, last_ret);
+          GOTOBB(i);
+          break;
+        }
+
+        /* B != 0 => tracing */
         u32 limit = B(code) - 1;
         u32 targc = func->trace.instrs[i - 1][0];
 
@@ -1166,6 +1200,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           build_regset(&s, A(code) + j, lvc_nil);
           SETTYPE(A(code) + j, LNIL);
         }
+        LLVMBuildStore(builder, LLVMConstInt(llvm_u32, A(code) + limit, FALSE),
+                       last_ret);
         GOTOBB(i);
         break;
       }
