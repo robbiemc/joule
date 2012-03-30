@@ -1200,8 +1200,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           build_regset(&s, A(code) + j, lvc_nil);
           SETTYPE(A(code) + j, LNIL);
         }
-        LLVMBuildStore(builder, LLVMConstInt(llvm_u32, A(code) + limit, FALSE),
-                       last_ret);
         GOTOBB(i);
         break;
       }
