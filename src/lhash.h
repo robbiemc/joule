@@ -47,5 +47,6 @@ double lhash_maxn(lhash_t *map);
 void   lhash_insert(lhash_t *map, u32 pos, luav value);
 luav   lhash_remove(lhash_t *map, u32 pos);
 void   lhash_sort(lhash_t *map, lcomparator_t *comp);
+void   lhash_array(lhash_t *map, luav *base, u32 amt);
 
 #endif /* _LHASH_H */

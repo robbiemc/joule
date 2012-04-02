@@ -34,7 +34,7 @@ LUATESTS :=	tail factorial bool closure multipart bool2 math forint	\
 		load pcall metabasic calls noglobals fibfor readonly	\
 		echo constructs errors literals len closure2 closure3	\
 		coroutine-gc locals pow not newtable c upvalues while   \
-		vararg
+		vararg varsetlist
 # not passing: cor coroutine
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 

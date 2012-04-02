@@ -182,6 +182,8 @@ void llvm_init() {
                 llvm_void_ptr, llvm_void_ptr, llvm_u32, llvm_u32,
                 LLVMInt1Type());
   ADD_FUNCTION(lv_concat, llvm_u64, 2, llvm_u64, llvm_u64);
+  ADD_FUNCTION(lhash_array, LLVMVoidType(), 3, llvm_void_ptr, llvm_u64_ptr,
+               llvm_u32);
 }
 
 /**
@@ -848,8 +850,26 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_SETLIST: {
-        if (B(code) == 0) { warn("bad SETLIST"); return NULL; }
         if (TYPE(A(code)) != LTABLE) { warn("very bad SETLIST"); return NULL; }
+        /* If B == 0, then we call a C function to do the heavy lifting because
+           everything is already on the stack anyway and it'd just be a pain to
+           do this in LLVM */
+        if (B(code) == 0) {
+          /* Get the arguments for lhash_array */
+          Value map = TOPTR(build_reg(&s, A(code)));
+          Value stack = get_stack_base(base_addr, stacki, "");
+          Value offset = LLVMConstInt(llvm_u32, A(code), FALSE);
+          Value base = LLVMBuildInBoundsGEP(builder, stack, &offset, 1, "");
+          Value endi = LLVMBuildLoad(builder, last_ret, "");
+          endi = LLVMBuildSub(builder, endi,
+                              LLVMConstInt(llvm_u32, A(code), FALSE), "");
+          //endi = LLVMBuildSub(builder, endi, lvc_32_one, "");
+          Value fn = LLVMGetNamedFunction(module, "lhash_array");
+          Value args[3] = {map, base, endi};
+          LLVMBuildCall(builder, fn, args, 3, "");
+          GOTOBB(i);
+          break;
+        }
 
         /* Fetch the hash table, and prepare the arguments to lhash_set */
         u32 c = C(code);
@@ -1209,7 +1229,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         /* TODO: have a C function which takes a vector of strings and
                  concatenates them? */
         for (j = B(code); j <= C(code); j++) {
-          if (TYPE(j) != LSTRING || TYPE(j) != LNUMBER) {
+          if (TYPE(j) != LSTRING && TYPE(j) != LNUMBER) {
             warn("bad CONCAT (%x)", TYPE(j));
             return NULL;
           }

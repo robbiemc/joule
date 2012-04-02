@@ -493,3 +493,20 @@ void lhash_sort(lhash_t *map, lcomparator_t *comparator) {
   qsort(map->array + 1, map->length, sizeof(luav),
         (int(*)(const void*, const void*)) comparator);
 }
+
+/**
+ * @brief Initialize a new map with an array of lua values
+ *
+ * Takes a vector of lua values and inserts them into the array portion of the
+ * map given.
+ *
+ * @param map the map to put elements into
+ * @param base the base of the luav vector
+ * @param amt the length of the luav vector
+ */
+void lhash_array(lhash_t *map, luav *base, u32 amt) {
+  u32 i;
+  for (i = 0; i < amt; i++) {
+    lhash_set(map, lv_number(i), base[i]);
+  }
+}
