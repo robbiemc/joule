@@ -181,6 +181,7 @@ void llvm_init() {
   ADD_FUNCTION2(llvm_memcpy, "llvm.memcpy.p0i8.p0i8.i32", LLVMVoidType(), 5,
                 llvm_void_ptr, llvm_void_ptr, llvm_u32, llvm_u32,
                 LLVMInt1Type());
+  ADD_FUNCTION(lv_concat, llvm_u64, 2, llvm_u64, llvm_u64);
 }
 
 /**
@@ -1204,9 +1205,34 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_CONCAT: {
+        /* TODO: have a C function which takes a vector of strings and
+                 concatenates them? */
+        for (j = B(code); j <= C(code); j++) {
+          if (TYPE(j) != LSTRING || TYPE(j) != LNUMBER) {
+            warn("bad CONCAT (%x)", TYPE(j));
+            return NULL;
+          }
+        }
+        Value fn = LLVMGetNamedFunction(module, "lv_concat");
+        Value args[2];
+
+        Value cur = build_reg(&s, B(code));
+        for (j = B(code) + 1; j <= C(code); j++) {
+          args[0] = cur;
+          args[1] = build_reg(&s, j);
+          cur = LLVMBuildCall(builder, fn, args, 2, "");
+        }
+
+        build_regset(&s, A(code), cur);
+        SETTYPE(A(code), LSTRING);
+        /* TODO: gc_check */
+        GOTOBB(i);
+        break;
+      }
+
       /* TODO - here are all the unimplemented opcodes */
       case OP_SELF:
-      case OP_CONCAT:
       case OP_TAILCALL:
       case OP_TFORLOOP:
 
