@@ -309,6 +309,9 @@ static i32 get_varbase(state_t *s, u32 pc) {
     case OP_VARARG:
       if (B(s->func->instrs[pc - 2].instr) != 0) return -1;
       return A(s->func->instrs[pc - 2].instr);
+
+    case OP_TAILCALL:
+      return 0;
   }
   return -1;
 }

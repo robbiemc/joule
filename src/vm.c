@@ -352,8 +352,16 @@ top:
         /* make sure we don't deallocate past the arguments returned */
         vm_stack_dealloc(vm_stack, MAX(retvi + rcount, stack_orig));
         return rcount;
+      } else if (ret == -1) {
+        closure = lv_getfunction(STACK(stack_stuff[JARGVI]), 0);
+        argvi = STACKI(stack_stuff[JARGVI]) + 1;
+        argc  = stack_stuff[JARGC];
+        if (closure->type == LUAF_LUA) {
+          stack = vm_stack_alloc(vm_stack,
+                                 closure->function.lua->max_stack);
+        }
+        goto top;
       }
-      assert(ret != -1);
       if (jit_bailed) {
         instrs->jfunc = NULL;
         instrs->count = 240;
