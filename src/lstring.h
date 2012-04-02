@@ -20,7 +20,8 @@ lstring_t *lstr_realloc(lstring_t *str, size_t size);
 lstring_t *lstr_add(lstring_t *str);
 void       lstr_remove(lstring_t *str);
 lstring_t *lstr_literal(char *cstr, int keep);
-int lstr_compare(lstring_t *s1, lstring_t *s2);
+int        lstr_compare(lstring_t *s1, lstring_t *s2);
+lstring_t *lstr_concat(lstring_t *s1, lstring_t *s2);
 
 lstring_t *lstr_empty();
 

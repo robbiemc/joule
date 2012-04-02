@@ -141,7 +141,6 @@ int lstr_compare(lstring_t *s1, lstring_t *s2) {
   return s1->length > s2->length;
 }
 
-
 // lstring hash map stuff =====================================================
 
 static void smap_insert(lstring_t *str) {
@@ -224,4 +223,19 @@ void lstr_remove(lstring_t *str) {
   if (idx >= 0 && smap.table[idx] == str) {
     smap.table[idx] = LSTR_EMPTY;
   }
+}
+
+/**
+ * @brief Concatenate two strings
+ *
+ * @param s1 the first string
+ * @param s2 the second string
+ * @return the two strings concatenated
+ */
+lstring_t* lstr_concat(lstring_t *s1, lstring_t *s2) {
+  lstring_t *sn = lstr_alloc(s1->length + s2->length);
+  memcpy(sn->data, s1->data, s1->length);
+  memcpy(sn->data + s1->length, s2->data, s2->length);
+  sn->data[s1->length + s2->length] = 0;
+  return lstr_add(sn);
 }
