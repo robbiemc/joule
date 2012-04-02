@@ -982,6 +982,34 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_TAILCALL: {
+        if (B(code) == 0) {
+          warn("Bad OP_TAILCALL (B0)");
+          return NULL;
+        }
+        u32 num_args = B(code) - 1;
+        u32 end_stores = A(code) + 1  + num_args;
+
+        if (TYPE(A(code)) != LFUNCTION) {
+          warn("reall bad TAILCALL (%x)", TYPE(A(code))); return NULL;
+        }
+
+        // copy arguments from c stack to lua stack
+        u32 a = A(code);
+        Value stack = get_stack_base(base_addr, stacki, "");
+        for (j = a; j < end_stores; j++) {
+          Value off  = LLVMConstInt(llvm_u64, j, 0);
+          Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
+          Value val  = build_reg(&s, j);
+          LLVMBuildStore(builder, val, addr);
+        }
+
+        LLVMBuildStore(builder, LLVMConstInt(llvm_u32, a, FALSE), argvia);
+        LLVMBuildStore(builder, LLVMConstInt(llvm_u32, num_args, FALSE), argca);
+        LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (size_t) -1, TRUE));
+        break;
+      }
+
       case OP_CALL: {
         /* TODO: varargs, multiple returns, etc... */
         u32 num_args = B(code) - 1;
@@ -1255,7 +1283,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       /* TODO - here are all the unimplemented opcodes */
       case OP_SELF:
-      case OP_TAILCALL:
       case OP_TFORLOOP:
 
       default:
