@@ -139,7 +139,8 @@ void err_explain(int err, lframe_t *frame) {
       printf("[C]: in function '%s'", closure->function.c->name);
     } else {
       lfunc_t *function = closure->function.lua;
-      pc = GETPC(frame, function) - 1;
+      pc = GETPC(frame, function);
+      pc -= !!pc;
       assert(pc < function->num_lines);
       printf("%s:%d: ", function->file, function->lines[pc]);
       lstring_t *fname = function->name;

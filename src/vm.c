@@ -344,15 +344,16 @@ top:
       };
       jit_bailed = 0;
       i32 ret = llvm_run(instrs->jfunc, closure, stack_stuff);
-      if (ret < 0) {
+      if (ret < -1) {
         assert(!jit_bailed);
         // the function returned
-        u32 rcount = (u32) (-ret) - 1;
+        u32 rcount = (u32) (-ret - 2);
         vm_running = parent; // reset the currently running frame
         /* make sure we don't deallocate past the arguments returned */
         vm_stack_dealloc(vm_stack, MAX(retvi + rcount, stack_orig));
         return rcount;
       }
+      assert(ret != -1);
       if (jit_bailed) {
         instrs->jfunc = NULL;
         instrs->count = 240;

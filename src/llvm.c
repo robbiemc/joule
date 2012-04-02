@@ -92,6 +92,7 @@ static Type llvm_void_ptr_ptr;
 static Value lvc_null;
 static Value lvc_32_zero;
 static Value lvc_32_one;
+static Value lvc_32_two;
 static Value lvc_data_mask;
 static Value lvc_type_mask;
 static Value lvc_nan_mask;
@@ -154,6 +155,7 @@ void llvm_init() {
   lvc_null      = LLVMConstNull(llvm_void_ptr);
   lvc_32_zero   = LLVMConstInt(llvm_u32, 0, FALSE);
   lvc_32_one    = LLVMConstInt(llvm_u32, 1, FALSE);
+  lvc_32_two    = LLVMConstInt(llvm_u32, 2, FALSE);
   lvc_data_mask = LLVMConstInt(llvm_u64, LUAV_DATA_MASK, FALSE);
   lvc_type_mask = LLVMConstInt(llvm_u64, LUAV_TYPE_MASK, FALSE);
   lvc_nan_mask  = LLVMConstInt(llvm_u64, LUAV_NAN_MASK, FALSE);
@@ -657,7 +659,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           };
           LLVMBuildCall(builder, memmove, args, 5, "");
           num_rets = LLVMBuildNeg(builder, num_rets, "");
-          num_rets = LLVMBuildSub(builder, num_rets, lvc_32_one, "");
+          num_rets = LLVMBuildSub(builder, num_rets, lvc_32_two, "");
           LLVMBuildRet(builder, num_rets);
           break;
         }
@@ -666,7 +668,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         BasicBlock endbb = LLVMAppendBasicBlock(function, "end");
         LLVMPositionBuilderAtEnd(builder, endbb);
         u32 num_ret = B(code) - 1;
-        LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (u32)(-num_ret - 1),
+        LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (u32)(-num_ret - 2),
                                            TRUE));
 
         /* Create blocks for all return values, bailing out as soon as possible
