@@ -1034,6 +1034,10 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         }
 
         if (TYPE(A(code)) != LFUNCTION) {
+          // invalidate all instructions up to this one
+          for (j = start; j <= i; j++) {
+            func->instrs[j].count = INVAL_RUN_COUNT;
+          }
           warn("really bad CALL (%x)", TYPE(A(code))); return NULL;
         }
 

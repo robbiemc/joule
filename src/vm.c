@@ -322,14 +322,15 @@ top:
     pc = (u32) (instrs - func->instrs);
 
     // check if we should compile
-    if (instrs->count < 240 && instrs->count > 4 && instrs->jfunc == NULL) {
+    if (instrs->count < INVAL_RUN_COUNT && instrs->count > 4 &&
+        instrs->jfunc == NULL) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
         end_index = (i32) func->num_instrs - 1;
       }
       instrs->jfunc = llvm_compile(func, pc, (u32) end_index, &STACK(0));
       if (instrs->jfunc == NULL) {
-        instrs->count = 240;
+        instrs->count = INVAL_RUN_COUNT;
       }
     }
 

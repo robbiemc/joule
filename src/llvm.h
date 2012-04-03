@@ -15,6 +15,10 @@ typedef void jfunc_t;
 #define JRETVI  4
 #define JARGS   5
 
+// This the value to set an instruction's run count to if
+// it can't be compiled yet
+#define INVAL_RUN_COUNT 240
+
 void llvm_init();
 void llvm_destroy();
 
