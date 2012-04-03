@@ -747,7 +747,14 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_SETTABLE: {
-        if (TYPE(A(code)) != LTABLE) { warn("bad SETTABLE"); return NULL; }
+        if (TYPE(A(code)) != LTABLE) {
+          if (func->instrs[i - 1].count == 0) {
+            LLVMBuildBr(builder, BAILBB(i - 1));
+            break;
+          }
+          warn("bad SETTABLE");
+          return NULL;
+        }
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_set");
         Value av = TOPTR(LLVMBuildLoad(builder, regs[A(code)], ""));

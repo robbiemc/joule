@@ -322,7 +322,7 @@ top:
     pc = (u32) (instrs - func->instrs);
 
     // check if we should compile
-    if (instrs->count < 240 && instrs->count > 0 && instrs->jfunc == NULL) {
+    if (instrs->count < 240 && instrs->count > 4 && instrs->jfunc == NULL) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
         end_index = (i32) func->num_instrs - 1;
