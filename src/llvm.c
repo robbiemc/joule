@@ -48,6 +48,16 @@ typedef i32(jitf)(void*, void*);
     Value ptr = LLVMConstInt(llvm_u64, (size_t) &jit_bailed, FALSE);           \
     LLVMBuildStore(builder, lvc_32_one, LLVMConstIntToPtr(ptr, llvm_u32_ptr)); \
   }
+#define STOP_ON(cond, ...) {                  \
+    if (cond) {                               \
+      if (func->instrs[i - 1].count == 0) {   \
+        LLVMBuildBr(builder, ERRBB(i - 1));   \
+        break;                                \
+      }                                       \
+      warn(__VA_ARGS__);                      \
+      return NULL;                            \
+    }                                         \
+  }
 #define TYPE(idx) \
   ((u8) ((idx) >= 256 ? lv_gettype(func->consts[(idx) - 256]) : \
                         (regtyps[idx] & ~TRACE_UPVAL)))
@@ -490,7 +500,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_NOT: {
-        if (TYPE(B(code)) != LBOOLEAN) { warn("bad NOT"); return NULL; }
+        STOP_ON(TYPE(B(code)) != LBOOLEAN, "bad NOT");
         Value bv = build_reg(&s, B(code));
         Value one = LLVMConstInt(llvm_u64, 1, FALSE);
         bv = LLVMBuildXor(builder, bv, one, "");
@@ -502,10 +512,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       /* TODO: assumes floats */
       #define BINIMPL(f)                                                      \
-        if (TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER) {           \
-          warn("bad arith: %d,%d", TYPE(B(code)), TYPE(C(code)));             \
-          return NULL;                                                        \
-        }                                                                     \
+        STOP_ON(TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER,         \
+                "bad arith: %d,%d", TYPE(B(code)), TYPE(C(code)));            \
         build_binop(&s, code, f);                                             \
         SETTYPE(A(code), LNUMBER);                                            \
         GOTOBB(i);
@@ -517,7 +525,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_POW: BINIMPL(build_pow);      break;
 
       case OP_UNM: {
-        if (TYPE(B(code)) != LNUMBER) { warn("bad UNM"); return NULL; }
+        STOP_ON(TYPE(B(code)) != LNUMBER, "bad UNM");
         Value bv = build_reg(&s, B(code));
         bv = LLVMBuildBitCast(builder, bv, llvm_double, "");
         Value res = LLVMBuildFNeg(builder, bv, "");
@@ -545,8 +553,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
                                      A(code) ? LLVMIntNE : LLVMIntEQ,
                                      bv, cv, "");
         } else {
-          warn("bad EQ (%d, %d)", btyp, ctyp);
-          return NULL;
+          STOP_ON(1, "bad EQ (%d, %d)", btyp, ctyp);
         }
         BasicBlock truebb  = DSTBB(i + 1);
         BasicBlock falsebb = DSTBB(i);
@@ -577,8 +584,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             LLVMBuildCondBr(builder, cond, truebb, falsebb);                \
           } else {                                                          \
             /* TODO - metatable */                                          \
-            warn("bad LT/LE (%d, %d)", TYPE(B(code)), TYPE(C(code)));       \
-            return NULL;                                                    \
+            STOP_ON(1, "bad LT/LE (%d, %d)", TYPE(B(code)), TYPE(C(code))); \
           }                                                                 \
         }
       case OP_LT: CMP_OP(GE, LT); break;
@@ -590,11 +596,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_FORLOOP: {
-        if (TYPE(A(code)) != LNUMBER || TYPE(A(code) + 1) != LNUMBER ||
-                                        TYPE(A(code) + 2) != LNUMBER) {
-          warn("bad FORLOOP");
-          return NULL;
-        }
+        STOP_ON(TYPE(A(code)) != LNUMBER || TYPE(A(code) + 1) != LNUMBER ||
+                TYPE(A(code) + 2) != LNUMBER, "bad FORLOOP");
         /* TODO - guard that R(A), R(A+1), R(A+2) are numbers */
         Value a2v = build_kregf(&s, A(code) + 2);
         Value av  = LLVMBuildFAdd(builder, build_kregf(&s, A(code)), a2v, "");
@@ -616,10 +619,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_FORPREP: {
-        if (TYPE(A(code)) != LNUMBER || TYPE(A(code) + 2) != LNUMBER) {
-          warn("bad FORPREP");
-          return NULL;
-        }
+        STOP_ON(TYPE(A(code)) != LNUMBER || TYPE(A(code) + 2) != LNUMBER,
+                "bad FORPREP");
         /* TODO - guard that R(A) and R(A+2) are numbers */
         Value a2v = build_kregf(&s, A(code) + 2);
         Value av  = build_kregf(&s, A(code));
@@ -747,14 +748,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_SETTABLE: {
-        if (TYPE(A(code)) != LTABLE) {
-          if (func->instrs[i - 1].count == 0) {
-            LLVMBuildBr(builder, BAILBB(i - 1));
-            break;
-          }
-          warn("bad SETTABLE");
-          return NULL;
-        }
+        STOP_ON(TYPE(A(code)) != LTABLE, "bad SETTABLE");
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_set");
         Value av = TOPTR(LLVMBuildLoad(builder, regs[A(code)], ""));
@@ -770,10 +764,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_GETTABLE: {
-        if (TYPE(B(code)) != LTABLE) {
-          warn("bad GETTABLE (typ:%d)", TYPE(B(code)));
-          return NULL;
-        }
+        STOP_ON(TYPE(B(code)) != LTABLE, "bad GETTABLE (t:%d)", TYPE(B(code)));
         /* TODO: metatable? */
         Value fn = LLVMGetNamedFunction(module, "lhash_get");
         Value bv = TOPTR(LLVMBuildLoad(builder, regs[B(code)], ""));
@@ -839,8 +830,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             offset = LLVMConstInt(llvm_u32, offsetof(lhash_t, length), FALSE);
             break;
           default:
-            warn("bad LEN");
-            return NULL;
+            STOP_ON(1, "bad LEN");
         }
         /* Figure out the address of the 'length' field */
         Value ptr = TOPTR(build_reg(&s, B(code)));
@@ -862,7 +852,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       }
 
       case OP_SETLIST: {
-        if (TYPE(A(code)) != LTABLE) { warn("very bad SETLIST"); return NULL; }
+        STOP_ON(TYPE(A(code)) != LTABLE, "very bad SETLIST");
         /* If B == 0, then we call a C function to do the heavy lifting because
            everything is already on the stack anyway and it'd just be a pain to
            do this in LLVM */
@@ -1000,9 +990,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         u32 num_args = B(code) - 1;
         u32 end_stores = A(code) + 1  + num_args;
 
-        if (TYPE(A(code)) != LFUNCTION) {
-          warn("reall bad TAILCALL (%x)", TYPE(A(code))); return NULL;
-        }
+        STOP_ON(TYPE(A(code)) != LFUNCTION,
+                "reall bad TAILCALL (%x)", TYPE(A(code)));
 
         // copy arguments from c stack to lua stack
         u32 a = A(code);
@@ -1033,13 +1022,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           end_stores = A(code) + 1 + num_args;
         }
 
-        if (TYPE(A(code)) != LFUNCTION) {
-          // invalidate all instructions up to this one
-          for (j = start; j <= i; j++) {
-            func->instrs[j].count = INVAL_RUN_COUNT;
-          }
-          warn("really bad CALL (%x)", TYPE(A(code))); return NULL;
-        }
+        STOP_ON(TYPE(A(code)) != LFUNCTION,
+                "really bad CALL (%x)", TYPE(A(code)));
 
         // copy arguments from c stack to lua stack
         u32 a = A(code);
@@ -1273,11 +1257,10 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         /* TODO: have a C function which takes a vector of strings and
                  concatenates them? */
         for (j = B(code); j <= C(code); j++) {
-          if (TYPE(j) != LSTRING && TYPE(j) != LNUMBER) {
-            warn("bad CONCAT (%x)", TYPE(j));
-            return NULL;
-          }
+          STOP_ON(TYPE(j) != LSTRING && TYPE(j) != LNUMBER,
+                  "bad CONCAT (%x)", TYPE(j));
         }
+        if (j != C(code) + 1) break;
         Value fn = LLVMGetNamedFunction(module, "lv_concat");
         Value args[2];
 
@@ -1308,7 +1291,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   // LLVMDumpValue(function);
   LLVMRunFunctionPassManager(pass_manager, function);
   // LLVMDumpValue(function);
-  // warn("compiled");
+  warn("compiled");
   return LLVMGetPointerToGlobal(ex_engine, function);
 }
 

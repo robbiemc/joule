@@ -343,10 +343,14 @@ top:
         [JRETC]   = retc,
         [JRETVI]  = retvi
       };
+      void *running = instrs->jfunc;
+      int old_jit_bailed = jit_bailed;
       jit_bailed = 0;
       i32 ret = llvm_run(instrs->jfunc, closure, stack_stuff);
+      int my_jit_bailed = jit_bailed;
+      jit_bailed = old_jit_bailed;
       if (ret < -1) {
-        assert(!jit_bailed);
+        assert(!my_jit_bailed);
         // the function returned
         u32 rcount = (u32) (-ret - 2);
         vm_running = parent; // reset the currently running frame
@@ -363,9 +367,10 @@ top:
         }
         goto top;
       }
-      if (jit_bailed) {
+      if (my_jit_bailed && running == instrs->jfunc) {
+        printf("bailed from %d to %d\n", pc, ret);
         instrs->jfunc = NULL;
-        instrs->count = 240;
+        instrs->count = INVAL_RUN_COUNT;
       }
       // the function ended, but it's still in this lfunc
       instrs = &func->instrs[ret];
