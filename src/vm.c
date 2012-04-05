@@ -370,7 +370,8 @@ top:
       if (my_jit_bailed && running == instrs->jfunc) {
         //printf("bailed from %d to %d\n", pc, ret);
         instrs->jfunc = NULL;
-        instrs->count = INVAL_RUN_COUNT;
+        /* TODO: do this based on my_jit_bailed on an error code */
+        //instrs->count = INVAL_RUN_COUNT;
       }
       // the function ended, but it's still in this lfunc
       instrs = &func->instrs[ret];

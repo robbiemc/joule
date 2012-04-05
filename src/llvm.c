@@ -40,9 +40,9 @@ typedef i32(jitf)(void*, void*);
     }                                                               \
     tmp;                                                            \
   })
-#define BBTEST(idx, test) ({                                        \
+#define BBTEST(idx) ({                                              \
     BasicBlock tmp;                                                 \
-    if (test(func->trace.instrs[i - 1][0])) {                       \
+    if (func->instrs[idx].count > 0) {                              \
       tmp = DSTBB(idx);                                             \
     } else {                                                        \
       tmp = ERRBB(idx);                                             \
@@ -578,15 +578,15 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         } else {
           STOP_ON(1, "bad EQ (%d, %d)", btyp, ctyp);
         }
-        BasicBlock truebb  = BBTEST(i + 1, TRACE_HAS_JUMPED);
-        BasicBlock falsebb = BBTEST(i, TRACE_HAS_FALLEN);
+        BasicBlock truebb  = BBTEST(i + 1);
+        BasicBlock falsebb = BBTEST(i);
         LLVMBuildCondBr(builder, cond, truebb, falsebb);
         break;
       }
 
       #define CMP_OP(cond1, cond2) {                                        \
-          BasicBlock truebb  = BBTEST(i + 1, TRACE_HAS_JUMPED);             \
-          BasicBlock falsebb = BBTEST(i, TRACE_HAS_FALLEN);                 \
+          BasicBlock truebb  = BBTEST(i + 1);                               \
+          BasicBlock falsebb = BBTEST(i);                                   \
           if (TYPE(B(code)) == LNUMBER && TYPE(C(code)) == LNUMBER) {       \
             Value bv = build_kregf(&s, B(code));                            \
             Value cv = build_kregf(&s, C(code));                            \
@@ -799,8 +799,8 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value isnt_nil   = LLVMBuildICmp(builder, LLVMIntNE, av, lvc_nil, "");
         Value isnt_false = LLVMBuildICmp(builder, LLVMIntNE, av, lvc_false, "");
         Value istrue     = LLVMBuildAnd(builder, isnt_nil, isnt_false, "");
-        BasicBlock dst   = BBTEST(i, TRACE_HAS_FALLEN);
-        BasicBlock skip  = BBTEST(i + 1, TRACE_HAS_JUMPED);
+        BasicBlock dst   = BBTEST(i);
+        BasicBlock skip  = BBTEST(i + 1);
 
         if (C(code)) {
           LLVMBuildCondBr(builder, istrue, dst, skip);
@@ -816,9 +816,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value isnt_nil   = LLVMBuildICmp(builder, LLVMIntNE, bv, lvc_nil, "");
         Value isnt_false = LLVMBuildICmp(builder, LLVMIntNE, bv, lvc_false, "");
         Value istrue     = LLVMBuildAnd(builder, isnt_nil, isnt_false, "");
-        BasicBlock skip  = BBTEST(i + 1, TRACE_HAS_JUMPED);
+        BasicBlock skip  = BBTEST(i + 1);
         BasicBlock dst;
-        if (TRACE_HAS_FALLEN(func->trace.instrs[i - 1][0])) {
+        if (func->instrs[i].count > 0) {
           dst = LLVMAppendBasicBlock(function, "");
         } else {
           dst = BAILBB(i);
