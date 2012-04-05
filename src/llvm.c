@@ -110,6 +110,13 @@ static Value lvc_nil;
 static Value lvc_false;
 static Value lvc_luav;
 
+/* Functions used */
+static Value llvm_lhash_get;
+static Value llvm_lhash_set;
+static Value llvm_vm_fun;
+static Value llvm_memcpy;
+static Value llvm_memmove;
+
 Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name);
 
 /**
@@ -196,6 +203,12 @@ void llvm_init() {
   ADD_FUNCTION(lv_concat, llvm_u64, 2, llvm_u64, llvm_u64);
   ADD_FUNCTION(lhash_array, LLVMVoidType(), 3, llvm_void_ptr, llvm_u64_ptr,
                llvm_u32);
+
+  llvm_lhash_get = LLVMGetNamedFunction(module, "lhash_get");
+  llvm_lhash_set = LLVMGetNamedFunction(module, "lhash_set");
+  llvm_vm_fun    = LLVMGetNamedFunction(module, "vm_fun");
+  llvm_memcpy    = LLVMGetNamedFunction(module, "llvm.memcpy.p0i8.p0i8.i32");
+  llvm_memmove   = LLVMGetNamedFunction(module, "llvm.memmove.p0i8.p0i8.i32");
 }
 
 /**
@@ -652,8 +665,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           Value amt = LLVMBuildSelect(builder, cond, num_rets, retc, "");
 
           /* memmove(ret_base, ret_stack, min(num_rets, retc) * sizeof(luav)) */
-          Value memmove = LLVMGetNamedFunction(module,
-                                               "llvm.memmove.p0i8.p0i8.i32");
           Value args[5] = {
             LLVMBuildBitCast(builder, ret_stack, llvm_void_ptr, ""),
             LLVMBuildBitCast(builder, ret_base, llvm_void_ptr, ""),
@@ -661,7 +672,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             LLVMConstInt(llvm_u32, 8, FALSE),
             LLVMConstInt(LLVMInt1Type(), 0, FALSE)
           };
-          LLVMBuildCall(builder, memmove, args, 5, "");
+          LLVMBuildCall(builder, llvm_memmove, args, 5, "");
           num_rets = LLVMBuildNeg(builder, num_rets, "");
           num_rets = LLVMBuildSub(builder, num_rets, lvc_32_two, "");
           LLVMBuildRet(builder, num_rets);
@@ -698,11 +709,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       case OP_GETGLOBAL: {
         /* TODO: metatable? */
-        Value fn = LLVMGetNamedFunction(module, "lhash_get");
-        xassert(fn != NULL);
         Value args[2] = {closure_env, consts[BX(code)]};
         lstring_t *str = lv_getptr(func->consts[BX(code)]);
-        Value val = LLVMBuildCall(builder, fn, args, 2, str->data);
+        Value val = LLVMBuildCall(builder, llvm_lhash_get, args, 2, str->data);
         build_regset(&s, A(code), val);
         /* TODO: guard this */
         SETTYPE(A(code), func->trace.instrs[i - 1][0]);
@@ -712,14 +721,12 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       case OP_SETGLOBAL: {
         /* TODO: metatable? */
-        Value fn = LLVMGetNamedFunction(module, "lhash_set");
-        xassert(fn != NULL);
         Value args[3] = {
           closure_env,
           consts[BX(code)],
           build_reg(&s, A(code))
         };
-        LLVMBuildCall(builder, fn, args, 3, "");
+        LLVMBuildCall(builder, llvm_lhash_set, args, 3, "");
         /* TODO: gc_check() */
         GOTOBB(i);
         break;
@@ -750,14 +757,13 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_SETTABLE: {
         STOP_ON(TYPE(A(code)) != LTABLE, "bad SETTABLE");
         /* TODO: metatable? */
-        Value fn = LLVMGetNamedFunction(module, "lhash_set");
         Value av = TOPTR(LLVMBuildLoad(builder, regs[A(code)], ""));
         Value args[3] = {
           av,
           build_kregu(&s, B(code)),
           build_kregu(&s, C(code))
         };
-        LLVMBuildCall(builder, fn, args, 3, "");
+        LLVMBuildCall(builder, llvm_lhash_set, args, 3, "");
         /* TODO: gc_check() */
         GOTOBB(i);
         break;
@@ -766,10 +772,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_GETTABLE: {
         STOP_ON(TYPE(B(code)) != LTABLE, "bad GETTABLE (t:%d)", TYPE(B(code)));
         /* TODO: metatable? */
-        Value fn = LLVMGetNamedFunction(module, "lhash_get");
         Value bv = TOPTR(LLVMBuildLoad(builder, regs[B(code)], ""));
         Value args[2] = {bv, build_kregu(&s, C(code))};
-        Value ref = LLVMBuildCall(builder, fn, args, 2, "");
+        Value ref = LLVMBuildCall(builder, llvm_lhash_get, args, 2, "");
         build_regset(&s, A(code), ref);
         SETTYPE(A(code), func->trace.instrs[i - 1][0]);
         /* TODO: guard for type of A */
@@ -1040,8 +1045,6 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
         // call the function
         Value av = LLVMConstInt(llvm_u32, a, FALSE);
-        Value fn = LLVMGetNamedFunction(module, "vm_fun");
-        xassert(fn != NULL);
         Value lnumargs;
         if (B(code) == 0) {
           Value tmp = LLVMBuildLoad(builder, last_ret, "");
@@ -1060,7 +1063,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           num_rets == 0 ? lvc_32_one :
             LLVMBuildAdd(builder, stacki, av, "")
         };
-        Value ret = LLVMBuildCall(builder, fn, args, 6, "");
+        Value ret = LLVMBuildCall(builder, llvm_vm_fun, args, 6, "");
 
         if (C(code) == 0) {
           LLVMBuildStore(builder, LLVMBuildAdd(builder, ret, av, ""), last_ret);
@@ -1211,8 +1214,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
             LLVMConstInt(llvm_u32, 8, FALSE),
             LLVMConstInt(LLVMInt1Type(), 0, FALSE)
           };
-          Value fn = LLVMGetNamedFunction(module, "llvm.memcpy.p0i8.p0i8.i32");
-          LLVMBuildCall(builder, fn, args, 5, "");
+          LLVMBuildCall(builder, llvm_memcpy, args, 5, "");
           Value lr = LLVMBuildAdd(builder, cnt,
                                   LLVMConstInt(llvm_u32, A(code), FALSE), "");
           LLVMBuildStore(builder, lr, last_ret);
