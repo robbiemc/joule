@@ -692,12 +692,8 @@ top:
 
       case OP_LOADBOOL:
         SETREG(A(code), lv_bool((u8) B(code)));
-        if (C(code)) {
-          SETTRACEBRANCH(TRACE_SET_JUMP);
+        if (C(code))
           instrs++;
-        } else {
-          SETTRACEBRANCH(TRACE_SET_FALLEN);
-        }
         break;
 
       #define BINOP_ADD(a,b) ((a)+(b))
