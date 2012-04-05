@@ -375,7 +375,8 @@ top:
       }
       // the function ended, but it's still in this lfunc
       instrs = &func->instrs[ret];
-      continue;
+      if ((u32) ret != pc)
+        continue;
     }
 
     u32 code = (instrs++)->instr;
