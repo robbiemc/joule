@@ -368,7 +368,7 @@ top:
         goto top;
       }
       if (my_jit_bailed && running == instrs->jfunc) {
-        printf("bailed from %d to %d\n", pc, ret);
+        //printf("bailed from %d to %d\n", pc, ret);
         instrs->jfunc = NULL;
         instrs->count = INVAL_RUN_COUNT;
       }
