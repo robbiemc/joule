@@ -44,6 +44,8 @@
   })
 #define SETTRACE(traceidx, val) \
       func->trace.instrs[pc][traceidx] = lv_gettype(val)
+#define SETTRACEBRANCH(m) func->trace.instrs[pc][0] =       \
+                          (u8) m(func->trace.instrs[pc][0])
 
 lhash_t *userdata_meta;      //<! metatables for all existing userdata
 lhash_t *lua_globals;        //<! default global environment
@@ -632,8 +634,12 @@ top:
         u32 eq = (u32) ((bv != LUAV_NAN) && (bv == cv));
         if (!eq && meta_eq(bv, cv, META_EQ, &res))
           eq = lv_getbool(res, 0);
-        if (eq != A(code))
+        if (eq != A(code)) {
+          SETTRACEBRANCH(TRACE_SET_JUMP);
           instrs++;
+        } else {
+          SETTRACEBRANCH(TRACE_SET_FALLEN);
+        }
         break;
       }
 
@@ -653,7 +659,10 @@ top:
           lt = (u8) op(lv_compare(bv, cv), 0);                          \
         }                                                               \
         if (lt != A(code)) {                                            \
+          SETTRACEBRANCH(TRACE_SET_JUMP);                               \
           instrs++;                                                     \
+        } else {                                                        \
+          SETTRACEBRANCH(TRACE_SET_FALLEN);                             \
         }                                                               \
       }
       case OP_LT: META_COMPARE(BINOP_LT, META_LT); break;
@@ -662,15 +671,20 @@ top:
       case OP_TEST:
         temp = REG(A(code));
         if (lv_getbool(temp, 0) != C(code)) {
+          SETTRACEBRANCH(TRACE_SET_JUMP);
           instrs++;
+        } else {
+          SETTRACEBRANCH(TRACE_SET_FALLEN);
         }
         break;
 
       case OP_TESTSET:
         temp = REG(B(code));
         if (lv_getbool(temp, 0) == C(code)) {
+          SETTRACEBRANCH(TRACE_SET_FALLEN);
           SETREG(A(code), temp);
         } else {
+          SETTRACEBRANCH(TRACE_SET_JUMP);
           instrs++;
         }
         SETTRACE(0, REG(A(code)));
@@ -679,7 +693,10 @@ top:
       case OP_LOADBOOL:
         SETREG(A(code), lv_bool((u8) B(code)));
         if (C(code)) {
+          SETTRACEBRANCH(TRACE_SET_JUMP);
           instrs++;
+        } else {
+          SETTRACEBRANCH(TRACE_SET_FALLEN);
         }
         break;
 
@@ -853,8 +870,10 @@ top:
         vm_running = &frame;
         temp = REG(a + 3);
         if (got == 0 || temp == LUAV_NIL) {
+          SETTRACEBRANCH(TRACE_SET_JUMP);
           instrs++;
         } else {
+          SETTRACEBRANCH(TRACE_SET_FALLEN);
           SETREG(a + 2, temp);
         }
         // fill in the nils
