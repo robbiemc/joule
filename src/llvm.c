@@ -45,7 +45,7 @@ typedef i32(jitf)(void*, void*);
     if (test(func->trace.instrs[i - 1][0])) {                       \
       tmp = DSTBB(idx);                                             \
     } else {                                                        \
-      tmp = BAILBB(idx);                                            \
+      tmp = ERRBB(idx);                                             \
     }                                                               \
     tmp;                                                            \
   })
