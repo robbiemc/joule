@@ -507,6 +507,7 @@ top:
 
       /* Only exit point of the VM loop, returns a glob of parameters */
       case OP_RETURN:
+        func->instrs[pc].count++;
         a = A(code);
         b = B(code);
         /* If we don't know what we're returning, then some previous instruction
@@ -537,6 +538,7 @@ top:
          function are packed on the stack starting from stack_orig, and then
          the new stack is allocated from the top of that stack. */
       case OP_TAILCALL: {
+        func->instrs[pc].count++;
         a = A(code);
         b = B(code);
         assert(C(code) == 0);
