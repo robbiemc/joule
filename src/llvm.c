@@ -819,14 +819,14 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         BasicBlock skip  = BBTEST(i + 1);
         BasicBlock dst;
         if (func->instrs[i].count > 0) {
-          dst = LLVMAppendBasicBlock(function, "");
-        } else {
-          dst = BAILBB(i);
           /* On the 'not-skipped' branch, store the value */
+          dst = LLVMAppendBasicBlock(function, "");
           LLVMPositionBuilderAtEnd(builder, dst);
           build_regset(&s, A(code), bv);
           GOTOBB(i);
           LLVMPositionBuilderAtEnd(builder, blocks[i - 1]);
+        } else {
+          dst = ERRBB(i);
         }
 
         if (C(code)) {
