@@ -233,6 +233,8 @@ void lstr_remove(lstring_t *str) {
  * @return the two strings concatenated
  */
 lstring_t* lstr_concat(lstring_t *s1, lstring_t *s2) {
+  if (s1 == empty) return s2;
+  if (s2 == empty) return s1;
   lstring_t *sn = lstr_alloc(s1->length + s2->length);
   memcpy(sn->data, s1->data, s1->length);
   memcpy(sn->data + s1->length, s2->data, s2->length);
