@@ -323,7 +323,7 @@ top:
 
     // check if we should compile
     if (instrs->count < INVAL_RUN_COUNT && instrs->count > 4 &&
-        instrs->jfunc == NULL) {
+        instrs->jfunc == NULL && OP(func->instrs[pc].instr) != OP_FORLOOP) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
         end_index = (i32) func->num_instrs - 1;
@@ -778,8 +778,6 @@ top:
           instrs += SBX(code);
         }
         func->trace.instrs[pc][0] = (step < 0);
-        /* Don't ever start compilation at a FORLOOP opcode */
-        func->instrs[pc].count--;
         break;
       }
 
