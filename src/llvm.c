@@ -1017,13 +1017,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         /* TODO: varargs, multiple returns, etc... */
         u32 num_args = B(code) - 1;
         u32 num_rets = C(code) - 1;
-        u32 end_stores;
         if (B(code) == 0) {
           i32 tmp = get_varbase(&s, i);
           if (tmp < 0) { warn("B0 OP_CALL bad"); return NULL; }
-          end_stores = (u32) tmp;
-        } else {
-          end_stores = A(code) + 1 + num_args;
         }
 
         STOP_ON(TYPE(A(code)) != LFUNCTION,
