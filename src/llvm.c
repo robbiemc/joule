@@ -1281,9 +1281,122 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         break;
       }
 
+      case OP_TFORLOOP: {
+        u32 a = A(code);
+        u32 c = C(code);
+        u32 want = func->trace.instrs[i - 1][0];
+        STOP_ON(TYPE(a) != LFUNCTION, "bad TFORLOOP (%x)", TYPE(a));
+        STOP_ON(want == TRACEMAX, "big TFORLOOP");
+
+        /* Put our arguments on to the lua stack */
+        Value stack = get_stack_base(base_addr, stacki, "");
+        for (j = a + 1; j < a + 3; j++) {
+          Value off  = LLVMConstInt(llvm_u64, j, 0);
+          Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
+          Value val  = build_reg(&s, j);
+          LLVMBuildStore(builder, val, addr);
+        }
+
+        /* Generate the arguments to vm_fun */
+        Value args[] = {
+          TOPTR(build_reg(&s, a)),
+          parent,
+          LLVMConstInt(llvm_u32, 2, FALSE),
+          LLVMBuildAdd(builder, stacki,
+                       LLVMConstInt(llvm_u32, a + 1, FALSE), ""),
+          LLVMConstInt(llvm_u32, c, FALSE),
+          LLVMBuildAdd(builder, stacki,
+                       LLVMConstInt(llvm_u32, a + 3, FALSE), "")
+        };
+
+        /* Invoke and check to see if we got what we want */
+        Value ret = LLVMBuildCall(builder, llvm_vm_fun, args, 6, "");
+
+        BasicBlock load_regs    = LLVMAppendBasicBlock(function, "");
+        BasicBlock failure_set  = LLVMAppendBasicBlock(function, "");
+        BasicBlock failure_load = LLVMAppendBasicBlock(function, "");
+        BasicBlock failure      = LLVMAppendBasicBlock(function, "");
+        BasicBlock test         = LLVMAppendBasicBlock(function, "");
+
+        /* Figure out if we got the expected number of return values */
+        stack = get_stack_base(base_addr, stacki, "");
+        Value expected = LLVMConstInt(llvm_u32, want, FALSE);
+        Value cond = LLVMBuildICmp(builder, LLVMIntEQ, ret, expected, "");
+        LLVMBuildCondBr(builder, cond, load_regs, failure);
+
+        /* Load all return values and then go to the next basic block,
+         * nilifying everything we wanted but we didn't get */
+        LLVMPositionBuilderAtEnd(builder, load_regs);
+        for (j = 0; j < want && j < c; j++) {
+          Value off  = LLVMConstInt(llvm_u64, a + 3 + j, 0);
+          Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
+          Value val  = LLVMBuildLoad(builder, addr, "");
+          build_regset(&s, a + 3 + j, val);
+        }
+        for (; j < c; j++) {
+          build_regset(&s, a + 3 + j, lvc_nil);
+        }
+        LLVMBuildBr(builder, test);
+
+        /* Figure out if we need to memset */
+        LLVMPositionBuilderAtEnd(builder, failure);
+        cond = LLVMBuildICmp(builder, LLVMIntULT, ret,
+                             LLVMConstInt(llvm_u32, c, FALSE), "");
+        LLVMBuildCondBr(builder, cond, failure_set, failure_load);
+
+        /* Failure case, call memset with the correct arguments */
+        LLVMPositionBuilderAtEnd(builder, failure_set);
+        Value av          = LLVMConstInt(llvm_u32, a, FALSE);
+        Value offset      = LLVMBuildAdd(builder, ret, av, "");
+        Value memset_addr = LLVMBuildInBoundsGEP(builder, stack, &offset, 1, "");
+        Value rets_wanted = LLVMConstInt(llvm_u32, c, FALSE);
+        Value memset_cnt  = LLVMBuildSub(builder, rets_wanted, ret, "");
+        memset_cnt        = LLVMBuildMul(builder, memset_cnt, lvc_luav, "");
+        Value memset      = LLVMGetNamedFunction(module, "llvm.memset.p0i8.i32");
+        Value memset_args[5] = {
+          LLVMBuildBitCast(builder, memset_addr, llvm_void_ptr, ""),
+          LLVMConstInt(LLVMInt8Type(), 0xff, FALSE),
+          memset_cnt,
+          LLVMConstInt(llvm_u32, 8, FALSE),
+          LLVMConstInt(LLVMInt1Type(), 0, FALSE)
+        };
+        LLVMBuildCall(builder, memset, memset_args, 5, "");
+        LLVMBuildBr(builder, failure_load);
+
+        /* Load all return values off the stack now */
+        LLVMPositionBuilderAtEnd(builder, failure_load);
+        for (j = a + 3; j < a + 3 + c; j++) {
+          Value off  = LLVMConstInt(llvm_u64, j, 0);
+          Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
+          Value val  = LLVMBuildLoad(builder, addr, "");
+          build_regset(&s, j, val);
+        }
+        LLVMBuildBr(builder, test);
+
+        for (j = a + 3; j < a + 3 + c; j++) {
+          if (j - a >= TRACELIMIT) {
+            SETTYPE(j, LANY);
+          } else {
+            SETTYPE(j, func->trace.instrs[i - 1][j - a + 1]);
+          }
+        }
+
+        /* Perform the test that TFORLOOP does */
+        BasicBlock seta2 = LLVMAppendBasicBlock(function, "");
+        LLVMPositionBuilderAtEnd(builder, test);
+        Value a3 = build_reg(&s, a + 3);
+        cond = LLVMBuildICmp(builder, LLVMIntEQ, a3, lvc_nil, "");
+        LLVMBuildCondBr(builder, cond, DSTBB(i + 1), seta2);
+
+        /* Perform the final set for TFORLOOP */
+        LLVMPositionBuilderAtEnd(builder, seta2);
+        build_regset(&s, a + 2, a3);
+        GOTOBB(i);
+        break;
+      }
+
       /* TODO - here are all the unimplemented opcodes */
       case OP_SELF:
-      case OP_TFORLOOP:
 
       default:
         // TODO cleanup
