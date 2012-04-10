@@ -323,19 +323,21 @@ top:
 
     // check if we should compile
     if (instrs->count < INVAL_RUN_COUNT && instrs->count > 4 &&
-        instrs->jfunc == NULL && OP(func->instrs[pc].instr) != OP_FORLOOP) {
+        instrs->jfunc.binary == NULL &&
+        OP(func->instrs[pc].instr) != OP_FORLOOP) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
         end_index = (i32) func->num_instrs - 1;
       }
-      instrs->jfunc = llvm_compile(func, pc, (u32) end_index, &STACK(0));
-      if (instrs->jfunc == NULL) {
+      i32 success = llvm_compile(func, pc, (u32) end_index,
+                                 &STACK(0), &instrs->jfunc);
+      if (success < 0) {
         instrs->count = INVAL_RUN_COUNT;
       }
     }
 
     // check if there's a compiled version available
-    if (instrs->jfunc != NULL) {
+    if (instrs->jfunc.binary != NULL) {
       u32 stack_stuff[JARGS] = {
         [JSTACKI] = stack,
         [JARGC]   = argc,
@@ -343,10 +345,10 @@ top:
         [JRETC]   = retc,
         [JRETVI]  = retvi
       };
-      void *running = instrs->jfunc;
+      void *running = instrs->jfunc.binary;
       int old_jit_bailed = jit_bailed;
       jit_bailed = 0;
-      i32 ret = llvm_run(instrs->jfunc, closure, stack_stuff);
+      i32 ret = llvm_run(instrs->jfunc.binary, closure, stack_stuff);
       int my_jit_bailed = jit_bailed;
       jit_bailed = old_jit_bailed;
       if (ret < -1) {
@@ -367,9 +369,10 @@ top:
         }
         goto top;
       }
-      if ((my_jit_bailed || 1) && running == instrs->jfunc) {
+      if ((my_jit_bailed || 1) && running == instrs->jfunc.binary) {
         //printf("bailed from %d to %d\n", pc, ret);
-        instrs->jfunc = NULL;
+        instrs->jfunc.value = NULL;
+        instrs->jfunc.binary = NULL;
         /* TODO: do this based on my_jit_bailed on an error code */
         //instrs->count = INVAL_RUN_COUNT;
       }

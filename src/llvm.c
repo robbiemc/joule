@@ -55,7 +55,7 @@ typedef i32(jitf)(void*, void*);
         break;                                \
       }                                       \
       warn(__VA_ARGS__);                      \
-      return NULL;                            \
+      return -1;                            \
     }                                         \
   }
 #define TYPE(idx) \
@@ -352,7 +352,11 @@ static i32 get_varbase(state_t *s, u32 pc) {
  * @return the compiled function, which can be run by passing it over
  *         to llvm_run()
  */
-jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
+i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
+                 luav *stack, jfunc_t *jfun) {
+  jfun->value = NULL;
+  jfun->binary = NULL;
+
   BasicBlock blocks[func->num_instrs];
   BasicBlock bail_blocks[func->num_instrs];
   BasicBlock err_blocks[func->num_instrs];
@@ -652,7 +656,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
           Value stack = get_stack_base(base_addr, stacki, "");
           /* Store remaining registers onto our lua stack */
           i32 end_stores = get_varbase(&s, i);
-          if (end_stores < 0) { warn("bad B0 OP_RETURN"); return NULL; }
+          if (end_stores < 0) { warn("bad B0 OP_RETURN"); return -1; }
           for (j = A(code); j < (u32) end_stores; j++) {
             Value offset = LLVMConstInt(llvm_u32, j, FALSE);
             Value addr = LLVMBuildInBoundsGEP(builder, stack, &offset, 1, "");
@@ -989,7 +993,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
       case OP_TAILCALL: {
         if (B(code) == 0) {
           warn("Bad OP_TAILCALL (B0)");
-          return NULL;
+          return -1;
         }
         u32 num_args = B(code) - 1;
         u32 end_stores = A(code) + 1  + num_args;
@@ -1020,7 +1024,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         u32 end_stores;
         if (B(code) == 0) {
           i32 tmp = get_varbase(&s, i);
-          if (tmp < 0) { warn("B0 OP_CALL bad"); return NULL; }
+          if (tmp < 0) { warn("B0 OP_CALL bad"); return -1; }
           end_stores = (u32) tmp;
         } else {
           end_stores = func->max_stack;
@@ -1400,7 +1404,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
       default:
         // TODO cleanup
-        return NULL;
+        return -1;
     }
   }
 
@@ -1408,7 +1412,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   LLVMRunFunctionPassManager(pass_manager, function);
   // LLVMDumpValue(function);
   fprintf(stderr, "compiled %d => %d (line:%d)\n", start, end, func->start_line);
-  return LLVMGetPointerToGlobal(ex_engine, function);
+  jfun->value = function;
+  jfun->binary = LLVMGetPointerToGlobal(ex_engine, function);
+  return 0;
 }
 
 Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name) {
@@ -1428,6 +1434,6 @@ Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name) {
  * @return the program counter which was bailed out on, or TODO: MORE HERE
  */
 i32 llvm_run(jfunc_t *function, lclosure_t *closure, u32 *args) {
-  jitf *f = function;
+  jitf *f = (jitf*) &(function->binary);
   return f(closure, args);
 }

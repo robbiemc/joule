@@ -4,7 +4,10 @@
 struct lfunc;
 struct lclosure;
 
-typedef void jfunc_t;
+typedef struct jfunc {
+  void *binary;
+  void *value;
+} jfunc_t;
 
 #include "lstate.h"
 
@@ -22,7 +25,8 @@ typedef void jfunc_t;
 void llvm_init();
 void llvm_destroy();
 
-jfunc_t* llvm_compile(struct lfunc *func, u32 start, u32 end, luav *stack);
-i32      llvm_run(jfunc_t *func, struct lclosure *closure, u32 *args);
+i32 llvm_compile(struct lfunc *func, u32 start, u32 end, luav *stack, jfunc_t *jfun);
+i32 llvm_run(jfunc_t *func, struct lclosure *closure, u32 *args);
+i32 llvm_free(jfunc_t *func);
 
 #endif /* _LLVM_H_ */
