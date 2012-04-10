@@ -55,7 +55,7 @@ typedef i32(jitf)(void*, void*);
         break;                                \
       }                                       \
       warn(__VA_ARGS__);                      \
-      return -1;                            \
+      EXIT_FAIL;                                   \
     }                                         \
   }
 #define TYPE(idx) \
@@ -76,6 +76,7 @@ typedef i32(jitf)(void*, void*);
   LLVMAddFunction(module, str, name##_type)
 #define ADD_FUNCTION(name, ret, numa, ...) \
   ADD_FUNCTION2(name, #name, ret, numa, __VA_ARGS__)
+#define EXIT_FAIL LLVMDeleteFunction(function); return -1
 
 typedef struct state {
   Value   *regs;
@@ -656,7 +657,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           Value stack = get_stack_base(base_addr, stacki, "");
           /* Store remaining registers onto our lua stack */
           i32 end_stores = get_varbase(&s, i);
-          if (end_stores < 0) { warn("bad B0 OP_RETURN"); return -1; }
+          if (end_stores < 0) { warn("bad B0 OP_RETURN"); EXIT_FAIL; }
           for (j = A(code); j < (u32) end_stores; j++) {
             Value offset = LLVMConstInt(llvm_u32, j, FALSE);
             Value addr = LLVMBuildInBoundsGEP(builder, stack, &offset, 1, "");
@@ -993,7 +994,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       case OP_TAILCALL: {
         if (B(code) == 0) {
           warn("Bad OP_TAILCALL (B0)");
-          return -1;
+          EXIT_FAIL;
         }
         u32 num_args = B(code) - 1;
         u32 end_stores = A(code) + 1  + num_args;
@@ -1024,7 +1025,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         u32 end_stores;
         if (B(code) == 0) {
           i32 tmp = get_varbase(&s, i);
-          if (tmp < 0) { warn("B0 OP_CALL bad"); return -1; }
+          if (tmp < 0) { warn("B0 OP_CALL bad"); EXIT_FAIL; }
           end_stores = (u32) tmp;
         } else {
           end_stores = func->max_stack;
@@ -1404,7 +1405,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
       default:
         // TODO cleanup
-        return -1;
+        EXIT_FAIL;
     }
   }
 
@@ -1436,4 +1437,16 @@ Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name) {
 i32 llvm_run(jfunc_t *function, lclosure_t *closure, u32 *args) {
   jitf *f = (jitf*) &(function->binary);
   return f(closure, args);
+}
+
+/**
+ * @brief Frees the given function
+ *
+ * @param func The function to delete
+ * @return 0 on success, negative number on failure
+ */
+i32 llvm_free(jfunc_t *func) {
+  // TODO - does this actually delete everything?
+  LLVMDeleteFunction(func->value);
+  return 0;
 }

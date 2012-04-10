@@ -371,6 +371,7 @@ top:
       }
       if ((my_jit_bailed || 1) && running == instrs->jfunc.binary) {
         //printf("bailed from %d to %d\n", pc, ret);
+        llvm_free(&instrs->jfunc);
         instrs->jfunc.value = NULL;
         instrs->jfunc.binary = NULL;
         /* TODO: do this based on my_jit_bailed on an error code */

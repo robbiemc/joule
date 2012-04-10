@@ -27,6 +27,6 @@ void llvm_destroy();
 
 i32 llvm_compile(struct lfunc *func, u32 start, u32 end, luav *stack, jfunc_t *jfun);
 i32 llvm_run(jfunc_t *func, struct lclosure *closure, u32 *args);
-i32 llvm_free(jfunc_t *func);
+i32 llvm_free(jfunc_t *jfun);
 
 #endif /* _LLVM_H_ */
