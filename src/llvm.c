@@ -1017,9 +1017,13 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         /* TODO: varargs, multiple returns, etc... */
         u32 num_args = B(code) - 1;
         u32 num_rets = C(code) - 1;
+        u32 end_stores;
         if (B(code) == 0) {
           i32 tmp = get_varbase(&s, i);
           if (tmp < 0) { warn("B0 OP_CALL bad"); return NULL; }
+          end_stores = (u32) tmp;
+        } else {
+          end_stores = func->max_stack;
         }
 
         STOP_ON(TYPE(A(code)) != LFUNCTION,
@@ -1030,7 +1034,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         Value stack = get_stack_base(base_addr, stacki, "");
         /* TODO: figure out a better method for garbage collection to preserve
                  all of our alloca instances without storing everything */
-        for (j = 0; j < func->max_stack; j++) {
+        for (j = 0; j < end_stores; j++) {
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = build_reg(&s, j);
