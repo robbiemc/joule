@@ -2,14 +2,9 @@ local function Dec(i)            --convert ascii to number
   if (i==nil) then
     return 0
   end
-  if (i>47 and i<58) then
+
+  if (i>47) then
     return i-48
-  end
-  if (i>64 and i<71) then
-    return i-55
-  end
-  if (i>96 and i<103) then
-    return i-87
   end
   return 0
 end
