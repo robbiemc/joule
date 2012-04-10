@@ -57,6 +57,7 @@ assert(#"\0\0\0" == 3)
 assert(#"1234567890" == 10)
 
 assert(string.byte("a") == 97)
+assert(string.byte("a", 0) == nil)
 assert(string.byte("á") > 127)
 assert(string.byte(string.char(255)) == 255)
 assert(string.byte(string.char(0)) == 0)
@@ -172,3 +173,6 @@ assert(table.concat(a, ",", 4) == "")
 -- -- print('OK')
 -- --
 -- --
+
+
+assert(string.sub(string.rep("a", 64), 65) == "")
