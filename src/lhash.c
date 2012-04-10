@@ -449,8 +449,10 @@ void lhash_insert(lhash_t *map, u32 pos, luav value) {
   assert(map->length + 1 < map->acap);
 
   /* Make some room */
-  memmove(&map->array[pos + 1], &map->array[pos],
-          (map->length - pos + 1) * sizeof(luav));
+  if (pos <= map->length) {
+    memmove(&map->array[pos + 1], &map->array[pos],
+            (map->length - pos + 1) * sizeof(luav));
+  }
   map->array[pos] = value;
   map->length++;
 }
