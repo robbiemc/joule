@@ -864,6 +864,11 @@ top:
             SETREG(a + 3 + i, LUAV_NIL);
           }
         }
+        func->trace.instrs[pc][0] = (u8) MIN(got, TRACEMAX);
+        u32 base = a + 3;
+        for (i = base; i < base + got && i - base < TRACELIMIT - 1; i++) {
+          SETTRACE(i - base + 1, REG(i));
+        }
         break;
 
       default:
