@@ -332,7 +332,6 @@ top:
       if (instrs->jfunc == NULL) {
         instrs->count = INVAL_RUN_COUNT;
       }
-      instrs->jit_failures = 0;
     }
 
     // check if there's a compiled version available
@@ -350,7 +349,6 @@ top:
       i32 ret = llvm_run(instrs->jfunc, closure, stack_stuff);
       int my_jit_bailed = jit_bailed;
       jit_bailed = old_jit_bailed;
-      if (ret < 0 && instrs->jit_failures > 0) { instrs->jit_failures--; }
       if (ret < -1) {
         assert(!my_jit_bailed);
         // the function returned
@@ -369,8 +367,7 @@ top:
         }
         goto top;
       }
-      instrs->jit_failures++;
-      if (my_jit_bailed && running == instrs->jfunc && instrs->jit_failures > 5) {
+      if (my_jit_bailed && running == instrs->jfunc) {
         //printf("bailed from %d to %d\n", pc, ret);
         instrs->jfunc = NULL;
         /* TODO: do this based on my_jit_bailed on an error code */
