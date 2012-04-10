@@ -385,4 +385,6 @@ for n,a,b,c,d in f(5,3) do
 end
 assert(x == 5)
 
+table.insert({}, 2, 'a')
+
 print"OK"
