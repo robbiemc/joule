@@ -1445,8 +1445,10 @@ i32 llvm_run(jfunc_t *function, lclosure_t *closure, u32 *args) {
  * @param func The function to delete
  * @return 0 on success, negative number on failure
  */
-i32 llvm_free(jfunc_t *func) {
-  // TODO - does this actually delete everything?
-  LLVMDeleteFunction(func->value);
-  return 0;
+void llvm_free(jfunc_t *func) {
+  if (func->value != NULL) {
+    // TODO - does this actually delete everything?
+    LLVMFreeMachineCodeForFunction(ex_engine, func->binary);
+    LLVMDeleteFunction(func->value);
+  }
 }

@@ -159,6 +159,17 @@ void garbage_collect() {
         case LTHREAD:
           coroutine_free((lthread_t*) (cur + 1));
           break;
+        case LFUNC: {
+          lfunc_t *func = (lfunc_t*) (cur + 1);
+          size_t j;
+          for (j = 0; j < func->num_instrs; i++) {
+            if (func->instrs[i].jfunc.binary) {
+              llvm_free(&func->instrs[i].jfunc);
+            }
+          }
+          free(func->instrs);
+          break;
+        }
       }
       heap_size -= cur->size;
       assert((ssize_t) heap_size >= 0);
@@ -292,7 +303,6 @@ void gc_traverse_pointer(void *_ptr, int type) {
     case LFUNC: {
       lfunc_t *func = _ptr;
       gc_traverse_pointer(func->name, LSTRING);
-      if (func->instrs != NULL) GC_SETBLACK(func->instrs);
       if (func->consts != NULL) GC_SETBLACK(func->consts);
       if (func->funcs != NULL)  GC_SETBLACK(func->funcs);
       if (func->lines != NULL)  GC_SETBLACK(func->lines);

@@ -162,9 +162,11 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size) {
   func->is_vararg      = xread1(fd);
   func->max_stack      = xread1(fd);
 
-  // instructions
+  // instructions, these are very specifically not gc_alloc'd so that we can
+  // guarantee that they're still a member of the lfunc_t when the lfunc_t is
+  // being garbage collected.
   func->num_instrs = xread4(fd);
-  func->instrs = gc_alloc(func->num_instrs * sizeof(instr_t), LANY);
+  func->instrs = malloc(func->num_instrs * sizeof(instr_t));
   for (i = 0; i < func->num_instrs; i++) {
     func->instrs[i].instr = xread4(fd);
     func->instrs[i].count = 0;
