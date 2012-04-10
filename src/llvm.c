@@ -1294,7 +1294,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
   //LLVMDumpValue(function);
   LLVMRunFunctionPassManager(pass_manager, function);
   // LLVMDumpValue(function);
-  warn("compiled");
+  printf("compiled %d => %d (line:%d)\n", start, end, func->start_line);
   return LLVMGetPointerToGlobal(ex_engine, function);
 }
 
