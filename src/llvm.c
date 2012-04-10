@@ -1032,7 +1032,9 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
         // copy arguments from c stack to lua stack
         u32 a = A(code);
         Value stack = get_stack_base(base_addr, stacki, "");
-        for (j = a + 1; j < end_stores; j++) {
+        /* TODO: figure out a better method for garbage collection to preserve
+                 all of our alloca instances without storing everything */
+        for (j = 0; j < func->max_stack; j++) {
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = build_reg(&s, j);
