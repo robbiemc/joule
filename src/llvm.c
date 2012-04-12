@@ -73,7 +73,7 @@ typedef i32(jitf)(void*, void*);
 #define ADD_FUNCTION2(name, str, ret, numa, ...)                  \
   Type name##_args[numa] = {__VA_ARGS__};                         \
   Type name##_type = LLVMFunctionType(ret, name##_args, numa, 0); \
-  LLVMAddFunction(module, str, name##_type)
+  llvm_functions[llvm_fn_cnt++] = LLVMAddFunction(module, str, name##_type)
 #define ADD_FUNCTION(name, ret, numa, ...) \
   ADD_FUNCTION2(name, #name, ret, numa, __VA_ARGS__)
 #define EXIT_FAIL LLVMDeleteFunction(function); return -1
@@ -118,6 +118,8 @@ static Value llvm_lhash_set;
 static Value llvm_vm_fun;
 static Value llvm_memcpy;
 static Value llvm_memmove;
+static Value llvm_functions[128];
+static u32   llvm_fn_cnt = 0;
 
 Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name);
 
@@ -217,6 +219,11 @@ void llvm_init() {
  * @brief Deallocates all memory associated with LLVM allocated on startup
  */
 void llvm_destroy() {
+  u32 i;
+  for (i = 0; i < llvm_fn_cnt; i++) {
+    LLVMDeleteFunction(llvm_functions[i]);
+  }
+
   LLVMFinalizeFunctionPassManager(pass_manager);
   LLVMDisposePassManager(pass_manager);
   LLVMDisposeBuilder(builder);
