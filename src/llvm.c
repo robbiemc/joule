@@ -1346,7 +1346,7 @@ jfunc_t* llvm_compile(lfunc_t *func, u32 start, u32 end, luav *stack) {
 
         /* Failure case, call memset with the correct arguments */
         LLVMPositionBuilderAtEnd(builder, failure_set);
-        Value av          = LLVMConstInt(llvm_u32, a, FALSE);
+        Value av          = LLVMConstInt(llvm_u32, a + 3, FALSE);
         Value offset      = LLVMBuildAdd(builder, ret, av, "");
         Value memset_addr = LLVMBuildInBoundsGEP(builder, stack, &offset, 1, "");
         Value rets_wanted = LLVMConstInt(llvm_u32, c, FALSE);
