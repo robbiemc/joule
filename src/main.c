@@ -80,6 +80,7 @@ int main(int argc, char **argv) {
   register_argv(i, argc, argv);
   vm_run(func);
 
+  gc_destroy();
   llvm_destroy();
   return 0;
 

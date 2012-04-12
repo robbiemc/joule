@@ -43,7 +43,7 @@ static int num_hooks = 0;
 /**
  * @brief Ultimately garbage collect by blowing away the entire heap
  */
-DESTROY static void gc_destroy() {
+void gc_destroy() {
   num_hooks = 0;
   garbage_collect();
 }

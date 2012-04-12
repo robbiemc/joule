@@ -9,6 +9,7 @@ typedef void(gchook_t)(void);
 /* Set up a hook to be run during gc, meant to be used to update static/global
    variables in a file */
 void gc_add_hook(gchook_t *hook);
+void gc_destroy();
 
 /* Allocation */
 void* gc_alloc(size_t size, int type);
