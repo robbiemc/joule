@@ -221,6 +221,7 @@ void llvm_destroy() {
   LLVMDisposePassManager(pass_manager);
   LLVMDisposeBuilder(builder);
   LLVMDisposeExecutionEngine(ex_engine);
+  LLVMContextDispose(LLVMGetGlobalContext());
 }
 
 /**
