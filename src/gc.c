@@ -162,9 +162,9 @@ void garbage_collect() {
         case LFUNC: {
           lfunc_t *func = (lfunc_t*) (cur + 1);
           size_t j;
-          for (j = 0; j < func->num_instrs; i++) {
-            if (func->instrs[i].jfunc.binary) {
-              llvm_free(&func->instrs[i].jfunc);
+          for (j = 0; j < func->num_instrs; j++) {
+            if (func->instrs[j].jfunc.binary) {
+              llvm_free(&func->instrs[j].jfunc);
             }
           }
           free(func->instrs);
