@@ -20,4 +20,8 @@ void trace_init(trace_t *trace, size_t instrs) {
   trace->instrs = gc_alloc(size, LANY);
   memset(&trace->args, LANY, sizeof(traceinfo_t));
   memset(trace->instrs, LANY, size);
+
+  size_t tsize = instrs * sizeof(tableinfo_t);
+  trace->tables = gc_alloc(tsize, LANY);
+  memset(trace->tables, 0, tsize);
 }

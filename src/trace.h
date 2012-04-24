@@ -11,10 +11,13 @@
 
 typedef u8 traceinfo_t[TRACELIMIT];
 
+typedef u64 tableinfo_t[2];
+
 /* Package for tracing information */
 typedef struct trace {
   traceinfo_t args;
   traceinfo_t *instrs;
+  tableinfo_t *tables;
 } trace_t;
 
 void trace_init(trace_t *trace, size_t instrs);

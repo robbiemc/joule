@@ -44,6 +44,9 @@
   })
 #define SETTRACE(traceidx, val) \
       func->trace.instrs[pc][traceidx] = lv_gettype(val)
+#define SETTRACETABLE(tbl, val)                   \
+      func->trace.tables[pc][0] = (tbl)->version; \
+      func->trace.tables[pc][1] = (val);
 
 lhash_t *userdata_meta;      //<! metatables for all existing userdata
 lhash_t *lua_globals;        //<! default global environment
@@ -400,6 +403,7 @@ top:
         luav key = CONST(BX(code));
         assert(lv_isstring(key));
         luav val = meta_lhash_get(lv_table(closure->env), key, &frame);
+        SETTRACETABLE(closure->env, val);
         SETREG(A(code), val);
         SETTRACE(0, val);
         break;
@@ -419,6 +423,8 @@ top:
         luav table = REG(B(code));
         luav key = KREG(C(code));
         luav val = meta_lhash_get(table, key, &frame);
+        if (lv_istable(table))
+          SETTRACETABLE((lhash_t*) lv_getptr(table), val);
         SETREG(A(code), val);
         SETTRACE(0, val);
         break;
