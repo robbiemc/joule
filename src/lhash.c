@@ -96,6 +96,7 @@ void lhash_init(lhash_t *map, u32 arr_size, u32 table_size) {
   }
   map->array = gc_alloc(map->acap * sizeof(map->array[0]), LANY);
   lv_nilify(map->array, map->acap);
+  map->version = 0;
 }
 
 /**
@@ -150,6 +151,8 @@ void lhash_set(lhash_t *map, luav key, luav value) {
   if (key == LUAV_NIL || (lv_isnumber(key) && isnan(lv_cvt(key)))) {
     err_rawstr("table index is nil", TRUE);
   }
+
+  map->version++;
 
   if (lv_isnumber(key)) {
     double n = lv_cvt(key);
@@ -443,6 +446,7 @@ void lhash_insert(lhash_t *map, u32 pos, luav value) {
     lhash_set(map, lv_number(pos), value);
     return;
   }
+  map->version++;
   if (map->length + 1 >= map->acap) {
     lhash_resize(map, LHASH_ARRAY, UPSIZE);
   }
@@ -471,6 +475,7 @@ luav lhash_remove(lhash_t *map, u32 pos) {
   if (pos > map->length) {
     return LUAV_NIL;
   }
+  map->version++;
   luav ret = map->array[pos];
   memmove(&map->array[pos], &map->array[pos + 1],
           (map->length - pos) * sizeof(luav));
@@ -492,6 +497,7 @@ luav lhash_remove(lhash_t *map, u32 pos) {
  * @param comparator the comparator to use.
  */
 void lhash_sort(lhash_t *map, lcomparator_t *comparator) {
+  map->version++;
   qsort(map->array + 1, map->length, sizeof(luav),
         (int(*)(const void*, const void*)) comparator);
 }

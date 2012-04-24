@@ -32,6 +32,7 @@ typedef struct lhash {
   luav *array;     // array part which acts like an array
 
   struct lhash *metatable;   // the metatable for this table
+  u64 version;               // current verison number
 } lhash_t;
 
 typedef int(lcomparator_t)(luav*, luav*);
