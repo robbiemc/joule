@@ -6,7 +6,9 @@
 #define TRACELIMIT 8
 #define TRACEMAX   255
 #define TRACE_UPVAL (1 << 7)
+#define TRACE_CONST (1 << 6)
 #define TRACE_ISUPVAL(v) ((v) & TRACE_UPVAL)
+#define TRACE_ISCONST(v) ((v) & TRACE_CONST)
 #define TRACE_TYPEMASK 0xf
 
 typedef u8 traceinfo_t[TRACELIMIT];
