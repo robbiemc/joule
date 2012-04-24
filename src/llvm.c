@@ -62,7 +62,7 @@ typedef i32(jitf)(void*, void*);
   ((u8) (((idx) >= 256 ? \
           (lv_gettype(func->consts[(idx) - 256]) | TRACE_CONST):\
           regtyps[idx]) & ~TRACE_UPVAL))
-#define LTYPE(idx) (TYPE(idx) & TRACE_TYPEMASK)
+#define LTYPE(idx) ((u8) (TYPE(idx) & TRACE_TYPEMASK))
 #define SETTYPE(idx, typ) \
   regtyps[idx] = (u8) ((regtyps[idx] & TRACE_UPVAL) | (typ))
 #define TOPTR(v) ({                                             \
