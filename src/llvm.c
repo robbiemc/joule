@@ -352,6 +352,20 @@ static i32 get_varbase(state_t *s, u32 pc) {
 }
 
 /**
+ * @brief Build a fetch of the version number of a table, returned as a
+ *        u64
+ *
+ * @param table the void* pointer to the table
+ * @return the u64 version number
+ */
+static Value build_lhash_version(Value table) {
+  Value offset = LLVMConstInt(llvm_u32, offsetof(lhash_t, version), FALSE);
+  Value addr = LLVMBuildInBoundsGEP(builder, table, &offset, 1, "");
+  addr = LLVMBuildBitCast(builder, addr, llvm_u64_ptr, "");
+  return LLVMBuildLoad(builder, addr, "");
+}
+
+/**
  * @brief JIT-Compile a function
  *
  * @param func the function to compile
@@ -727,10 +741,38 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
       case OP_GETGLOBAL: {
         /* TODO: metatable? */
+        BasicBlock equal, diff;
+        equal = LLVMAppendBasicBlock(function, "");
+        diff = LLVMAppendBasicBlock(function, "");
+        Value version = build_lhash_version(closure_env);
+        u64 *trace_version = &func->trace.tables[i - 1][TRACE_VERSION];
+        Value tversion = LLVMConstInt(llvm_u64, (size_t) trace_version,
+                                       FALSE);
+        Value tvalue = LLVMConstInt(llvm_u64,
+                          (size_t) &func->trace.tables[i - 1][TRACE_VALUE],
+                          FALSE);
+        tversion = LLVMConstIntToPtr(tversion, llvm_u64_ptr);
+        tvalue = LLVMConstIntToPtr(tvalue, llvm_u64_ptr);
+        Value expected = LLVMBuildLoad(builder, tversion, "");
+
+        Value eq = LLVMBuildICmp(builder, LLVMIntEQ, version, expected, "");
+        LLVMBuildCondBr(builder, eq, equal, diff);
+
+        /* If the version number was the same, used the traced value */
+        LLVMPositionBuilderAtEnd(builder, equal);
+        build_regset(&s, A(code), LLVMBuildLoad(builder, tvalue, ""));
+        GOTOBB(i);
+
+        /* If the version number was different, do the get and update the
+           traced information */
+        LLVMPositionBuilderAtEnd(builder, diff);
         Value args[2] = {closure_env, consts[BX(code)]};
         lstring_t *str = lv_getptr(func->consts[BX(code)]);
         Value val = LLVMBuildCall(builder, llvm_lhash_get, args, 2, str->data);
         build_regset(&s, A(code), val);
+        LLVMBuildStore(builder, build_lhash_version(closure_env), tversion);
+        LLVMBuildStore(builder, val, tvalue);
+
         /* TODO: guard this */
         SETTYPE(A(code), func->trace.instrs[i - 1][0]);
         GOTOBB(i);

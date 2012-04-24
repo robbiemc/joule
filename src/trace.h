@@ -11,6 +11,9 @@
 #define TRACE_ISCONST(v) ((v) & TRACE_CONST)
 #define TRACE_TYPEMASK 0xf
 
+#define TRACE_VERSION 0
+#define TRACE_VALUE   1
+
 typedef u8 traceinfo_t[TRACELIMIT];
 
 typedef u64 tableinfo_t[2];
