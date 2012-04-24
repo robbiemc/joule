@@ -381,17 +381,21 @@ static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
     equal = LLVMAppendBasicBlock(state->function, "");
     diff = LLVMAppendBasicBlock(state->function, "");
     Value version = build_lhash_version(table);
-    u64 *trace_version = &state->func->trace.tables[i][TRACE_VERSION];
-    Value tversion = LLVMConstInt(llvm_u64, (size_t) trace_version,
-                                  FALSE);
-    Value tvalue = LLVMConstInt(llvm_u64,
-                      (size_t) &state->func->trace.tables[i][TRACE_VALUE],
-                      FALSE);
+    u64 *trace_version    = &state->func->trace.tables[i].version;
+    luav *trace_value     = &state->func->trace.tables[i].value;
+    lhash_t **trace_table = &state->func->trace.tables[i].table;
+    Value tversion = LLVMConstInt(llvm_u64, (size_t) trace_version, FALSE);
+    Value tvalue = LLVMConstInt(llvm_u64, (size_t) trace_value, FALSE);
+    Value ttable = LLVMConstInt(llvm_u64, (size_t) trace_table, FALSE);
     tversion = LLVMConstIntToPtr(tversion, llvm_u64_ptr);
     tvalue = LLVMConstIntToPtr(tvalue, llvm_u64_ptr);
-    Value expected = LLVMBuildLoad(builder, tversion, "");
+    ttable = LLVMConstIntToPtr(ttable, llvm_void_ptr_ptr);
+    Value exp_table   = LLVMBuildLoad(builder, ttable, "");
+    Value exp_version = LLVMBuildLoad(builder, tversion, "");
 
-    Value eq = LLVMBuildICmp(builder, LLVMIntEQ, version, expected, "");
+    Value eq_tab = LLVMBuildICmp(builder, LLVMIntEQ, table, exp_table, "");
+    Value eq_ver = LLVMBuildICmp(builder, LLVMIntEQ, version, exp_version, "");
+    Value eq = LLVMBuildAnd(builder, eq_tab, eq_ver, "");
     LLVMBuildCondBr(builder, eq, equal, diff);
 
     /* If the version number was the same, used the traced value */
@@ -405,6 +409,7 @@ static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
     Value args[2] = {table, key};
     Value val = LLVMBuildCall(builder, llvm_lhash_get, args, 2, "");
     build_regset(state, index, val);
+    LLVMBuildStore(builder, table, ttable);
     LLVMBuildStore(builder, build_lhash_version(table), tversion);
     LLVMBuildStore(builder, val, tvalue);
   } else {

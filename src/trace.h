@@ -2,6 +2,7 @@
 #define _TRACE_H
 
 #include "config.h"
+#include "luav.h"
 
 #define TRACELIMIT 8
 #define TRACEMAX   255
@@ -11,12 +12,13 @@
 #define TRACE_ISCONST(v) ((v) & TRACE_CONST)
 #define TRACE_TYPEMASK 0xf
 
-#define TRACE_VERSION 0
-#define TRACE_VALUE   1
-
 typedef u8 traceinfo_t[TRACELIMIT];
 
-typedef u64 tableinfo_t[2];
+typedef struct tableinfo {
+  struct lhash  *table;
+  u64           version;
+  luav          value;
+} tableinfo_t;
 
 /* Package for tracing information */
 typedef struct trace {

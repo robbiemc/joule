@@ -44,9 +44,10 @@
   })
 #define SETTRACE(traceidx, val) \
       func->trace.instrs[pc][traceidx] = lv_gettype(val)
-#define SETTRACETABLE(tbl, val)                   \
-      func->trace.tables[pc][0] = (tbl)->version; \
-      func->trace.tables[pc][1] = (val);
+#define SETTRACETABLE(tbl, val)                         \
+      func->trace.tables[pc].table   = (tbl);           \
+      func->trace.tables[pc].version = (tbl)->version;  \
+      func->trace.tables[pc].value   = (val);
 
 lhash_t *userdata_meta;      //<! metatables for all existing userdata
 lhash_t *lua_globals;        //<! default global environment
