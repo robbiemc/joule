@@ -35,7 +35,7 @@ LUATESTS :=	tail factorial bool closure multipart bool2 math forint	\
 		echo constructs errors literals len closure2 closure3	\
 		coroutine-gc locals pow not newtable c upvalues while   \
 		vararg varsetlist var mult omg-fuck-you-gc small-bench \
-		segfault-in-compiled
+		segfault-in-compiled cache
 # not passing: cor coroutine
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 

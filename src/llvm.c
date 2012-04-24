@@ -81,10 +81,12 @@ typedef i32(jitf)(void*, void*);
 #define EXIT_FAIL LLVMDeleteFunction(function); return -1
 
 typedef struct state {
-  Value   *regs;
-  Value   *consts;
-  u8      *types;
-  lfunc_t *func;
+  Value       *regs;
+  Value       *consts;
+  u8          *types;
+  lfunc_t     *func;
+  Value       function;
+  BasicBlock  *blocks;
 } state_t;
 
 /* Global contexts for LLVM compilation */
@@ -366,6 +368,54 @@ static Value build_lhash_version(Value table) {
 }
 
 /**
+ * @brief Performs a table lookup with cached stuff
+ *
+ * 
+ * @return 
+ */
+static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
+                            int is_const, u32 index) {
+  /* TODO: metatable? */
+  if (is_const) {
+    BasicBlock equal, diff;
+    equal = LLVMAppendBasicBlock(state->function, "");
+    diff = LLVMAppendBasicBlock(state->function, "");
+    Value version = build_lhash_version(table);
+    u64 *trace_version = &state->func->trace.tables[i][TRACE_VERSION];
+    Value tversion = LLVMConstInt(llvm_u64, (size_t) trace_version,
+                                  FALSE);
+    Value tvalue = LLVMConstInt(llvm_u64,
+                      (size_t) &state->func->trace.tables[i][TRACE_VALUE],
+                      FALSE);
+    tversion = LLVMConstIntToPtr(tversion, llvm_u64_ptr);
+    tvalue = LLVMConstIntToPtr(tvalue, llvm_u64_ptr);
+    Value expected = LLVMBuildLoad(builder, tversion, "");
+
+    Value eq = LLVMBuildICmp(builder, LLVMIntEQ, version, expected, "");
+    LLVMBuildCondBr(builder, eq, equal, diff);
+
+    /* If the version number was the same, used the traced value */
+    LLVMPositionBuilderAtEnd(builder, equal);
+    build_regset(state, index, LLVMBuildLoad(builder, tvalue, ""));
+    LLVMBuildBr(builder, state->blocks[i + 1]);
+  
+    /* If the version number was different, do the get and update the
+       traced information */
+    LLVMPositionBuilderAtEnd(builder, diff);
+    Value args[2] = {table, key};
+    Value val = LLVMBuildCall(builder, llvm_lhash_get, args, 2, "");
+    build_regset(state, index, val);
+    LLVMBuildStore(builder, build_lhash_version(table), tversion);
+    LLVMBuildStore(builder, val, tvalue);
+  } else {
+    // key isn't constant
+    Value args[2] = {table, key};
+    Value val = LLVMBuildCall(builder, llvm_lhash_get, args, 2, "");
+    build_regset(state, index, val);
+  }
+}
+
+/**
  * @brief JIT-Compile a function
  *
  * @param func the function to compile
@@ -388,12 +438,6 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   Value regs[func->max_stack];
   Value consts[func->num_consts];
   u8    regtyps[func->max_stack];
-  state_t s = {
-    .regs   = regs,
-    .consts = consts,
-    .types  = regtyps,
-    .func   = func
-  };
   char name[20];
   u32 i, j;
   Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
@@ -402,6 +446,14 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   Value function = LLVMAddFunction(module, "test", funtyp);
   Value closure  = LLVMGetParam(function, 0);
   Value jargs    = LLVMGetParam(function, 1);
+  state_t s = {
+    .regs     = regs,
+    .consts   = consts,
+    .types    = regtyps,
+    .func     = func,
+    .function = function,
+    .blocks   = blocks
+  };
 
   BasicBlock startbb = LLVMAppendBasicBlock(function, "start");
   /* Create the blocks and allocas */
@@ -740,38 +792,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       }
 
       case OP_GETGLOBAL: {
-        /* TODO: metatable? */
-        BasicBlock equal, diff;
-        equal = LLVMAppendBasicBlock(function, "");
-        diff = LLVMAppendBasicBlock(function, "");
-        Value version = build_lhash_version(closure_env);
-        u64 *trace_version = &func->trace.tables[i - 1][TRACE_VERSION];
-        Value tversion = LLVMConstInt(llvm_u64, (size_t) trace_version,
-                                       FALSE);
-        Value tvalue = LLVMConstInt(llvm_u64,
-                          (size_t) &func->trace.tables[i - 1][TRACE_VALUE],
-                          FALSE);
-        tversion = LLVMConstIntToPtr(tversion, llvm_u64_ptr);
-        tvalue = LLVMConstIntToPtr(tvalue, llvm_u64_ptr);
-        Value expected = LLVMBuildLoad(builder, tversion, "");
-
-        Value eq = LLVMBuildICmp(builder, LLVMIntEQ, version, expected, "");
-        LLVMBuildCondBr(builder, eq, equal, diff);
-
-        /* If the version number was the same, used the traced value */
-        LLVMPositionBuilderAtEnd(builder, equal);
-        build_regset(&s, A(code), LLVMBuildLoad(builder, tvalue, ""));
-        GOTOBB(i);
-
-        /* If the version number was different, do the get and update the
-           traced information */
-        LLVMPositionBuilderAtEnd(builder, diff);
-        Value args[2] = {closure_env, consts[BX(code)]};
-        lstring_t *str = lv_getptr(func->consts[BX(code)]);
-        Value val = LLVMBuildCall(builder, llvm_lhash_get, args, 2, str->data);
-        build_regset(&s, A(code), val);
-        LLVMBuildStore(builder, build_lhash_version(closure_env), tversion);
-        LLVMBuildStore(builder, val, tvalue);
+        build_lhash_get(&s, i - 1, closure_env, consts[BX(code)], 1, A(code));
 
         /* TODO: guard this */
         SETTYPE(A(code), func->trace.instrs[i - 1][0]);
@@ -831,13 +852,12 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
       case OP_GETTABLE: {
         STOP_ON(LTYPE(B(code)) != LTABLE, "bad GETTABLE (t:%d)", LTYPE(B(code)));
-        /* TODO: metatable? */
-        Value bv = TOPTR(LLVMBuildLoad(builder, regs[B(code)], ""));
-        Value args[2] = {bv, build_kregu(&s, C(code))};
-        Value ref = LLVMBuildCall(builder, llvm_lhash_get, args, 2, "");
-        build_regset(&s, A(code), ref);
-        SETTYPE(A(code), func->trace.instrs[i - 1][0]);
+        Value table = TOPTR(build_reg(&s, B(code)));
+        Value key = build_kregu(&s, C(code));
+        int is_const = TRACE_ISCONST(TYPE(C(code)));
+        build_lhash_get(&s, i - 1, table, key, is_const, A(code));
         /* TODO: guard for type of A */
+        SETTYPE(A(code), func->trace.instrs[i - 1][0]);
         /* TODO: gc_check() */
         GOTOBB(i);
         break;
