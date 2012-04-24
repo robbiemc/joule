@@ -55,14 +55,16 @@ typedef i32(jitf)(void*, void*);
         break;                                \
       }                                       \
       warn(__VA_ARGS__);                      \
-      EXIT_FAIL;                                   \
+      EXIT_FAIL;                              \
     }                                         \
   }
 #define TYPE(idx) \
-  ((u8) ((idx) >= 256 ? lv_gettype(func->consts[(idx) - 256]) : \
-                        (regtyps[idx] & ~TRACE_UPVAL)))
+  ((u8) (((idx) >= 256 ? \
+          (lv_gettype(func->consts[(idx) - 256]) | TRACE_CONST):\
+          regtyps[idx]) & ~TRACE_UPVAL))
+#define LTYPE(idx) (TYPE(idx) & TRACE_TYPEMASK)
 #define SETTYPE(idx, typ) \
-  regtyps[idx] = (u8) ((regtyps[idx] & ~TRACE_TYPEMASK) | (typ))
+  regtyps[idx] = (u8) ((regtyps[idx] & TRACE_UPVAL) | (typ))
 #define TOPTR(v) ({                                             \
     Value __tmp = LLVMBuildAnd(builder, v, lvc_data_mask, "");  \
     LLVMBuildIntToPtr(builder, __tmp, llvm_void_ptr, "");       \
@@ -505,7 +507,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
       case OP_LOADK: {
         build_regset(&s, A(code), consts[BX(code)]);
-        SETTYPE(A(code), lv_gettype(func->consts[BX(code)]));
+        SETTYPE(A(code), lv_gettype(func->consts[BX(code)]) | TRACE_CONST);
         GOTOBB(i);
         break;
       }
@@ -513,7 +515,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       case OP_LOADNIL: {
         for (j = A(code); j <= B(code); j++) {
           build_regset(&s, j, lvc_nil);
-          SETTYPE(j, LNIL);
+          SETTYPE(j, LNIL | TRACE_CONST);
         }
         GOTOBB(i);
         break;
@@ -522,14 +524,14 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       case OP_LOADBOOL: {
         Value bv = LLVMConstInt(llvm_u64, B(code) ? LUAV_TRUE : LUAV_FALSE, 0);
         build_regset(&s, A(code), bv);
-        SETTYPE(A(code), LBOOLEAN);
+        SETTYPE(A(code), LBOOLEAN | TRACE_CONST);
         u32 next = C(code) ? i + 1 : i;
         GOTOBB(next);
         break;
       }
 
       case OP_NOT: {
-        STOP_ON(TYPE(B(code)) != LBOOLEAN, "bad NOT");
+        STOP_ON(LTYPE(B(code)) != LBOOLEAN, "bad NOT");
         Value bv = build_reg(&s, B(code));
         Value one = LLVMConstInt(llvm_u64, 1, FALSE);
         bv = LLVMBuildXor(builder, bv, one, "");
@@ -541,8 +543,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
       /* TODO: assumes floats */
       #define BINIMPL(f)                                                      \
-        STOP_ON(TYPE(B(code)) != LNUMBER || TYPE(C(code)) != LNUMBER,         \
-                "bad arith: %d,%d", TYPE(B(code)), TYPE(C(code)));            \
+        STOP_ON(LTYPE(B(code)) != LNUMBER || LTYPE(C(code)) != LNUMBER,         \
+                "bad arith: %d,%d", LTYPE(B(code)), LTYPE(C(code)));            \
         build_binop(&s, code, f);                                             \
         SETTYPE(A(code), LNUMBER);                                            \
         GOTOBB(i);
@@ -554,7 +556,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       case OP_POW: BINIMPL(build_pow);      break;
 
       case OP_UNM: {
-        STOP_ON(TYPE(B(code)) != LNUMBER, "bad UNM");
+        STOP_ON(LTYPE(B(code)) != LNUMBER, "bad UNM");
         Value bv = build_reg(&s, B(code));
         bv = LLVMBuildBitCast(builder, bv, llvm_double, "");
         Value res = LLVMBuildFNeg(builder, bv, "");
@@ -566,8 +568,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       }
 
       case OP_EQ: {
-        u8 btyp = TYPE(B(code));
-        u8 ctyp = TYPE(C(code));
+        u8 btyp = LTYPE(B(code));
+        u8 ctyp = LTYPE(C(code));
         Value cond;
         if (btyp == LNUMBER && ctyp == LNUMBER) {
           Value bv  = build_kregf(&s, B(code));
@@ -590,31 +592,31 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         break;
       }
 
-      #define CMP_OP(cond1, cond2) {                                        \
-          BasicBlock truebb  = DSTBB(i + 1);                                \
-          BasicBlock falsebb = DSTBB(i);                                    \
-          if (TYPE(B(code)) == LNUMBER && TYPE(C(code)) == LNUMBER) {       \
-            Value bv = build_kregf(&s, B(code));                            \
-            Value cv = build_kregf(&s, C(code));                            \
-            LLVMRealPredicate pred = A(code) ? LLVMRealU##cond1             \
-                                             : LLVMRealU##cond2;            \
-            Value cond = LLVMBuildFCmp(builder, pred, bv, cv, "");          \
-            LLVMBuildCondBr(builder, cond, truebb, falsebb);                \
-          } else if (TYPE(B(code)) == LSTRING && TYPE(C(code)) == LSTRING) {\
-            Value bv = TOPTR(build_kregu(&s, B(code)));                     \
-            Value cv = TOPTR(build_kregu(&s, C(code)));                     \
-            LLVMIntPredicate pred = A(code) ? LLVMIntS##cond1               \
-                                            : LLVMIntS##cond2;              \
-            Value fn = LLVMGetNamedFunction(module, "lstr_compare");        \
-            xassert(fn != NULL);                                            \
-            Value args[2] = {bv, cv};                                       \
-            Value r  = LLVMBuildCall(builder, fn, args, 2, "lstr_compare"); \
-            Value cond = LLVMBuildICmp(builder, pred, r, lvc_32_zero, "");  \
-            LLVMBuildCondBr(builder, cond, truebb, falsebb);                \
-          } else {                                                          \
-            /* TODO - metatable */                                          \
-            STOP_ON(1, "bad LT/LE (%d, %d)", TYPE(B(code)), TYPE(C(code))); \
-          }                                                                 \
+      #define CMP_OP(cond1, cond2) {                                          \
+          BasicBlock truebb  = DSTBB(i + 1);                                  \
+          BasicBlock falsebb = DSTBB(i);                                      \
+          if (LTYPE(B(code)) == LNUMBER && LTYPE(C(code)) == LNUMBER) {       \
+            Value bv = build_kregf(&s, B(code));                              \
+            Value cv = build_kregf(&s, C(code));                              \
+            LLVMRealPredicate pred = A(code) ? LLVMRealU##cond1               \
+                                             : LLVMRealU##cond2;              \
+            Value cond = LLVMBuildFCmp(builder, pred, bv, cv, "");            \
+            LLVMBuildCondBr(builder, cond, truebb, falsebb);                  \
+          } else if (LTYPE(B(code)) == LSTRING && LTYPE(C(code)) == LSTRING) {\
+            Value bv = TOPTR(build_kregu(&s, B(code)));                       \
+            Value cv = TOPTR(build_kregu(&s, C(code)));                       \
+            LLVMIntPredicate pred = A(code) ? LLVMIntS##cond1                 \
+                                            : LLVMIntS##cond2;                \
+            Value fn = LLVMGetNamedFunction(module, "lstr_compare");          \
+            xassert(fn != NULL);                                              \
+            Value args[2] = {bv, cv};                                         \
+            Value r  = LLVMBuildCall(builder, fn, args, 2, "lstr_compare");   \
+            Value cond = LLVMBuildICmp(builder, pred, r, lvc_32_zero, "");    \
+            LLVMBuildCondBr(builder, cond, truebb, falsebb);                  \
+          } else {                                                            \
+            /* TODO - metatable */                                            \
+            STOP_ON(1, "bad LT/LE (%d, %d)", LTYPE(B(code)), LTYPE(C(code))); \
+          }                                                                   \
         }
       case OP_LT: CMP_OP(GE, LT); break;
       case OP_LE: CMP_OP(GT, LE); break;
@@ -625,8 +627,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       }
 
       case OP_FORLOOP: {
-        STOP_ON(TYPE(A(code)) != LNUMBER || TYPE(A(code) + 1) != LNUMBER ||
-                TYPE(A(code) + 2) != LNUMBER, "bad FORLOOP");
+        STOP_ON(LTYPE(A(code)) != LNUMBER || LTYPE(A(code) + 1) != LNUMBER ||
+                LTYPE(A(code) + 2) != LNUMBER, "bad FORLOOP");
         /* TODO - guard that R(A), R(A+1), R(A+2) are numbers */
         Value a2v = build_kregf(&s, A(code) + 2);
         Value av  = LLVMBuildFAdd(builder, build_kregf(&s, A(code)), a2v, "");
@@ -648,7 +650,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       }
 
       case OP_FORPREP: {
-        STOP_ON(TYPE(A(code)) != LNUMBER || TYPE(A(code) + 2) != LNUMBER,
+        STOP_ON(LTYPE(A(code)) != LNUMBER || LTYPE(A(code) + 2) != LNUMBER,
                 "bad FORPREP");
         /* TODO - guard that R(A) and R(A+2) are numbers */
         Value a2v = build_kregf(&s, A(code) + 2);
@@ -771,7 +773,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       }
 
       case OP_SETTABLE: {
-        STOP_ON(TYPE(A(code)) != LTABLE, "bad SETTABLE");
+        STOP_ON(LTYPE(A(code)) != LTABLE, "bad SETTABLE");
         /* TODO: metatable? */
         Value av = TOPTR(LLVMBuildLoad(builder, regs[A(code)], ""));
         Value args[3] = {
@@ -786,7 +788,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       }
 
       case OP_GETTABLE: {
-        STOP_ON(TYPE(B(code)) != LTABLE, "bad GETTABLE (t:%d)", TYPE(B(code)));
+        STOP_ON(LTYPE(B(code)) != LTABLE, "bad GETTABLE (t:%d)", LTYPE(B(code)));
         /* TODO: metatable? */
         Value bv = TOPTR(LLVMBuildLoad(builder, regs[B(code)], ""));
         Value args[2] = {bv, build_kregu(&s, C(code))};
@@ -843,7 +845,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
       case OP_LEN: {
         Value offset = NULL;
-        switch (TYPE(B(code))) {
+        switch (LTYPE(B(code))) {
           case LSTRING:
             offset = LLVMConstInt(llvm_u32, offsetof(lstring_t, length), FALSE);
             break;
@@ -873,7 +875,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       }
 
       case OP_SETLIST: {
-        STOP_ON(TYPE(A(code)) != LTABLE, "very bad SETLIST");
+        STOP_ON(LTYPE(A(code)) != LTABLE, "very bad SETLIST");
         /* If B == 0, then we call a C function to do the heavy lifting because
            everything is already on the stack anyway and it'd just be a pain to
            do this in LLVM */
@@ -944,7 +946,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         for (j = A(code); j < func->max_stack; j++) {
           if (TRACE_ISUPVAL(regtyps[j])) {
             Value upv = build_reg(&s, j);
-            regtyps[j] = TYPE(j); /* Clear the upvalue information */
+            /* Clear the upvalue information */
+            regtyps[j] = TYPE(j) & ~TRACE_UPVAL;
             build_regset(&s, j, upv);
           }
         }
@@ -1007,8 +1010,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         u32 num_args = B(code) - 1;
         u32 end_stores = A(code) + 1  + num_args;
 
-        STOP_ON(TYPE(A(code)) != LFUNCTION,
-                "reall bad TAILCALL (%x)", TYPE(A(code)));
+        STOP_ON(LTYPE(A(code)) != LFUNCTION,
+                "reall bad TAILCALL (%x)", LTYPE(A(code)));
 
         // copy arguments from c stack to lua stack
         u32 a = A(code);
@@ -1039,8 +1042,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           end_stores = func->max_stack;
         }
 
-        STOP_ON(TYPE(A(code)) != LFUNCTION,
-                "really bad CALL (%x)", TYPE(A(code)));
+        STOP_ON(LTYPE(A(code)) != LFUNCTION,
+                "really bad CALL (%x)", LTYPE(A(code)));
 
         // copy arguments from c stack to lua stack
         u32 a = A(code);
@@ -1263,7 +1266,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         /* Nil-ify all arguments not provided */
         for (; j < limit; j++) {
           build_regset(&s, A(code) + j, lvc_nil);
-          SETTYPE(A(code) + j, LNIL);
+          SETTYPE(A(code) + j, LNIL | TRACE_CONST);
         }
         GOTOBB(i);
         break;
@@ -1273,8 +1276,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         /* TODO: have a C function which takes a vector of strings and
                  concatenates them? */
         for (j = B(code); j <= C(code); j++) {
-          STOP_ON(TYPE(j) != LSTRING && TYPE(j) != LNUMBER,
-                  "bad CONCAT (%x)", TYPE(j));
+          STOP_ON(LTYPE(j) != LSTRING && LTYPE(j) != LNUMBER,
+                  "bad CONCAT (%x)", LTYPE(j));
         }
         if (j != C(code) + 1) break;
         Value fn = LLVMGetNamedFunction(module, "lv_concat");
@@ -1298,7 +1301,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         u32 a = A(code);
         u32 c = C(code);
         u32 want = func->trace.instrs[i - 1][0];
-        STOP_ON(TYPE(a) != LFUNCTION, "bad TFORLOOP (%x)", TYPE(a));
+        STOP_ON(LTYPE(a) != LFUNCTION, "bad TFORLOOP (%x)", LTYPE(a));
         STOP_ON(want == TRACEMAX, "big TFORLOOP");
 
         /* Put our arguments on to the lua stack */
