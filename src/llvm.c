@@ -70,7 +70,7 @@ typedef i32(jitf)(void*, void*);
     LLVMBuildIntToPtr(builder, __tmp, llvm_void_ptr, "");       \
   })
 #define warn(fmt, ...) fprintf(stderr, "[pc:%d, line:%d, cnt:%d](%d => %d) " fmt "\n", \
-                               i - 1, func->lines[i - 2], \
+                               i - 1, func->lines[i - 1], \
                                func->instrs[i-1].count,start, end, ## __VA_ARGS__)
 #define ADD_FUNCTION2(name, str, ret, numa, ...)                  \
   Type name##_args[numa] = {__VA_ARGS__};                         \
@@ -376,7 +376,7 @@ static Value build_lhash_version(Value table) {
 static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
                             int is_const, u32 index) {
   /* TODO: metatable? */
-  if (is_const) {
+  if (is_const && state->blocks[i + 1] != NULL) {
     BasicBlock equal, diff;
     equal = LLVMAppendBasicBlock(state->function, "");
     diff = LLVMAppendBasicBlock(state->function, "");
@@ -679,7 +679,6 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
             LLVMIntPredicate pred = A(code) ? LLVMIntS##cond1                 \
                                             : LLVMIntS##cond2;                \
             Value fn = LLVMGetNamedFunction(module, "lstr_compare");          \
-            xassert(fn != NULL);                                              \
             Value args[2] = {bv, cv};                                         \
             Value r  = LLVMBuildCall(builder, fn, args, 2, "lstr_compare");   \
             Value cond = LLVMBuildICmp(builder, pred, r, lvc_32_zero, "");    \
@@ -859,7 +858,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         STOP_ON(LTYPE(B(code)) != LTABLE, "bad GETTABLE (t:%d)", LTYPE(B(code)));
         Value table = TOPTR(build_reg(&s, B(code)));
         Value key = build_kregu(&s, C(code));
-        int is_const = TRACE_ISCONST(TYPE(C(code)));
+        int is_const = C(code) >= 256;
         build_lhash_get(&s, i - 1, table, key, is_const, A(code));
         /* TODO: guard for type of A */
         SETTYPE(A(code), func->trace.instrs[i - 1][0]);
