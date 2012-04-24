@@ -989,7 +989,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           if (TRACE_ISUPVAL(regtyps[j])) {
             Value upv = build_reg(&s, j);
             /* Clear the upvalue information */
-            regtyps[j] = TYPE(j) & ~TRACE_UPVAL;
+            regtyps[j] = (u8) (TYPE(j) & ~TRACE_UPVAL);
             build_regset(&s, j, upv);
           }
         }
