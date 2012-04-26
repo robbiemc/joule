@@ -370,8 +370,8 @@ static Value build_lhash_version(Value table) {
 /**
  * @brief Performs a table lookup with cached stuff
  *
- * 
- * @return 
+ *
+ * @return
  */
 static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
                             int is_const, u32 index) {
@@ -402,7 +402,7 @@ static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
     LLVMPositionBuilderAtEnd(builder, equal);
     build_regset(state, index, LLVMBuildLoad(builder, tvalue, ""));
     LLVMBuildBr(builder, state->blocks[i + 1]);
-  
+
     /* If the version number was different, do the get and update the
        traced information */
     LLVMPositionBuilderAtEnd(builder, diff);
