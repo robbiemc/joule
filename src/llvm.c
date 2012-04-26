@@ -727,6 +727,10 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         Value av  = build_kregf(&s, A(code));
         av = LLVMBuildFSub(builder, av, a2v, "");
         build_regset(&s, A(code), LLVMBuildBitCast(builder, av, llvm_u64, ""));
+        SETTYPE(A(code), LNUMBER);
+        SETTYPE(A(code) + 1, LNUMBER);
+        SETTYPE(A(code) + 2, LNUMBER);
+        SETTYPE(A(code) + 3, LNUMBER);
         GOTOBB((u32) ((i32) i + SBX(code)));
         break;
       }
