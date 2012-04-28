@@ -20,7 +20,9 @@ typedef struct jfunc {
 
 // This the value to set an instruction's run count to if
 // it can't be compiled yet
-#define INVAL_RUN_COUNT 240
+#define INVAL_RUN_COUNT 250
+// Code won't be compiled unless it's been run this many times
+#define COMPILE_COUNT 3
 
 void llvm_init();
 void llvm_destroy();

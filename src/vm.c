@@ -326,9 +326,9 @@ top:
     pc = (u32) (instrs - func->instrs);
 
     // check if we should compile
-    if (instrs->count < INVAL_RUN_COUNT && instrs->count > 4 &&
-        instrs->jfunc.binary == NULL &&
-        OP(func->instrs[pc].instr) != OP_FORLOOP) {
+    if ((pc == 0 || func->preds[pc] != -1) &&
+        instrs->count < INVAL_RUN_COUNT && instrs->count > COMPILE_COUNT &&
+        instrs->jfunc.binary == NULL) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
         end_index = (i32) func->num_instrs - 1;
