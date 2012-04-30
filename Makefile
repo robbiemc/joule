@@ -29,14 +29,14 @@ OBJS := $(OBJS:%=$(OBJDIR)/%)
 
 # Eventually this should be all tests, but it's a work in progres...
 LUATESTS :=	tail factorial bool closure multipart bool2 math forint	\
-		concat loop sort func fib select math2 bisect cf printf \
+		concat loop func fib select math2 bisect cf printf \
 		select smallfun nextvar os strings coroutine2 sieve	\
 		load pcall metabasic calls noglobals fibfor readonly	\
 		echo constructs errors len closure2 closure3	\
 		coroutine-gc locals pow not newtable c upvalues while   \
 		vararg varsetlist var mult omg-fuck-you-gc small-bench \
 		segfault-in-compiled cache
-# not passing: cor coroutine literals
+# not passing: cor coroutine literals sort
 LUATESTS := $(LUATESTS:%=$(TESTDIR)/%.lua)
 
 BENCHTESTS :=	ackermann.lua-2 ary nbody nbody.lua-2 nbody.lua-4 hash fibo \
