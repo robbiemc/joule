@@ -127,6 +127,8 @@ static Value llvm_functions[128];
 static u32   llvm_fn_cnt = 0;
 
 Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name);
+static Value get_stack_base(Value base_addr, Value offset, char *name);
+static Value get_vm_stack_base(void);
 
 /**
  * @brief Initialize LLVM globals and engines needed for JIT compilation
@@ -213,6 +215,8 @@ void llvm_init() {
   ADD_FUNCTION(lhash_array, LLVMVoidType(), 3, llvm_void_ptr, llvm_u64_ptr,
                llvm_u32);
   ADD_FUNCTION(gc_check, LLVMVoidType(), 0);
+  ADD_FUNCTION(vm_funi, llvm_u32, 9, llvm_void_ptr, llvm_void_ptr, llvm_u32,
+               llvm_u32, llvm_u32, llvm_u32, llvm_u32, llvm_u32, llvm_u32);
 
   llvm_lhash_get = LLVMGetNamedFunction(module, "lhash_get");
   llvm_lhash_set = LLVMGetNamedFunction(module, "lhash_set");
@@ -220,6 +224,41 @@ void llvm_init() {
   llvm_memcpy    = LLVMGetNamedFunction(module, "llvm.memcpy.p0i8.p0i8.i32");
   llvm_memmove   = LLVMGetNamedFunction(module, "llvm.memmove.p0i8.p0i8.i32");
   llvm_gc_check  = LLVMGetNamedFunction(module, "gc_check");
+
+  /* Build our trampoline function for when error happens in a fully compiled
+     function */
+  Type args[4] = {
+    llvm_void_ptr, /* closure */
+    llvm_void_ptr, /* frame */
+    llvm_u32,      /* instruction */
+    llvm_u32       /* stacki */
+  };
+  Type funtyp = LLVMFunctionType(llvm_u64, args, 4, FALSE);
+  Value func = LLVMAddFunction(module, "trampoline", funtyp);
+  LLVMAddFunctionAttr(func, LLVMNoInlineAttribute);
+  BasicBlock b = LLVMAppendBasicBlock(func, "");
+  LLVMPositionBuilderAtEnd(builder, b);
+
+  Value vmargs[9] = {
+    LLVMGetParam(func, 0),
+    LLVMGetParam(func, 1),
+    LLVMGetParam(func, 3),
+    lvc_32_zero,
+    LLVMGetParam(func, 2),
+    lvc_32_zero,
+    lvc_32_zero,
+    lvc_32_one,
+    LLVMGetParam(func, 3)
+  };
+  Value retc = LLVMBuildCall(builder, LLVMGetNamedFunction(module, "vm_funi"),
+                             vmargs, 9, "");
+  Value addr = get_stack_base(get_vm_stack_base(), LLVMGetParam(func, 3), "");
+  addr       = LLVMBuildInBoundsGEP(builder, addr, &lvc_32_zero, 1, "");
+  Value from_stack = LLVMBuildLoad(builder, addr, "");
+
+  Value cond = LLVMBuildICmp(builder, LLVMIntEQ, retc, lvc_32_one, "");
+  Value ret = LLVMBuildSelect(builder, cond, from_stack, lvc_nil, "");
+  LLVMBuildRet(builder, ret);
 }
 
 /**
@@ -250,6 +289,20 @@ void llvm_destroy() {
 static Value get_stack_base(Value base_addr, Value offset, char *name) {
   Value stack = LLVMBuildLoad(builder, base_addr, "");
   return LLVMBuildInBoundsGEP(builder, stack, &offset, 1, name);
+}
+
+/**
+ * @brief Calculates the address which contains the base of the stack_typ
+ */
+static Value get_vm_stack_base(void) {
+  Value vm_stack_ptr = LLVMConstInt(llvm_u64, (size_t) &vm_stack, FALSE);
+  vm_stack_ptr       = LLVMConstIntToPtr(vm_stack_ptr, llvm_void_ptr_ptr);
+  Value base_addr    = LLVMBuildLoad(builder, vm_stack_ptr, "");
+  Value base_offset  = LLVMConstInt(llvm_u32, offsetof(lstack_t, base), FALSE);
+  base_addr          = LLVMBuildInBoundsGEP(builder, base_addr, &base_offset, 1,
+                                            "");
+  Type stack_typ = LLVMPointerType(LLVMPointerType(llvm_u64, 0), 0);
+  return LLVMBuildBitCast(builder, base_addr, stack_typ, "");
 }
 
 /**
@@ -524,14 +577,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   parent = LLVMBuildLoad(builder, parent, "parent");
 
   /* Load address of vm_stack->base points to */
-  Value vm_stack_ptr = LLVMConstInt(llvm_u64, (size_t) &vm_stack, FALSE);
-  vm_stack_ptr       = LLVMConstIntToPtr(vm_stack_ptr, llvm_void_ptr_ptr);
-  Value base_addr    = LLVMBuildLoad(builder, vm_stack_ptr, "");
-  Value base_offset  = LLVMConstInt(llvm_u32, offsetof(lstack_t, base), FALSE);
-  base_addr          = LLVMBuildInBoundsGEP(builder, base_addr, &base_offset, 1,
-                                            "");
-  Type stack_typ     = LLVMPointerType(LLVMPointerType(llvm_u64, 0), 0);
-  base_addr          = LLVMBuildBitCast(builder, base_addr, stack_typ, "");
+  Value base_addr = get_vm_stack_base();
 
   /* Copy the lua stack onto the C stack */
   Value lstack = get_stack_base(base_addr, stacki, "lstack");
