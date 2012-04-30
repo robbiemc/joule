@@ -47,10 +47,13 @@ typedef struct lfunc {
   struct lfunc **funcs;         //<! Pointers to nested functions
 
   /* debug information */
-  u32           num_lines;      //<! Number of debug lines reported
-  u32           *lines;         //<! Corresponding line number for each inst
-  trace_t       trace;          //<! JIT tracing information
-  i32           *preds;         //<! Predecessor array
+  u32         num_lines;        //<! Number of debug lines reported
+  u32         *lines;           //<! Corresponding line number for each inst
+  trace_t     trace;            //<! JIT tracing information
+  i32         *preds;           //<! Predecessor array
+
+  u8          compilable;       //<! Whether the function can be fully compiled
+  jfunc_t     jfunc;            //<! The fully compiled versio of this function
 } lfunc_t;
 
 /* Package for representing a C function */

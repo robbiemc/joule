@@ -194,6 +194,29 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size) {
     }
   }
 
+  // check if this function is fully compilable
+  u8 compilable = (func->num_parameters < 6);
+  for (pc = 0; (u32) pc < func->num_instrs; pc++) {
+    if (!compilable) break;
+    u32 instr = func->instrs[pc].instr;
+    switch (OP(instr)) {
+      case OP_TAILCALL:
+      case OP_VARARG:
+        compilable = FALSE;
+        break;
+      case OP_SETLIST:
+        compilable = (B(instr) != 0);
+        break;
+      case OP_CALL:
+        compilable = (B(instr) != 0 && C(instr) != 0);
+        break;
+      case OP_RETURN:
+        compilable = (B(instr) == 1 || B(instr) == 2);
+        break;
+    }
+  }
+  func->compilable = compilable;
+
   // constants :(
   func->num_consts = xread4(fd);
   func->consts = gc_alloc(func->num_consts * sizeof(luav), LANY);
