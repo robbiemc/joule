@@ -487,8 +487,11 @@ top:
       /* Call a closure in a register, with a glob of parameters, receiving a
          glob of return values */
       case OP_CALL: {
-        /* TODO: trace information... */
         a = A(code); b = B(code); c = C(code);
+        /* Trace which function we're calling */
+        if (lv_isfunction(a)) {
+          func->trace.tables[pc].value = (luav) lv_getfunction(a, 0);
+        }
         /* If we don't know how many arguments we're giving, then it's the last
            number of arguments received from some previous instruction */
         u32 num_args = b == 0 ? closure->last_ret - a - 1 : b - 1;
