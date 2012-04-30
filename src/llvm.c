@@ -122,6 +122,7 @@ static Value llvm_lhash_set;
 static Value llvm_vm_fun;
 static Value llvm_memcpy;
 static Value llvm_memmove;
+static Value llvm_gc_check;
 static Value llvm_functions[128];
 static u32   llvm_fn_cnt = 0;
 
@@ -211,12 +212,14 @@ void llvm_init() {
   ADD_FUNCTION(lv_concat, llvm_u64, 2, llvm_u64, llvm_u64);
   ADD_FUNCTION(lhash_array, LLVMVoidType(), 3, llvm_void_ptr, llvm_u64_ptr,
                llvm_u32);
+  ADD_FUNCTION(gc_check, LLVMVoidType(), 0);
 
   llvm_lhash_get = LLVMGetNamedFunction(module, "lhash_get");
   llvm_lhash_set = LLVMGetNamedFunction(module, "lhash_set");
   llvm_vm_fun    = LLVMGetNamedFunction(module, "vm_fun");
   llvm_memcpy    = LLVMGetNamedFunction(module, "llvm.memcpy.p0i8.p0i8.i32");
   llvm_memmove   = LLVMGetNamedFunction(module, "llvm.memmove.p0i8.p0i8.i32");
+  llvm_gc_check  = LLVMGetNamedFunction(module, "gc_check");
 }
 
 /**
@@ -561,6 +564,9 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       regtyps[i] = lv_gettype(stack[i]);
     }
   }
+
+  LLVMPositionBuilderAtEnd(builder, blocks[start]);
+  LLVMBuildCall(builder, llvm_gc_check, NULL, 0, "");
 
   /* Translate! */
   for (i = start; i <= end;) {
@@ -1376,7 +1382,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
         /* Put our arguments on to the lua stack */
         Value stack = get_stack_base(base_addr, stacki, "");
-        for (j = a + 1; j < a + 3; j++) {
+        for (j = 0; j < func->max_stack; j++) {
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = build_reg(&s, j);
