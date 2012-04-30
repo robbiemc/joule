@@ -273,6 +273,19 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent, LSTATE) {
   if (closure->type == LUAF_LUA) {
     stack = vm_stack_alloc(vm_stack, (u32) closure->function.lua->max_stack);
   }
+
+  /* Aligned memory accesses are much better */
+  vm_running = &frame;
+  u32 ret = vm_funi(closure, parent, stack, 1, 0, argc, argvi, retc, retvi);
+  assert(vm_running == parent);
+  return ret;
+}
+
+u32 vm_funi(lclosure_t *closure, lframe_t *parent, u32 stack, u32 init, u32 pc,
+            LSTATE) {
+  u32 i, a, b, c, limit;
+  luav temp;
+  lfunc_t *func;
   /* TAILCALL works by packing all of the arguments into the current stack
      frame, and then growing the stack for the next call frame. This means
      that the stack to deallocate to can change, so keep a copy of the absolute
@@ -280,46 +293,41 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent, LSTATE) {
   u32 stack_orig = stack;
   /* Entry point of TAILCALL */
 top:
-  frame.caller  = parent;
-  frame.closure = closure;
-  vm_running    = &frame;
+  func = closure->function.lua;
+  if (init) {
+    vm_running->caller  = parent;
+    vm_running->closure = closure;
 
-  /* handle c functions */
-  if (closure->type != LUAF_LUA) {
-    u32 ret = closure->function.c->f(argc, argvi, retc, retvi);
-    vm_running = parent;
-    if (stack != stack_orig) {
-      vm_stack_dealloc(vm_stack, stack_orig);
+    /* handle c functions */
+    if (closure->type != LUAF_LUA) {
+      u32 ret = closure->function.c->f(argc, argvi, retc, retvi);
+      vm_running = parent;
+      if (stack != stack_orig) {
+        vm_stack_dealloc(vm_stack, stack_orig);
+      }
+      return ret;
     }
-    return ret;
-  }
 
-  u32 i, a, b, c, limit, pc;
-  u32 upvalues = 0;
-  lfunc_t *func = closure->function.lua;
-  instr_t *instrs = func->instrs;
-  frame.pc = &instrs;
-  luav temp;
-  assert(closure->env != NULL);
-  closure->last_ret = 0;
+    assert(closure->env != NULL);
+    closure->last_ret = 0;
 
-  /* Copy all arguments onto our stack, located in the lowest registers.
-     Might need to grow the stack if we're a VARARG function, and otherwise
-     might need to clip our number of parameters. */
-  if (func->is_vararg) {
-    if (argc > func->max_stack) {
-      vm_stack_grow(vm_stack, argc - func->max_stack);
+    /* Copy all arguments onto our stack, located in the lowest registers.
+       Might need to grow the stack if we're a VARARG function, and otherwise
+       might need to clip our number of parameters. */
+    if (func->is_vararg) {
+      if (argc > func->max_stack) {
+        vm_stack_grow(vm_stack, argc - func->max_stack);
+      }
+    } else if (argc > func->num_parameters) {
+      argc = func->num_parameters;
     }
-  } else if (argc > func->num_parameters) {
-    argc = func->num_parameters;
+    memcpy(&STACK(0), &vm_stack->base[argvi], sizeof(luav) * argc);
+    assert(&STACK(argc) <= vm_stack->top);
+    lv_nilify(&STACK(argc), vm_stack->size - argc - stack);
   }
-  memcpy(&STACK(0), &vm_stack->base[argvi], sizeof(luav) * argc);
-  assert(&STACK(argc) <= vm_stack->top);
-  lv_nilify(&STACK(argc), vm_stack->size - argc - stack);
-
-  /* Aligned memory accesses are much better */
+  instr_t *instrs = &func->instrs[pc];
+  vm_running->pc = &instrs;
   assert((((size_t) instrs) & 3) == 0);
-
   /* Core VM loop, also really slow VM loop... */
   while (1) {
     assert(instrs < func->instrs + func->num_instrs);
@@ -328,7 +336,7 @@ top:
     // check if we should compile
     if ((pc == 0 || func->preds[pc] != -1) &&
         instrs->count < INVAL_RUN_COUNT && instrs->count > COMPILE_COUNT &&
-        instrs->jfunc.binary == NULL) {
+        instrs->jfunc.binary == NULL && 0) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
         end_index = (i32) func->num_instrs - 1;
@@ -403,7 +411,7 @@ top:
       case OP_GETGLOBAL: {
         luav key = CONST(BX(code));
         assert(lv_isstring(key));
-        luav val = meta_lhash_get(lv_table(closure->env), key, &frame);
+        luav val = meta_lhash_get(lv_table(closure->env), key, vm_running);
         SETTRACETABLE(closure->env, val);
         SETREG(A(code), val);
         SETTRACE(0, val);
@@ -414,7 +422,7 @@ top:
       case OP_SETGLOBAL: {
         luav key = CONST(BX(code));
         luav value = REG(A(code));
-        meta_lhash_set(lv_table(closure->env), key, value, &frame);
+        meta_lhash_set(lv_table(closure->env), key, value, vm_running);
         gc_check();
         break;
       }
@@ -423,7 +431,7 @@ top:
       case OP_GETTABLE: {
         luav table = REG(B(code));
         luav key = KREG(C(code));
-        luav val = meta_lhash_get(table, key, &frame);
+        luav val = meta_lhash_get(table, key, vm_running);
         if (lv_istable(table))
           SETTRACETABLE((lhash_t*) lv_getptr(table), val);
         SETREG(A(code), val);
@@ -436,7 +444,7 @@ top:
         luav table = REG(A(code));
         luav key = KREG(B(code));
         luav value = KREG(C(code));
-        meta_lhash_set(table, key, value, &frame);
+        meta_lhash_set(table, key, value, vm_running);
         gc_check();
         break;
       }
@@ -498,7 +506,7 @@ top:
                               want_ret, STACKI(a));
         } else {
           lclosure_t *closure2 = lv_getfunction(REG(a), 0);
-          got = vm_fun(closure2, &frame, num_args, STACKI(a + 1),
+          got = vm_fun(closure2, vm_running, num_args, STACKI(a + 1),
                                          want_ret, STACKI(a));
         }
         /* If we didn't get all the return values we wanted, then we need to
@@ -525,9 +533,7 @@ top:
            received a glob of parameters and kept track of what it got */
         limit = b == 0 ? closure->last_ret - a : b - 1;
         /* the RETURN opcode implicitly performs a CLOSE operation */
-        if (upvalues > 0) {
-          upvalues -= op_close(vm_stack->size - stack, vm_stack->base + stack);
-        }
+        op_close(vm_stack->size - stack, vm_stack->base + stack);
         /* TODO: does this need to grow the stack? */
         for (i = 0; i < limit && i < retc; i++) {
           vm_stack->base[retvi + i] = REG(a + i);
@@ -581,6 +587,7 @@ top:
         if (closure->type == LUAF_LUA) {
           stack = vm_stack_alloc(vm_stack, closure->function.lua->max_stack);
         }
+        pc = 0;
         goto top;
       }
 
@@ -618,7 +625,6 @@ top:
               upvalue = lupvalue_alloc(temp);
               STACK(B(pseudo)) = upvalue;
             }
-            upvalues++;
           } else {
             upvalue = UPVALUE(closure, B(pseudo));
           }
@@ -633,7 +639,7 @@ top:
 
       case OP_CLOSE:
         a = A(code);
-        upvalues -= op_close(vm_stack->size - stack - a, &STACK(a));
+        op_close(vm_stack->size - stack - a, &STACK(a));
         break;
 
       case OP_JMP:
@@ -703,20 +709,20 @@ top:
       #define BINOP_DIV(a,b) ((a)/(b))
       #define BINOP_MOD(a,b) ((a) - floor((a)/(b))*(b))
       #define BINOP_POW(a,b) (pow((a), (b)))
-      #define META_ARITH_BINARY(op, idx) {                        \
-        a = A(code);                                              \
-        luav bv = KREG(B(code));                                  \
-        luav cv = KREG(C(code));                                  \
-        if (lv_isnumber(bv) && lv_isnumber(cv)) {                 \
-          SETREG(a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));       \
-          break;                                                  \
-        }                                                         \
-        if (meta_binary(bv, idx, bv, cv, STACKI(a), &frame) ||    \
-            meta_binary(cv, idx, bv, cv, STACKI(a), &frame))      \
-          break;                                                  \
-        double bd = lv_castnumber(bv, 0);                         \
-        double cd = lv_castnumber(cv, 1);                         \
-        SETREG(a, lv_number(op(bd, cd)));                         \
+      #define META_ARITH_BINARY(op, idx) {                             \
+        a = A(code);                                                   \
+        luav bv = KREG(B(code));                                       \
+        luav cv = KREG(C(code));                                       \
+        if (lv_isnumber(bv) && lv_isnumber(cv)) {                      \
+          SETREG(a, lv_number(op(lv_cvt(bv), lv_cvt(cv))));            \
+          break;                                                       \
+        }                                                              \
+        if (meta_binary(bv, idx, bv, cv, STACKI(a), vm_running) ||     \
+            meta_binary(cv, idx, bv, cv, STACKI(a), vm_running))       \
+          break;                                                       \
+        double bd = lv_castnumber(bv, 0);                              \
+        double cd = lv_castnumber(cv, 1);                              \
+        SETREG(a, lv_number(op(bd, cd)));                              \
       }
       case OP_ADD: META_ARITH_BINARY(BINOP_ADD, META_ADD); break;
       case OP_SUB: META_ARITH_BINARY(BINOP_SUB, META_SUB); break;
@@ -732,7 +738,7 @@ top:
           SETREG(a, lv_number(-lv_cvt(bv)));
           break;
         }
-        if (meta_unary(bv, META_UNM, STACKI(a), &frame))
+        if (meta_unary(bv, META_UNM, STACKI(a), vm_running))
           break;
         SETREG(a, lv_number(-lv_castnumber(bv, 0)));
         break;
@@ -849,7 +855,7 @@ top:
       case OP_SELF: {
         luav bv = REG(B(code));
         SETREG(A(code) + 1, bv);
-        luav val = meta_lhash_get(bv, KREG(C(code)), &frame);
+        luav val = meta_lhash_get(bv, KREG(C(code)), vm_running);
         SETREG(A(code), val);
         SETTRACE(0, val);
         SETTRACE(1, bv);
@@ -860,9 +866,10 @@ top:
         /* TODO: trace information */
         a = A(code); c = C(code);
         lclosure_t *closure2 = lv_getfunction(REG(a), 0);
-        u32 got = vm_fun(closure2, &frame, 2, STACKI(a + 1),
+        lframe_t *me = vm_running;
+        u32 got = vm_fun(closure2, vm_running, 2, STACKI(a + 1),
                                    c, STACKI(a + 3));
-        vm_running = &frame;
+        vm_running = me;
         temp = REG(a + 3);
         if (got == 0 || temp == LUAV_NIL) {
           instrs++;
