@@ -591,6 +591,7 @@ top:
           stack = vm_stack_alloc(vm_stack, closure->function.lua->max_stack);
         }
         pc = 0;
+        init = 1;
         goto top;
       }
 
