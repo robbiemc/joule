@@ -474,6 +474,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     blocks[i] = LLVMAppendBasicBlock(function, name);
   }
   LLVMPositionBuilderAtEnd(builder, startbb);
+  LLVMBuildCall(builder, llvm_gc_check, NULL, 0, "");
   for (i = 0; i < func->num_consts; i++) {
     consts[i] = LLVMConstInt(llvm_u64, func->consts[i], FALSE);
   }
@@ -564,9 +565,6 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       regtyps[i] = lv_gettype(stack[i]);
     }
   }
-
-  LLVMPositionBuilderAtEnd(builder, blocks[start]);
-  LLVMBuildCall(builder, llvm_gc_check, NULL, 0, "");
 
   /* Translate! */
   for (i = start; i <= end;) {
