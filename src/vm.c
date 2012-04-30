@@ -336,7 +336,7 @@ top:
     // check if we should compile
     if ((pc == 0 || func->preds[pc] != -1) &&
         instrs->count < INVAL_RUN_COUNT && instrs->count > COMPILE_COUNT &&
-        instrs->jfunc.binary == NULL && 0) {
+        instrs->jfunc.binary == NULL) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
         end_index = (i32) func->num_instrs - 1;
