@@ -159,6 +159,7 @@ void llvm_init() {
   LLVMAddSCCPPass(pass_manager);
   LLVMAddInstructionCombiningPass(pass_manager);
   LLVMAddMemCpyOptPass(pass_manager);
+  LLVMAddTailCallEliminationPass(pass_manager);
   LLVMInitializeFunctionPassManager(pass_manager);
 
   /* Builder and execution engine */
