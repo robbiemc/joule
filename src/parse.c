@@ -174,6 +174,8 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size) {
     func->instrs[i].jfunc.value  = NULL;
   }
   trace_init(&func->trace, func->num_instrs);
+  func->jfunc.binary = NULL;
+  func->jfunc.value  = NULL;
 
   // compute the predecessor information
   i32 pc;
