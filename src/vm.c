@@ -279,13 +279,11 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent, LSTATE) {
 
     // Call the fully compiled function if we can
     if (func->jfunc.binary != NULL) {
+      luav args[6] = {[0 ... 5] = LUAV_NIL};
+      memcpy(args, &vm_stack->base[argvi], argc * sizeof(luav));
       luav (*f)() = func->jfunc.binary;
-      luav ret = f(closure, vm_stack->base[argvi + 0],
-                            vm_stack->base[argvi + 1],
-                            vm_stack->base[argvi + 2],
-                            vm_stack->base[argvi + 3],
-                            vm_stack->base[argvi + 4],
-                            vm_stack->base[argvi + 5]);
+      luav ret = f(closure, args[0], args[1], args[2],
+                            args[3], args[4], args[5]);
       if (retc >= 1) {
         vm_stack->base[retvi] = ret;
       }
