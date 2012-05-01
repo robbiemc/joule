@@ -489,6 +489,52 @@ static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
 }
 
 /**
+ * @brief Builds the prolog for a partially compiled function segment
+ */
+static void build_partial_prolog(state_t *state, prolog_t *pro,
+                                 Value last_ret_addr, Value last_ret) {
+  /* Calculate stacki, and LSTATE */
+  Value jargs   = LLVMGetParam(state->function, 1);
+  Value stackio = LLVMConstInt(llvm_u32, JSTACKI, FALSE);
+  Value stackia = LLVMBuildInBoundsGEP(builder, jargs, &stackio, 1, "");
+  *pro->stacki  = LLVMBuildLoad(builder, stackia, "stacki");
+  Value retco   = LLVMConstInt(llvm_u32, JRETC, FALSE);
+  Value retca   = LLVMBuildInBoundsGEP(builder, jargs, &retco, 1, "");
+  *pro->retc    = LLVMBuildLoad(builder, retca, "retc");
+  Value retvio  = LLVMConstInt(llvm_u32, JRETVI, FALSE);
+  Value retvia  = LLVMBuildInBoundsGEP(builder, jargs, &retvio, 1, "");
+  *pro->retvi   = LLVMBuildLoad(builder, retvia, "retvi");
+  Value argco   = LLVMConstInt(llvm_u32, JARGC, FALSE);
+  *pro->argca   = LLVMBuildInBoundsGEP(builder, jargs, &argco, 1, "");
+  *pro->argc    = LLVMBuildLoad(builder, *pro->argca, "argc");
+  Value argvio  = LLVMConstInt(llvm_u32, JARGVI, FALSE);
+  *pro->argvia  = LLVMBuildInBoundsGEP(builder, jargs, &argvio, 1, "");
+  *pro->argvi   = LLVMBuildLoad(builder, *pro->argvia, "argvi");
+
+  /* Load last_ret */
+  LLVMBuildStore(builder, LLVMBuildLoad(builder, last_ret_addr, ""), last_ret);
+
+  /* Calculate the currently running frame (parent of all other invocations) */
+  Value parent = LLVMConstInt(llvm_u64, (size_t) &vm_running, FALSE);
+  parent       = LLVMConstIntToPtr(parent, llvm_void_ptr_ptr);
+  *pro->parent  = LLVMBuildLoad(builder, parent, "parent");
+
+  /* Load address of vm_stack->base points to */
+  Value base_addr = get_vm_stack_base();
+
+  /* Copy the lua stack onto the C stack */
+  u32 i;
+  Value lstack = get_stack_base(base_addr, *pro->stacki, "lstack");
+  for (i = 0; i < state->func->max_stack; i++) {
+    Value off  = LLVMConstInt(llvm_u32, i, 0);
+    Value addr = LLVMBuildInBoundsGEP(builder, lstack, &off, 1, "");
+    Value val  = LLVMBuildLoad(builder, addr, "");
+    LLVMBuildStore(builder, val, state->regs[i]);
+  }
+
+}
+
+/**
  * @brief JIT-Compile a function
  *
  * @param func the function to compile
@@ -513,12 +559,12 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   u8    regtyps[func->max_stack];
   char name[20];
   u32 i, j;
-  Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
 
-  Type  funtyp   = LLVMFunctionType(llvm_u32, params, 2, FALSE);
+  /* Create the function and state */
+  Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
+  Type funtyp    = LLVMFunctionType(llvm_u32, params, 2, FALSE);
   Value function = LLVMAddFunction(module, "test", funtyp);
-  Value closure  = LLVMGetParam(function, 0);
-  Value jargs    = LLVMGetParam(function, 1);
+  Value closure = LLVMGetParam(function, 0);
   state_t s = {
     .regs     = regs,
     .consts   = consts,
@@ -546,59 +592,37 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   for (i = 0; i < func->max_stack; i++) {
     regs[i] = LLVMBuildAlloca(builder, llvm_u64, "");
   }
+  Value offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, last_ret), 0);
   Value ret_val  = LLVMBuildAlloca(builder, llvm_i32, "ret_val");
   Value last_ret = LLVMBuildAlloca(builder, llvm_i32, "last_ret");
+  Value last_ret_addr = LLVMBuildInBoundsGEP(builder, closure, &offset, 1,"");
+  last_ret_addr = LLVMBuildBitCast(builder, last_ret_addr, llvm_u32_ptr, "");
 
-  /* Calculate stacki, and LSTATE */
-  Value stackio = LLVMConstInt(llvm_u32, JSTACKI, FALSE);
-  Value stackia = LLVMBuildInBoundsGEP(builder, jargs, &stackio, 1, "");
-  Value stacki  = LLVMBuildLoad(builder, stackia, "stacki");
-  Value retco   = LLVMConstInt(llvm_u32, JRETC, FALSE);
-  Value retca   = LLVMBuildInBoundsGEP(builder, jargs, &retco, 1, "");
-  Value retc    = LLVMBuildLoad(builder, retca, "retc");
-  Value retvio  = LLVMConstInt(llvm_u32, JRETVI, FALSE);
-  Value retvia  = LLVMBuildInBoundsGEP(builder, jargs, &retvio, 1, "");
-  Value retvi   = LLVMBuildLoad(builder, retvia, "retvi");
-  Value argco   = LLVMConstInt(llvm_u32, JARGC, FALSE);
-  Value argca   = LLVMBuildInBoundsGEP(builder, jargs, &argco, 1, "");
-  Value argc    = LLVMBuildLoad(builder, argca, "argc");
-  Value argvio  = LLVMConstInt(llvm_u32, JARGVI, FALSE);
-  Value argvia  = LLVMBuildInBoundsGEP(builder, jargs, &argvio, 1, "");
-  Value argvi   = LLVMBuildLoad(builder, argvia, "argvi");
+  /* Create the function prolog */
+  Value stacki, retc, retvi, argc, argca, argvi, argvia, parent;
+  prolog_t pro = {
+    .stacki   = &stacki,
+    .retc     = &retc,
+    .retvi    = &retvi,
+    .argc     = &argc,
+    .argca    = &argca,
+    .argvi    = &argvi,
+    .argvia   = &argvia,
+    .parent   = &parent
+  };
+  build_partial_prolog(&s, &pro, last_ret_addr, last_ret);
 
   /* Calculate closure->env */
-  Value offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
+  offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
   Value env_addr = LLVMBuildInBoundsGEP(builder, closure, &offset, 1,"");
   env_addr = LLVMBuildBitCast(builder, env_addr, llvm_void_ptr_ptr, "");
   Value closure_env = LLVMBuildLoad(builder, env_addr, "env");
 
-  /* Load last_ret */
-  offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, last_ret), 0);
-  Value last_ret_addr = LLVMBuildInBoundsGEP(builder, closure, &offset, 1,"");
-  last_ret_addr = LLVMBuildBitCast(builder, last_ret_addr, llvm_u32_ptr, "");
-  LLVMBuildStore(builder, LLVMBuildLoad(builder, last_ret_addr, ""), last_ret);
-
-  /* Calculate &closure->upvalues */
+  /* Calculate &closure->upvalues, and jump to instruction 'start' */
   Value upv_off  = LLVMConstInt(llvm_u64, offsetof(lclosure_t, upvalues), 0);
   Value upv_addr = LLVMBuildInBoundsGEP(builder, closure, &upv_off, 1,"");
   Value upvalues = LLVMBuildBitCast(builder, upv_addr, llvm_u64_ptr, "");
-
-  /* Calculate the currently running frame (parent of all other invocations) */
-  Value parent = LLVMConstInt(llvm_u64, (size_t) &vm_running, FALSE);
-  parent = LLVMConstIntToPtr(parent, llvm_void_ptr_ptr);
-  parent = LLVMBuildLoad(builder, parent, "parent");
-
-  /* Load address of vm_stack->base points to */
   Value base_addr = get_vm_stack_base();
-
-  /* Copy the lua stack onto the C stack */
-  Value lstack = get_stack_base(base_addr, stacki, "lstack");
-  for (i = 0; i < func->max_stack; i++) {
-    Value off  = LLVMConstInt(llvm_u32, i, 0);
-    Value addr = LLVMBuildInBoundsGEP(builder, lstack, &off, 1, "");
-    Value val  = LLVMBuildLoad(builder, addr, "");
-    LLVMBuildStore(builder, val, regs[i]);
-  }
   LLVMBuildBr(builder, blocks[start]);
 
   /* Create exit block */
