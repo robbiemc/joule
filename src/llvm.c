@@ -556,14 +556,6 @@ static Value build_dynload(void *ptr, Value *addr) {
 
 static void build_full_prolog(state_t *s, prolog_t *p) {
   u32 i;
-  Type targs[s->func->num_parameters + 1];
-  targs[0] = llvm_void_ptr;
-  for (i = 0; i < s->func->max_stack; i++) {
-    targs[i + 1] = llvm_u64;
-  }
-  Type funtyp = LLVMFunctionType(llvm_u64, targs, s->func->num_parameters + 1,
-                                 FALSE);
-  s->function = LLVMAddFunction(module, "compiled", funtyp);
   lfunc_t *func = s->func;
   /* These all don't matter in full function compilation */
   *p->argc = *p->argvi = *p->retc = *p->retvi = *p->argca = *p->argvia =
@@ -571,11 +563,11 @@ static void build_full_prolog(state_t *s, prolog_t *p) {
 
   /* Place all arguments into their registers */
   for (i = 0; i < func->num_parameters; i++) {
-    LLVMBuildStore(builder, s->regs[i], LLVMGetParam(s->function, i + 1));
+    LLVMBuildStore(builder, LLVMGetParam(s->function, i + 1), s->regs[i]);
   }
   /* Nil-ify all other registers */
   for (; i < func->max_stack; i++) {
-    LLVMBuildStore(builder, s->regs[i], lvc_nil);
+    LLVMBuildStore(builder, lvc_nil, s->regs[i]);
   }
   Value closure = LLVMGetParam(s->function, 0);
   /* Figure out the current parent */
@@ -590,8 +582,8 @@ static void build_full_prolog(state_t *s, prolog_t *p) {
   LLVMBuildStore(builder, lvc_null, LLVMBuildStructGEP(builder, frame, 1, ""));
   LLVMBuildStore(builder, parent, LLVMBuildStructGEP(builder, frame, 2, ""));
   /* Set ourselves as the currently running frame */
-  LLVMBuildStore(builder, frame, parent_addr);
-  *p->parent = frame;
+  *p->parent = LLVMBuildBitCast(builder, frame, llvm_void_ptr, "");
+  LLVMBuildStore(builder, *p->parent, parent_addr);
 
   /* Allocate some lua stack */
   Value args[2] = {
@@ -626,11 +618,24 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   u8    regtyps[func->max_stack];
   char name[20];
   u32 i, j;
+  int full_compile = start == 0 && func->compilable;
 
   /* Create the function and state */
-  Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
-  Type funtyp    = LLVMFunctionType(llvm_u32, params, 2, FALSE);
-  Value function = LLVMAddFunction(module, "test", funtyp);
+  Value function;
+  if (full_compile) {
+    Type targs[func->num_parameters + 1];
+    targs[0] = llvm_void_ptr;
+    for (i = 0; i < func->max_stack; i++) {
+      targs[i + 1] = llvm_u64;
+    }
+    Type funtyp = LLVMFunctionType(llvm_u64, targs, func->num_parameters + 1,
+                                   FALSE);
+    function = LLVMAddFunction(module, "compiled", funtyp);
+  } else {
+    Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
+    Type funtyp    = LLVMFunctionType(llvm_u32, params, 2, FALSE);
+    function = LLVMAddFunction(module, "test", funtyp);
+  }
   Value closure = LLVMGetParam(function, 0);
   state_t s = {
     .regs     = regs,
@@ -641,7 +646,6 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     .blocks   = blocks
   };
 
-  int full_compile = start == 0 && func->compilable;
 
   BasicBlock startbb = LLVMAppendBasicBlock(function, "start");
   /* Create the blocks and allocas */
@@ -903,7 +907,20 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
       case OP_RETURN: {
         Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
-        if (B(code) == 0) {
+        if (full_compile) {
+          switch(B(code)) {
+            case 1:
+              LLVMBuildRet(builder, lvc_nil);
+              break;
+            case 2:
+              LLVMBuildRet(builder, build_reg(&s, A(code)));
+              break;
+            default:
+              panic("should not be fully compilable");
+          }
+
+          break;
+        } else if (B(code) == 0) {
           Value stack = get_stack_base(base_addr, stacki, "");
           /* Store remaining registers onto our lua stack */
           i32 end_stores = get_varbase(&s, i);
