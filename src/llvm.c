@@ -625,8 +625,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     for (i = 0; i < func->max_stack; i++) {
       targs[i + 1] = llvm_u64;
     }
-    Type funtyp = LLVMFunctionType(llvm_u64, targs, func->num_parameters + 1,
-                                   FALSE);
+    Type funtyp = LLVMFunctionType(llvm_u64, targs,
+                                   (u32) (func->num_parameters + 1), FALSE);
     function = LLVMAddFunction(module, "compiled", funtyp);
     jfun = &func->jfunc;
   } else {

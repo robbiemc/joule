@@ -48,6 +48,8 @@
       func->trace.misc[pc].table.pointer = (tbl);           \
       func->trace.misc[pc].table.version = (tbl)->version;  \
       func->trace.misc[pc].table.value   = (val);
+#define COMPILABLE(instr) ((instr)->count < INVAL_RUN_COUNT &&  \
+                           (instr)->count > COMPILE_COUNT)
 
 lhash_t *userdata_meta;      //<! metatables for all existing userdata
 lhash_t *lua_globals;        //<! default global environment
@@ -264,7 +266,32 @@ void vm_run(lfunc_t *func) {
  * @param LSTATE the lua state being invoked
  */
 u32 vm_fun(lclosure_t *closure, lframe_t *parent, LSTATE) {
-  lframe_t frame;
+  if (closure->type == LUAF_LUA) {
+    lfunc_t *func = closure->function.lua;
+    if (func->compilable && COMPILABLE(&func->instrs[0]) &&
+        func->jfunc.binary == NULL) {
+      i32 ret = llvm_compile(func, 0, (u32) (func->num_instrs - 1),
+                             &vm_stack->base[argvi], TRUE);
+      if (ret < 0) {
+        func->instrs[0].count = INVAL_RUN_COUNT;
+      }
+    }
+
+    // Call the fully compiled function if we can
+    if (func->jfunc.binary != NULL) {
+      luav (*f)() = func->jfunc.binary;
+      luav ret = f(closure, vm_stack->base[argvi + 0],
+                            vm_stack->base[argvi + 1],
+                            vm_stack->base[argvi + 2],
+                            vm_stack->base[argvi + 3],
+                            vm_stack->base[argvi + 4],
+                            vm_stack->base[argvi + 5]);
+      if (retc >= 1) {
+        vm_stack->base[retvi] = ret;
+      }
+      return 1;
+    }
+  }
 
   /* If we hit a TAILCALL, we don't want to continue to allocate stack, so
      get the stack before the 'top:' label. Also, no need to get stack if we're
@@ -275,6 +302,7 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent, LSTATE) {
   }
 
   /* Aligned memory accesses are much better */
+  lframe_t frame;
   vm_running = &frame;
   u32 ret = vm_funi(closure, parent, stack, 1, 0, argc, argvi, retc, retvi);
   assert(vm_running == parent);
@@ -334,15 +362,14 @@ top:
     pc = (u32) (instrs - func->instrs);
 
     // check if we should compile
-    if ((pc == 0 || func->preds[pc] != -1) &&
-        instrs->count < INVAL_RUN_COUNT && instrs->count > COMPILE_COUNT &&
+    if ((pc == 0 || func->preds[pc] != -1) && COMPILABLE(instrs) &&
         instrs->jfunc.binary == NULL) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
         end_index = (i32) func->num_instrs - 1;
       }
       i32 success = llvm_compile(func, pc, (u32) end_index,
-                                 &STACK(0), &instrs->jfunc);
+                                 &STACK(0), FALSE);
       if (success < 0) {
         instrs->count = INVAL_RUN_COUNT;
       }
