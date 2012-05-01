@@ -12,19 +12,26 @@
 #define TRACE_ISCONST(v) ((v) & TRACE_CONST)
 #define TRACE_TYPEMASK 0xf
 
+struct lclosure;
+
 typedef u8 traceinfo_t[TRACELIMIT];
 
 typedef struct tableinfo {
-  struct lhash  *table;
+  struct lhash  *pointer;
   u64           version;
   luav          value;
 } tableinfo_t;
+
+typedef union misc {
+  tableinfo_t table;
+  struct lclosure *closure;
+} misc_t;
 
 /* Package for tracing information */
 typedef struct trace {
   traceinfo_t args;
   traceinfo_t *instrs;
-  tableinfo_t *tables;
+  misc_t      *misc;
 } trace_t;
 
 void trace_init(trace_t *trace, size_t instrs);

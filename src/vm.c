@@ -44,10 +44,10 @@
   })
 #define SETTRACE(traceidx, val) \
       func->trace.instrs[pc][traceidx] = lv_gettype(val)
-#define SETTRACETABLE(tbl, val)                         \
-      func->trace.tables[pc].table   = (tbl);           \
-      func->trace.tables[pc].version = (tbl)->version;  \
-      func->trace.tables[pc].value   = (val);
+#define SETTRACETABLE(tbl, val)                             \
+      func->trace.misc[pc].table.pointer = (tbl);           \
+      func->trace.misc[pc].table.version = (tbl)->version;  \
+      func->trace.misc[pc].table.value   = (val);
 
 lhash_t *userdata_meta;      //<! metatables for all existing userdata
 lhash_t *lua_globals;        //<! default global environment
@@ -489,9 +489,8 @@ top:
       case OP_CALL: {
         a = A(code); b = B(code); c = C(code);
         /* Trace which function we're calling */
-        if (lv_isfunction(a)) {
-          func->trace.tables[pc].value = (luav) lv_getfunction(a, 0);
-        }
+        func->trace.misc[pc].closure = lv_isfunction(a) ?
+                                       lv_getfunction(a, 0) : NULL;
         /* If we don't know how many arguments we're giving, then it's the last
            number of arguments received from some previous instruction */
         u32 num_args = b == 0 ? closure->last_ret - a - 1 : b - 1;

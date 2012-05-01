@@ -437,9 +437,9 @@ static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
     equal = LLVMAppendBasicBlock(state->function, "");
     diff = LLVMAppendBasicBlock(state->function, "");
     Value version = build_lhash_version(table);
-    u64 *trace_version    = &state->func->trace.tables[i].version;
-    luav *trace_value     = &state->func->trace.tables[i].value;
-    lhash_t **trace_table = &state->func->trace.tables[i].table;
+    u64 *trace_version    = &state->func->trace.misc[i].table.version;
+    luav *trace_value     = &state->func->trace.misc[i].table.value;
+    lhash_t **trace_table = &state->func->trace.misc[i].table.pointer;
     Value tversion = LLVMConstInt(llvm_u64, (size_t) trace_version, FALSE);
     Value tvalue = LLVMConstInt(llvm_u64, (size_t) trace_value, FALSE);
     Value ttable = LLVMConstInt(llvm_u64, (size_t) trace_table, FALSE);
