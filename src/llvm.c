@@ -923,6 +923,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
           break;
         } else if (B(code) == 0) {
+          xassert(full_compile == FALSE);
           Value stack = get_stack_base(base_addr, stacki, "");
           /* Store remaining registers onto our lua stack */
           i32 end_stores = get_varbase(&s, i);
@@ -1135,6 +1136,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
            everything is already on the stack anyway and it'd just be a pain to
            do this in LLVM */
         if (B(code) == 0) {
+          xassert(full_compile == FALSE);
           /* Get the arguments for lhash_array */
           Value map = TOPTR(build_reg(&s, A(code)));
           Value stack = get_stack_base(base_addr, stacki, "");
@@ -1290,6 +1292,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         u32 num_rets = C(code) - 1;
         u32 end_stores;
         if (B(code) == 0) {
+          xassert(full_compile == FALSE);
           i32 tmp = get_varbase(&s, i);
           if (tmp < 0) { warn("B0 OP_CALL bad"); EXIT_FAIL; }
           end_stores = (u32) tmp;
@@ -1319,6 +1322,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         Value av = LLVMConstInt(llvm_u32, a, FALSE);
         Value lnumargs;
         if (B(code) == 0) {
+          xassert(full_compile == FALSE);
           Value tmp = LLVMBuildLoad(builder, last_ret, "");
           lnumargs = LLVMBuildSub(builder, tmp, av, "");
           lnumargs = LLVMBuildSub(builder, lnumargs, lvc_32_one, "");
@@ -1470,6 +1474,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
         /* B == 0 => memcpy */
         if (B(code) == 0) {
+          xassert(full_compile == FALSE);
           Value stack = get_stack_base(base_addr, stacki, "");
           Value dest  = LLVMConstInt(llvm_u32, A(code), FALSE);
           dest        = LLVMBuildInBoundsGEP(builder, stack, &dest, 1, "");
