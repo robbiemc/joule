@@ -79,6 +79,7 @@ typedef struct lclosure {
 
 /* Metadata for a stack frame of a lua invocation */
 typedef struct lframe {
+  /* If the layout of this structure changes, llvm.c needs to be updated */
   lclosure_t *closure;    //<! What is being run
   instr_t **pc;           //<! How far the program has gotten
   struct lframe *caller;  //<! Parent frame

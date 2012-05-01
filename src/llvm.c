@@ -134,6 +134,7 @@ static Value llvm_vm_fun;
 static Value llvm_memcpy;
 static Value llvm_memmove;
 static Value llvm_gc_check;
+static Value llvm_vm_alloc;
 static Value llvm_functions[128];
 static u32   llvm_fn_cnt = 0;
 
@@ -229,6 +230,7 @@ void llvm_init() {
   ADD_FUNCTION(gc_check, LLVMVoidType(), 0);
   ADD_FUNCTION(vm_funi, llvm_u32, 9, llvm_void_ptr, llvm_void_ptr, llvm_u32,
                llvm_u32, llvm_u32, llvm_u32, llvm_u32, llvm_u32, llvm_u32);
+  ADD_FUNCTION(vm_stack_alloc, llvm_u32, 2, llvm_void_ptr, llvm_u32);
 
   llvm_lhash_get = LLVMGetNamedFunction(module, "lhash_get");
   llvm_lhash_set = LLVMGetNamedFunction(module, "lhash_set");
@@ -236,6 +238,7 @@ void llvm_init() {
   llvm_memcpy    = LLVMGetNamedFunction(module, "llvm.memcpy.p0i8.p0i8.i32");
   llvm_memmove   = LLVMGetNamedFunction(module, "llvm.memmove.p0i8.p0i8.i32");
   llvm_gc_check  = LLVMGetNamedFunction(module, "gc_check");
+  llvm_vm_alloc  = LLVMGetNamedFunction(module, "vm_stack_alloc");
 
   /* Build our trampoline function for when error happens in a fully compiled
      function */
@@ -532,6 +535,68 @@ static void build_partial_prolog(state_t *state, prolog_t *pro,
     LLVMBuildStore(builder, val, state->regs[i]);
   }
 
+}
+
+/**
+ * @brief Build a load at runtime of the specified C pointer
+ *
+ * @param ptr the C pointer to load
+ * @param addr optionally also store the address of the pointer in an llvm value
+ * @return the llvm value which is the load of the given addres, typed as a void
+ *         pointer.
+ */
+static Value build_dynload(void *ptr, Value *addr) {
+  Value llvmaddr = LLVMConstInt(llvm_u64, (size_t) ptr, FALSE);
+  llvmaddr = LLVMConstIntToPtr(llvmaddr, llvm_void_ptr_ptr);
+  if (addr != NULL) { *addr = llvmaddr; }
+  return LLVMBuildLoad(builder, llvmaddr, "");
+}
+
+static void build_full_prolog(state_t *s, prolog_t *p) {
+  u32 i;
+  Type targs[s->func->num_parameters + 1];
+  targs[0] = llvm_void_ptr;
+  for (i = 0; i < s->func->max_stack; i++) {
+    targs[i + 1] = llvm_u64;
+  }
+  Type funtyp = LLVMFunctionType(llvm_u64, targs, s->func->num_parameters + 1,
+                                 FALSE);
+  s->function = LLVMAddFunction(module, "compiled", funtyp);
+  lfunc_t *func = s->func;
+  /* These all don't matter in full function compilation */
+  *p->argc = *p->argvi = *p->retc = *p->retvi = *p->argca = *p->argvia =
+    lvc_32_zero;
+
+  /* Place all arguments into their registers */
+  for (i = 0; i < func->num_parameters; i++) {
+    LLVMBuildStore(builder, s->regs[i], LLVMGetParam(s->function, i + 1));
+  }
+  /* Nil-ify all other registers */
+  for (; i < func->max_stack; i++) {
+    LLVMBuildStore(builder, s->regs[i], lvc_nil);
+  }
+  Value closure = LLVMGetParam(s->function, 0);
+  /* Figure out the current parent */
+  Value parent_addr, parent;
+  parent = build_dynload(&vm_running, &parent_addr);
+
+  /* Allocate a frame on the stack, and fill it in */
+  Type typs[3] = {llvm_void_ptr, llvm_void_ptr, llvm_void_ptr};
+  Type lframe_typ = LLVMStructType(typs, 3, FALSE);
+  Value frame = LLVMBuildAlloca(builder, lframe_typ, "frame");
+  LLVMBuildStore(builder, closure, LLVMBuildStructGEP(builder, frame, 0, ""));
+  LLVMBuildStore(builder, lvc_null, LLVMBuildStructGEP(builder, frame, 1, ""));
+  LLVMBuildStore(builder, parent, LLVMBuildStructGEP(builder, frame, 2, ""));
+  /* Set ourselves as the currently running frame */
+  LLVMBuildStore(builder, frame, parent_addr);
+  *p->parent = frame;
+
+  /* Allocate some lua stack */
+  Value args[2] = {
+    build_dynload(&vm_stack, NULL),
+    LLVMConstInt(llvm_u32, func->max_stack, FALSE)
+  };
+  *p->stacki = LLVMBuildCall(builder, llvm_vm_alloc, args, 2, "stacki");
 }
 
 /**
