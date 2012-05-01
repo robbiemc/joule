@@ -135,6 +135,7 @@ static Value llvm_memcpy;
 static Value llvm_memmove;
 static Value llvm_gc_check;
 static Value llvm_vm_alloc;
+static Value llvm_trampoline;
 static Value llvm_functions[128];
 static u32   llvm_fn_cnt = 0;
 
@@ -250,6 +251,7 @@ void llvm_init() {
   };
   Type funtyp = LLVMFunctionType(llvm_u64, args, 4, FALSE);
   Value func = LLVMAddFunction(module, "trampoline", funtyp);
+  llvm_trampoline = func;
   LLVMAddFunctionAttr(func, LLVMNoInlineAttribute);
   BasicBlock b = LLVMAppendBasicBlock(func, "");
   LLVMPositionBuilderAtEnd(builder, b);
@@ -639,6 +641,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     .blocks   = blocks
   };
 
+  int full_compile = start == 0 && func->compilable;
+
   BasicBlock startbb = LLVMAppendBasicBlock(function, "start");
   /* Create the blocks and allocas */
   memset(blocks, 0, sizeof(blocks));
@@ -675,7 +679,11 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     .argvia   = &argvia,
     .parent   = &parent
   };
-  build_partial_prolog(&s, &pro, last_ret_addr, last_ret);
+  if (full_compile) {
+    build_full_prolog(&s, &pro);
+  } else {
+    build_partial_prolog(&s, &pro, last_ret_addr, last_ret);
+  }
 
   /* Calculate closure->env */
   offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
@@ -700,9 +708,16 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     Value val  = LLVMBuildLoad(builder, regs[i], "");
     LLVMBuildStore(builder, val, addr);
   }
-  LLVMBuildStore(builder, LLVMBuildLoad(builder, last_ret, ""), last_ret_addr);
   Value r = LLVMBuildLoad(builder, ret_val, "");
-  LLVMBuildRet(builder, r);
+  if (full_compile) {
+    Value args[4] = {closure, parent, r, stacki};
+    Value call = LLVMBuildCall(builder, llvm_trampoline, args, 4, "");
+    LLVMSetTailCall(call, TRUE);
+    LLVMBuildRet(builder, call);
+  } else {
+    LLVMBuildStore(builder, LLVMBuildLoad(builder, last_ret, ""), last_ret_addr);
+    LLVMBuildRet(builder, r);
+  }
 
   /* Initialize the types of all stack members */
   for (i = 0; i < func->max_stack; i++) {
