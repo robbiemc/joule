@@ -85,7 +85,9 @@ typedef struct prolog {
   Value*  retc;
   Value*  retvi;
   Value*  argc;
+  Value*  argca;
   Value*  argvi;
+  Value*  argvia;
   Value*  parent;
 } prolog_t;
 
