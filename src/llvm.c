@@ -80,6 +80,15 @@ typedef i32(jitf)(void*, void*);
   ADD_FUNCTION2(name, #name, ret, numa, __VA_ARGS__)
 #define EXIT_FAIL LLVMDeleteFunction(function); return -1
 
+typedef struct prolog {
+  Value*  stacki;
+  Value*  retc;
+  Value*  retvi;
+  Value*  argc;
+  Value*  argvi;
+  Value*  parent;
+} prolog_t;
+
 typedef struct state {
   Value       *regs;
   Value       *consts;
