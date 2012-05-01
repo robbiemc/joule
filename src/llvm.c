@@ -606,10 +606,7 @@ static void build_full_prolog(state_t *s, prolog_t *p) {
  *         to llvm_run()
  */
 i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
-                 luav *stack, jfunc_t *jfun) {
-  jfun->value = NULL;
-  jfun->binary = NULL;
-
+                 luav *stack, int full_compile) {
   BasicBlock blocks[func->num_instrs];
   BasicBlock bail_blocks[func->num_instrs];
   BasicBlock err_blocks[func->num_instrs];
@@ -618,7 +615,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   u8    regtyps[func->max_stack];
   char name[20];
   u32 i, j;
-  int full_compile = start == 0 && func->compilable;
+  jfunc_t *jfun;
 
   /* Create the function and state */
   Value function;
@@ -631,11 +628,16 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     Type funtyp = LLVMFunctionType(llvm_u64, targs, func->num_parameters + 1,
                                    FALSE);
     function = LLVMAddFunction(module, "compiled", funtyp);
+    jfun = &func->jfunc;
   } else {
     Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
     Type funtyp    = LLVMFunctionType(llvm_u32, params, 2, FALSE);
     function = LLVMAddFunction(module, "test", funtyp);
+    jfun = &func->instrs[start].jfunc;
   }
+  jfun->value = NULL;
+  jfun->binary = NULL;
+
   Value closure = LLVMGetParam(function, 0);
   state_t s = {
     .regs     = regs,

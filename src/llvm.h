@@ -27,7 +27,7 @@ typedef struct jfunc {
 void llvm_init();
 void llvm_destroy();
 
-i32  llvm_compile(struct lfunc *func, u32 start, u32 end, luav *stack, jfunc_t *jfun);
+i32  llvm_compile(struct lfunc *func, u32 start, u32 end, luav *stack, int full);
 i32  llvm_run(jfunc_t *func, struct lclosure *closure, u32 *args);
 void llvm_free(jfunc_t *jfun);
 
