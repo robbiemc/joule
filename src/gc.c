@@ -304,12 +304,12 @@ void gc_traverse_pointer(void *_ptr, int type) {
       lfunc_t *func = _ptr;
       gc_traverse_pointer(func->name, LSTRING);
       GC_SETBLACK(func->consts);
-      GC_SETBLACK(func->funcs);
       GC_SETBLACK(func->lines);
       GC_SETBLACK(func->preds);
       GC_SETBLACK(func->instrs);
       GC_SETBLACK(func->trace.instrs);
       GC_SETBLACK(func->trace.misc);
+      if (func->funcs != NULL) GC_SETBLACK(func->funcs);
       if (func->jfunc != NULL) GC_SETBLACK(func->jfunc);
       u32 i;
       for (i = 0; i < func->num_instrs; i++) {
