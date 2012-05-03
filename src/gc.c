@@ -165,6 +165,8 @@ void garbage_collect() {
           if (f->ref_count == 0) {
             llvm_free((jfunc_t*) (tmp + 1));
           } else {
+            tmp->bits = GC_BUILD(gc_head, GC_TYPE(tmp));
+            gc_head = tmp;
             continue;
           }
           break;
