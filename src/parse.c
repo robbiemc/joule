@@ -81,7 +81,9 @@ int luac_parse_file(lfunc_t *func, char *filename) {
   FILE *f = popen(cmd, "r");
   assert(f != NULL);
   int res = luac_parse_bytecode(func, fileno(f), filename);
-  pclose(f);
+  /* TODO: figure out why pclose causes a segfault on OSX */
+  close(fileno(f));
+  //pclose(f);
   free(cmd);
   return res;
 }
