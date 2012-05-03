@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "config.h"
+#include "gc.h"
 #include "lhash.h"
 #include "llvm.h"
 #include "opcode.h"
@@ -615,7 +616,9 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   u8    regtyps[func->max_stack];
   char name[20];
   u32 i, j;
-  jfunc_t *jfun;
+  jfunc_t *jfun = gc_alloc(sizeof(jfunc_t), LJFUNC);
+  jfunc_t **dest;
+  memset(jfun, 0, sizeof(jfunc_t));
 
   /* Create the function and state */
   Value function;
@@ -628,15 +631,13 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     Type funtyp = LLVMFunctionType(llvm_u64, targs,
                                    (u32) (func->num_parameters + 1), FALSE);
     function = LLVMAddFunction(module, "compiled", funtyp);
-    jfun = &func->jfunc;
+    dest = &func->jfunc;
   } else {
     Type params[2] = {llvm_void_ptr, LLVMPointerType(llvm_u32, 0)};
     Type funtyp    = LLVMFunctionType(llvm_u32, params, 2, FALSE);
     function = LLVMAddFunction(module, "test", funtyp);
-    jfun = &func->instrs[start].jfunc;
+    dest = &func->instrs[start].jfunc;
   }
-  jfun->value = NULL;
-  jfun->binary = NULL;
 
   Value closure = LLVMGetParam(function, 0);
   state_t s = {
@@ -647,7 +648,6 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     .function = function,
     .blocks   = blocks
   };
-
 
   BasicBlock startbb = LLVMAppendBasicBlock(function, "start");
   /* Create the blocks and allocas */
@@ -1686,6 +1686,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   fprintf(stderr, "compiled %d => %d (line:%d)\n", start, end, func->start_line);
   jfun->value = function;
   jfun->binary = LLVMGetPointerToGlobal(ex_engine, function);
+  *dest = jfun;
   return 0;
 }
 
@@ -1706,7 +1707,7 @@ Value build_pow(LLVMBuilderRef builder, Value bv, Value cv, const char* name) {
  * @return the program counter which was bailed out on, or TODO: MORE HERE
  */
 i32 llvm_run(jfunc_t *function, lclosure_t *closure, u32 *args) {
-  jitf *f = (jitf*) &(function->binary);
+  jitf *f = function->binary;
   return f(closure, args);
 }
 

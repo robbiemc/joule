@@ -269,7 +269,7 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent, LSTATE) {
   if (closure->type == LUAF_LUA) {
     lfunc_t *func = closure->function.lua;
     if (func->compilable && COMPILABLE(&func->instrs[0]) &&
-        func->jfunc.binary == NULL) {
+        func->jfunc== NULL) {
       i32 ret = llvm_compile(func, 0, (u32) (func->num_instrs - 1),
                              &vm_stack->base[argvi], TRUE);
       if (ret < 0) {
@@ -278,10 +278,10 @@ u32 vm_fun(lclosure_t *closure, lframe_t *parent, LSTATE) {
     }
 
     // Call the fully compiled function if we can
-    if (func->jfunc.binary != NULL) {
+    if (func->jfunc != NULL) {
       luav args[6] = {[0 ... 5] = LUAV_NIL};
       memcpy(args, &vm_stack->base[argvi], argc * sizeof(luav));
-      luav (*f)() = func->jfunc.binary;
+      luav (*f)() = func->jfunc->binary;
       luav ret = f(closure, args[0], args[1], args[2],
                             args[3], args[4], args[5]);
       if (retc >= 1) {
@@ -361,7 +361,7 @@ top:
 
     // check if we should compile
     if ((pc == 0 || func->preds[pc] != -1) && COMPILABLE(instrs) &&
-        instrs->jfunc.binary == NULL) {
+        instrs->jfunc == NULL) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
         end_index = (i32) func->num_instrs - 1;
@@ -374,7 +374,7 @@ top:
     }
 
     // check if there's a compiled version available
-    if (instrs->jfunc.binary != NULL) {
+    if (instrs->jfunc != NULL) {
       u32 stack_stuff[JARGS] = {
         [JSTACKI] = stack,
         [JARGC]   = argc,
@@ -382,10 +382,10 @@ top:
         [JRETC]   = retc,
         [JRETVI]  = retvi
       };
-      void *running = instrs->jfunc.binary;
+      jfunc_t *running = instrs->jfunc;
       int old_jit_bailed = jit_bailed;
       jit_bailed = 0;
-      i32 ret = llvm_run(instrs->jfunc.binary, closure, stack_stuff);
+      i32 ret = llvm_run(running, closure, stack_stuff);
       int my_jit_bailed = jit_bailed;
       jit_bailed = old_jit_bailed;
       if (ret < -1) {
@@ -406,11 +406,9 @@ top:
         }
         goto top;
       }
-      if ((my_jit_bailed || 1) && running == instrs->jfunc.binary) {
+      if ((my_jit_bailed || 1) && running == instrs->jfunc) {
         //printf("bailed from %d to %d\n", pc, ret);
-        llvm_free(&instrs->jfunc);
-        instrs->jfunc.value = NULL;
-        instrs->jfunc.binary = NULL;
+        instrs->jfunc = NULL;
         /* TODO: do this based on my_jit_bailed on an error code */
         //instrs->count = INVAL_RUN_COUNT;
       }

@@ -141,44 +141,42 @@ void garbage_collect() {
   }
 
   gc_header_t *cur = gc_head;
-  gc_header_t *nxt;
+  gc_header_t *tmp;
   gc_head = NULL;
 
   /* Move everything in the current list onto one of gc_head or the to_finalize
      list */
   while (cur != NULL) {
-    nxt = GC_NEXT(cur);
-    if (GC_ISBLACK(cur + 1)) {
-      cur->bits = GC_BUILD(gc_head, GC_TYPE(cur));
-      gc_head = cur;
+    tmp = cur;
+    cur = GC_NEXT(cur);
+    if (GC_ISBLACK(tmp + 1)) {
+      tmp->bits = GC_BUILD(gc_head, GC_TYPE(tmp));
+      gc_head = tmp;
     } else {
-      switch (GC_TYPE(cur)) {
+      switch (GC_TYPE(tmp)) {
         case LSTRING:
-          lstr_remove((lstring_t*) (cur + 1));
+          lstr_remove((lstring_t*) (tmp + 1));
           break;
         case LTHREAD:
-          coroutine_free((lthread_t*) (cur + 1));
+          coroutine_free((lthread_t*) (tmp + 1));
           break;
-        case LFUNC: {
-          lfunc_t *func = (lfunc_t*) (cur + 1);
-          size_t j;
-          for (j = 0; j < func->num_instrs; j++) {
-            if (func->instrs[j].jfunc.binary) {
-              llvm_free(&func->instrs[j].jfunc);
-            }
+        case LJFUNC: {
+          jfunc_t *f = (jfunc_t*) (tmp + 1);
+          if (f->refcnt == 0) {
+            llvm_free((jfunc_t*) (tmp + 1));
+          } else {
+            continue;
           }
-          free(func->instrs);
           break;
         }
       }
-      heap_size -= cur->size;
+      heap_size -= tmp->size;
       assert((ssize_t) heap_size >= 0);
       #ifndef NDEBUG
-      memset(cur, 0x42, cur->size);
+      memset(tmp, 0x42, tmp->size);
       #endif
-      free(cur);
+      free(tmp);
     }
-    cur = nxt;
   }
 
   in_gc = 0;
@@ -303,13 +301,20 @@ void gc_traverse_pointer(void *_ptr, int type) {
     case LFUNC: {
       lfunc_t *func = _ptr;
       gc_traverse_pointer(func->name, LSTRING);
-      if (func->consts != NULL) GC_SETBLACK(func->consts);
-      if (func->funcs != NULL)  GC_SETBLACK(func->funcs);
-      if (func->lines != NULL)  GC_SETBLACK(func->lines);
-      if (func->preds != NULL)  GC_SETBLACK(func->preds);
-      if (func->trace.instrs != NULL) GC_SETBLACK(func->trace.instrs);
-      if (func->trace.misc != NULL) GC_SETBLACK(func->trace.misc);
+      GC_SETBLACK(func->consts);
+      GC_SETBLACK(func->funcs);
+      GC_SETBLACK(func->lines);
+      GC_SETBLACK(func->preds);
+      GC_SETBLACK(func->instrs);
+      GC_SETBLACK(func->trace.instrs);
+      GC_SETBLACK(func->trace.misc);
+      if (func->jfunc != NULL) GC_SETBLACK(func->jfunc);
       u32 i;
+      for (i = 0; i < func->num_instrs; i++) {
+        if (func->instrs[i].jfunc != NULL) {
+          GC_SETBLACK(func->instrs[i].jfunc);
+        }
+      }
       for (i = 0; i < func->num_consts; i++) {
         gc_traverse(func->consts[i]);
       }

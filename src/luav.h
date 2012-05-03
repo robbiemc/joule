@@ -50,6 +50,7 @@ struct lthread;
 /* Used for garbage collection, not in types */
 #define LFUNC     100
 #define LCFUNC    101
+#define LJFUNC    102
 
 /* Macros for dealing with u64 bits for luav */
 #define LUAV_DATA_SIZE 48

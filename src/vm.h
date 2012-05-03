@@ -23,7 +23,7 @@ typedef u32 cfunction_t(LSTATE);
 
 /* Instructions packaged with extra tracing information */
 typedef struct instr {
-  jfunc_t   jfunc;  //<! Compiled code starting from this instruction
+  jfunc_t   *jfunc; //<! Compiled code starting from this instruction
   u32       instr;  //<! The lua opcode for this instruction
   u8        count;  //<! Number of times the instruction has been run
 } instr_t;
@@ -53,7 +53,7 @@ typedef struct lfunc {
   i32         *preds;           //<! Predecessor array
 
   u8          compilable;       //<! Whether the function can be fully compiled
-  jfunc_t     jfunc;            //<! The fully compiled versio of this function
+  jfunc_t     *jfunc;           //<! The fully compiled version of this function
 } lfunc_t;
 
 /* Package for representing a C function */

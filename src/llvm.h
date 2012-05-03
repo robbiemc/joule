@@ -1,12 +1,15 @@
 #ifndef _LLVM_H_
 #define _LLVM_H_
 
+#include "config.h"
+
 struct lfunc;
 struct lclosure;
 
 typedef struct jfunc {
   void *binary;
   void *value;
+  u64  refcnt;
 } jfunc_t;
 
 #include "lstate.h"

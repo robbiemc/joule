@@ -168,16 +168,14 @@ static int luac_parse_func(lfunc_t *func, int fd, char *filename, u8 st_size) {
   // guarantee that they're still a member of the lfunc_t when the lfunc_t is
   // being garbage collected.
   func->num_instrs = xread4(fd);
-  func->instrs = malloc(func->num_instrs * sizeof(instr_t));
+  func->instrs = gc_alloc(func->num_instrs * sizeof(instr_t), LANY);
   for (i = 0; i < func->num_instrs; i++) {
     func->instrs[i].instr = xread4(fd);
     func->instrs[i].count = 0;
-    func->instrs[i].jfunc.binary = NULL;
-    func->instrs[i].jfunc.value  = NULL;
+    func->instrs[i].jfunc = NULL;
   }
   trace_init(&func->trace, func->num_instrs);
-  func->jfunc.binary = NULL;
-  func->jfunc.value  = NULL;
+  func->jfunc = NULL;
 
   // compute the predecessor information
   i32 pc;
