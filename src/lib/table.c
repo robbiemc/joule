@@ -125,7 +125,7 @@ static int lua_invoke_compare(luav *v1, luav *v2) {
   u32 idx = vm_stack_alloc(vm_stack, 2);
   vm_stack->base[idx] = *v1;
   vm_stack->base[idx + 1] = *v2;
-  u32 ret = vm_fun(sorter, vm_running, 2, idx, 1, idx);
+  u32 ret = vm_fun(sorter, 2, idx, 1, idx);
   if (ret == 0) {
     err_rawstr("Not enough return values from comparator", TRUE);
   }

@@ -106,8 +106,7 @@ static void coroutine_swap(lthread_t *to) {
  */
 static void coroutine_wrapper() {
   xassert(cur_thread->status == CO_RUNNING);
-  u32 retc = vm_fun(cur_thread->closure, vm_running,
-                    cur_thread->argc, cur_thread->argvi,
+  u32 retc = vm_fun(cur_thread->closure, cur_thread->argc, cur_thread->argvi,
                     UINT_MAX, 0);
   cur_thread->status = CO_DEAD;
   lua_co_yield(retc, 0, 0, 0);

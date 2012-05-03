@@ -116,9 +116,8 @@ lclosure_t* cfunc_alloc(cfunction_t *f, char *name, int upvalues);
 void cfunc_register(struct lhash *table, char *name, cfunction_t *f);
 
 void vm_run(lfunc_t *fun);
-u32 vm_fun(lclosure_t *c, lframe_t *frame, LSTATE);
-u32 vm_funi(lclosure_t *closure, lframe_t *parent, u32 stack, u32 init, u32 pc,
-            LSTATE);
+u32 vm_fun(lclosure_t *c, LSTATE);
+u32 vm_funi(lclosure_t *closure, u32 stack, u32 init, u32 pc, LSTATE);
 void vm_stack_init(lstack_t *stack, u32 size);
 void vm_stack_destroy(lstack_t *stack);
 

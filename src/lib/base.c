@@ -166,8 +166,7 @@ static u32 lua_tostring(LSTATE) {
         luav value = lhash_get(meta, META_TOSTRING);
         if (value != LUAV_NIL) {
           vm_stack->base[argvi] = v;
-          return vm_fun(lv_getfunction(value, 0), vm_running, 1, argvi,
-                        retc, retvi);
+          return vm_fun(lv_getfunction(value, 0), 1, argvi, retc, retvi);
         }
       }
       if (lv_gettype(v) == LTABLE) {
@@ -329,8 +328,7 @@ static u32 lua_pcall(LSTATE) {
   int err;
   u32 ret;
   ONERR({
-    ret = vm_fun(closure, vm_running, argc - 1, argvi + 1,
-                                      retc - 1, retvi + 1);
+    ret = vm_fun(closure, argc - 1, argvi + 1, retc - 1, retvi + 1);
     lstate_return(LUAV_TRUE, 0);
   }, {
     lstate_return(LUAV_FALSE, 0);
@@ -349,7 +347,7 @@ static u32 lua_xpcall(LSTATE) {
   lframe_t *running = vm_running;
 
   ONERR({
-    ret = vm_fun(f, running, 0, 0, retc - 1, retvi + 1);
+    ret = vm_fun(f, 0, 0, retc - 1, retvi + 1);
     lstate_return(LUAV_TRUE, 0);
   }, {
     luav retval;
@@ -359,7 +357,8 @@ static u32 lua_xpcall(LSTATE) {
       tried = 1;
       u32 idx = vm_stack_alloc(vm_stack, 1);
       vm_stack->base[idx] = err_value;
-      vm_fun(err, running, 1, idx, 1, idx);
+      vm_running = running;
+      vm_fun(err, 1, idx, 1, idx);
       retval = vm_stack->base[idx];
       vm_stack_dealloc(vm_stack, idx);
     } else {
@@ -451,7 +450,7 @@ static u32 lua_dofile(LSTATE) {
   closure->function.lua = &func;
   closure->type         = LUAF_LUA;
   closure->env          = vm_running->closure->env;
-  return vm_fun(closure, vm_running, 0, 0, retc, retvi);
+  return vm_fun(closure, 0, 0, retc, retvi);
 }
 
 static u32 lua_getfenv(LSTATE) {

@@ -89,7 +89,7 @@ typedef struct prolog {
   Value*  argca;
   Value*  argvi;
   Value*  argvia;
-  Value*  parent;
+  Value*  frame;
 } prolog_t;
 
 typedef struct state {
@@ -210,8 +210,8 @@ void llvm_init() {
   /* Adding functions */
   ADD_FUNCTION(lhash_get, llvm_u64, 2, llvm_void_ptr, llvm_u64);
   ADD_FUNCTION(lhash_set, LLVMVoidType(), 3, llvm_void_ptr, llvm_u64, llvm_u64);
-  ADD_FUNCTION(vm_fun, llvm_u32, 6, llvm_void_ptr, llvm_void_ptr, llvm_u32,
-                                    llvm_u32, llvm_u32, llvm_u32);
+  ADD_FUNCTION(vm_fun, llvm_u32, 5, llvm_void_ptr, llvm_u32, llvm_u32, llvm_u32,
+               llvm_u32);
   ADD_FUNCTION2(llvm_memset, "llvm.memset.p0i8.i32", LLVMVoidType(), 5,
                 llvm_void_ptr, LLVMInt8Type(), llvm_u32, llvm_u32,
                 LLVMInt1Type());
@@ -231,7 +231,7 @@ void llvm_init() {
   ADD_FUNCTION(lhash_array, LLVMVoidType(), 3, llvm_void_ptr, llvm_u64_ptr,
                llvm_u32);
   ADD_FUNCTION(gc_check, LLVMVoidType(), 0);
-  ADD_FUNCTION(vm_funi, llvm_u32, 9, llvm_void_ptr, llvm_void_ptr, llvm_u32,
+  ADD_FUNCTION(vm_funi, llvm_u32, 8, llvm_void_ptr, llvm_u32,
                llvm_u32, llvm_u32, llvm_u32, llvm_u32, llvm_u32, llvm_u32);
   ADD_FUNCTION(vm_stack_alloc, llvm_u32, 2, llvm_void_ptr, llvm_u32);
 
@@ -461,6 +461,21 @@ static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
 }
 
 /**
+ * @brief Build a load at runtime of the specified C pointer
+ *
+ * @param ptr the C pointer to load
+ * @param addr optionally also store the address of the pointer in an llvm value
+ * @return the llvm value which is the load of the given addres, typed as a void
+ *         pointer.
+ */
+static Value build_dynload(void *ptr, Value *addr) {
+  Value llvmaddr = LLVMConstInt(llvm_u64, (size_t) ptr, FALSE);
+  llvmaddr = LLVMConstIntToPtr(llvmaddr, llvm_void_ptr_ptr);
+  if (addr != NULL) { *addr = llvmaddr; }
+  return LLVMBuildLoad(builder, llvmaddr, "");
+}
+
+/**
  * @brief Builds the prolog for a partially compiled function segment
  */
 static void build_partial_prolog(state_t *state, prolog_t *pro,
@@ -487,9 +502,7 @@ static void build_partial_prolog(state_t *state, prolog_t *pro,
   LLVMBuildStore(builder, LLVMBuildLoad(builder, last_ret_addr, ""), last_ret);
 
   /* Calculate the currently running frame (parent of all other invocations) */
-  Value parent = LLVMConstInt(llvm_u64, (size_t) &vm_running, FALSE);
-  parent       = LLVMConstIntToPtr(parent, llvm_void_ptr_ptr);
-  *pro->parent  = LLVMBuildLoad(builder, parent, "parent");
+  *pro->frame = build_dynload(&vm_running, NULL);
 
   /* Load address of vm_stack->base points to */
   Value base_addr = get_vm_stack_base();
@@ -504,21 +517,6 @@ static void build_partial_prolog(state_t *state, prolog_t *pro,
     LLVMBuildStore(builder, val, state->regs[i]);
   }
 
-}
-
-/**
- * @brief Build a load at runtime of the specified C pointer
- *
- * @param ptr the C pointer to load
- * @param addr optionally also store the address of the pointer in an llvm value
- * @return the llvm value which is the load of the given addres, typed as a void
- *         pointer.
- */
-static Value build_dynload(void *ptr, Value *addr) {
-  Value llvmaddr = LLVMConstInt(llvm_u64, (size_t) ptr, FALSE);
-  llvmaddr = LLVMConstIntToPtr(llvmaddr, llvm_void_ptr_ptr);
-  if (addr != NULL) { *addr = llvmaddr; }
-  return LLVMBuildLoad(builder, llvmaddr, "");
 }
 
 static void build_full_prolog(state_t *s, prolog_t *p) {
@@ -538,19 +536,31 @@ static void build_full_prolog(state_t *s, prolog_t *p) {
   }
   Value closure = LLVMGetParam(s->function, 0);
   /* Figure out the current parent */
-  Value parent_addr, parent;
-  parent = build_dynload(&vm_running, &parent_addr);
+  Value running_addr, parent;
+  parent = build_dynload(&vm_running, &running_addr);
 
   /* Allocate a frame on the stack, and fill it in */
-  Type typs[3] = {llvm_void_ptr, llvm_void_ptr, llvm_void_ptr};
-  Type lframe_typ = LLVMStructType(typs, 3, FALSE);
-  Value frame = LLVMBuildAlloca(builder, lframe_typ, "frame");
-  LLVMBuildStore(builder, closure, LLVMBuildStructGEP(builder, frame, 0, ""));
-  LLVMBuildStore(builder, lvc_null, LLVMBuildStructGEP(builder, frame, 1, ""));
-  LLVMBuildStore(builder, parent, LLVMBuildStructGEP(builder, frame, 2, ""));
+  Value size  = LLVMConstInt(llvm_u64, sizeof(lframe_t), FALSE);
+  Value frame = LLVMBuildArrayAlloca(builder, LLVMInt8Type(), size, "frame");
+  Value addr, off;
+  /* closure */
+  off = LLVMConstInt(llvm_u64, offsetof(lframe_t, closure), FALSE);
+  addr = LLVMBuildInBoundsGEP(builder, frame, &off, 1, "");
+  addr = LLVMBuildPointerCast(builder, addr, llvm_void_ptr_ptr, "");
+  LLVMBuildStore(builder, closure, addr);
+  /* pc */
+  off = LLVMConstInt(llvm_u64, offsetof(lframe_t, pc), FALSE);
+  addr = LLVMBuildInBoundsGEP(builder, frame, &off, 1, "");
+  addr = LLVMBuildPointerCast(builder, addr, llvm_void_ptr_ptr, "");
+  LLVMBuildStore(builder, lvc_null, addr);
+  /* parent */
+  off = LLVMConstInt(llvm_u64, offsetof(lframe_t, caller), FALSE);
+  addr = LLVMBuildInBoundsGEP(builder, frame, &off, 1, "");
+  addr = LLVMBuildPointerCast(builder, addr, llvm_void_ptr_ptr, "");
+  LLVMBuildStore(builder, parent, addr);
   /* Set ourselves as the currently running frame */
-  *p->parent = LLVMBuildBitCast(builder, frame, llvm_void_ptr, "");
-  LLVMBuildStore(builder, *p->parent, parent_addr);
+  *p->frame = LLVMBuildBitCast(builder, frame, llvm_void_ptr, "");
+  LLVMBuildStore(builder, *p->frame, running_addr);
 
   /* Allocate some lua stack */
   Value args[2] = {
@@ -653,23 +663,25 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   last_ret_addr = LLVMBuildBitCast(builder, last_ret_addr, llvm_u32_ptr, "");
 
   /* Create the function prolog */
-  Value stacki, retc, retvi, argc, argca, argvi, argvia, parent;
+  Value stacki, retc, retvi, argc, argca, argvi, argvia, frame;
   prolog_t pro = {
-    .stacki   = &stacki,
-    .retc     = &retc,
-    .retvi    = &retvi,
-    .argc     = &argc,
-    .argca    = &argca,
-    .argvi    = &argvi,
-    .argvia   = &argvia,
-    .parent   = &parent
+    .stacki = &stacki,
+    .retc   = &retc,
+    .retvi  = &retvi,
+    .argc   = &argc,
+    .argca  = &argca,
+    .argvi  = &argvi,
+    .argvia = &argvia,
+    .frame  = &frame
   };
+  Value running_addr, old_parent;
+  old_parent = build_dynload(&vm_running, &running_addr);
   if (full_compile) {
     build_full_prolog(&s, &pro);
   } else {
     build_partial_prolog(&s, &pro, last_ret_addr, last_ret);
   }
-  
+
   /* Increase the runcount */
   Value cnt_addr = LLVMConstInt(llvm_u64, (u64) &jfun->ref_count, 0);
   cnt_addr = LLVMConstIntToPtr(cnt_addr, llvm_u64_ptr);
@@ -703,9 +715,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   /* Update the return value */
   Value r = LLVMBuildLoad(builder, ret_val, "");
   if (full_compile) {
-    Value vmargs[9] = {
+    Value vmargs[8] = {
       closure,
-      parent,
       stacki,
       lvc_32_zero,
       r,
@@ -715,9 +726,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       stacki
     };
     Value retc = LLVMBuildCall(builder, LLVMGetNamedFunction(module, "vm_funi"),
-                              vmargs, 9, "");
+                               vmargs, 8, "");
     Value addr = get_stack_base(get_vm_stack_base(), stacki, "");
-    addr       = LLVMBuildInBoundsGEP(builder, addr, &lvc_32_zero, 1, "");
     Value from_stack = LLVMBuildLoad(builder, addr, "");
 
     Value cond = LLVMBuildICmp(builder, LLVMIntEQ, retc, lvc_32_one, "");
@@ -915,6 +925,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       case OP_RETURN: {
         Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
         if (full_compile) {
+          LLVMBuildStore(builder, old_parent, running_addr);
           switch(B(code)) {
             case 1:
               build_ref_dec(jfun);
@@ -1273,6 +1284,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           warn("Bad OP_TAILCALL (B0)");
           EXIT_FAIL;
         }
+        assert(!full_compile);
         u32 num_args = B(code) - 1;
         u32 end_stores = A(code) + 1  + num_args;
 
@@ -1341,7 +1353,6 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         }
         Value args[] = {
           closure,
-          parent,
           lnumargs,
           num_args == 0 ? lvc_32_one :
             LLVMBuildAdd(builder, stacki, LLVMConstAdd(av, lvc_32_one), ""),
@@ -1349,7 +1360,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           num_rets == 0 ? lvc_32_one :
             LLVMBuildAdd(builder, stacki, av, "")
         };
-        Value ret = LLVMBuildCall(builder, llvm_vm_fun, args, 6, "");
+        Value ret = LLVMBuildCall(builder, llvm_vm_fun, args, 5, "");
 
         if (C(code) == 0) {
           LLVMBuildStore(builder, LLVMBuildAdd(builder, ret, av, ""), last_ret);
@@ -1586,7 +1597,6 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         /* Generate the arguments to vm_fun */
         Value args[] = {
           TOPTR(build_reg(&s, a)),
-          parent,
           LLVMConstInt(llvm_u32, 2, FALSE),
           LLVMBuildAdd(builder, stacki,
                        LLVMConstInt(llvm_u32, a + 1, FALSE), ""),
@@ -1596,7 +1606,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         };
 
         /* Invoke and check to see if we got what we want */
-        Value ret = LLVMBuildCall(builder, llvm_vm_fun, args, 6, "");
+        Value ret = LLVMBuildCall(builder, llvm_vm_fun, args, 5, "");
 
         BasicBlock load_regs    = LLVMAppendBasicBlock(function, "");
         BasicBlock failure_set  = LLVMAppendBasicBlock(function, "");
@@ -1692,7 +1702,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
   //LLVMDumpValue(function);
   LLVMRunFunctionPassManager(pass_manager, function);
-  // LLVMDumpValue(function);
+  //LLVMDumpValue(function);
   fprintf(stderr, "compiled %d => %d (line:%d)\n", start, end, func->start_line);
   jfun->value = function;
   jfun->binary = LLVMGetPointerToGlobal(ex_engine, function);
