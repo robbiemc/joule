@@ -1,0 +1,8 @@
+factorial
+bool
+fib
+nextvar
+calls
+errors
+omg-fuck-you-gc
+segfault-in-compiled
