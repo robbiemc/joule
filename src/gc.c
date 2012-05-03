@@ -162,7 +162,7 @@ void garbage_collect() {
           break;
         case LJFUNC: {
           jfunc_t *f = (jfunc_t*) (tmp + 1);
-          if (f->refcnt == 0) {
+          if (f->ref_count == 0) {
             llvm_free((jfunc_t*) (tmp + 1));
           } else {
             continue;

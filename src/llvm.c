@@ -121,6 +121,7 @@ static Value lvc_null;
 static Value lvc_32_zero;
 static Value lvc_32_one;
 static Value lvc_32_two;
+static Value lvc_64_one;
 static Value lvc_data_mask;
 static Value lvc_type_mask;
 static Value lvc_nan_mask;
@@ -136,7 +137,6 @@ static Value llvm_memcpy;
 static Value llvm_memmove;
 static Value llvm_gc_check;
 static Value llvm_vm_alloc;
-static Value llvm_trampoline;
 static Value llvm_functions[128];
 static u32   llvm_fn_cnt = 0;
 
@@ -199,6 +199,7 @@ void llvm_init() {
   lvc_32_zero   = LLVMConstInt(llvm_u32, 0, FALSE);
   lvc_32_one    = LLVMConstInt(llvm_u32, 1, FALSE);
   lvc_32_two    = LLVMConstInt(llvm_u32, 2, FALSE);
+  lvc_64_one    = LLVMConstInt(llvm_u64, 1, 0);
   lvc_data_mask = LLVMConstInt(llvm_u64, LUAV_DATA_MASK, FALSE);
   lvc_type_mask = LLVMConstInt(llvm_u64, LUAV_TYPE_MASK, FALSE);
   lvc_nan_mask  = LLVMConstInt(llvm_u64, LUAV_NAN_MASK, FALSE);
@@ -242,41 +243,6 @@ void llvm_init() {
   llvm_gc_check  = LLVMGetNamedFunction(module, "gc_check");
   llvm_vm_alloc  = LLVMGetNamedFunction(module, "vm_stack_alloc");
 
-  /* Build our trampoline function for when error happens in a fully compiled
-     function */
-  Type args[4] = {
-    llvm_void_ptr, /* closure */
-    llvm_void_ptr, /* frame */
-    llvm_u32,      /* instruction */
-    llvm_u32       /* stacki */
-  };
-  Type funtyp = LLVMFunctionType(llvm_u64, args, 4, FALSE);
-  Value func = LLVMAddFunction(module, "trampoline", funtyp);
-  llvm_trampoline = func;
-  LLVMAddFunctionAttr(func, LLVMNoInlineAttribute);
-  BasicBlock b = LLVMAppendBasicBlock(func, "");
-  LLVMPositionBuilderAtEnd(builder, b);
-
-  Value vmargs[9] = {
-    LLVMGetParam(func, 0),
-    LLVMGetParam(func, 1),
-    LLVMGetParam(func, 3),
-    lvc_32_zero,
-    LLVMGetParam(func, 2),
-    lvc_32_zero,
-    lvc_32_zero,
-    lvc_32_one,
-    LLVMGetParam(func, 3)
-  };
-  Value retc = LLVMBuildCall(builder, LLVMGetNamedFunction(module, "vm_funi"),
-                             vmargs, 9, "");
-  Value addr = get_stack_base(get_vm_stack_base(), LLVMGetParam(func, 3), "");
-  addr       = LLVMBuildInBoundsGEP(builder, addr, &lvc_32_zero, 1, "");
-  Value from_stack = LLVMBuildLoad(builder, addr, "");
-
-  Value cond = LLVMBuildICmp(builder, LLVMIntEQ, retc, lvc_32_one, "");
-  Value ret = LLVMBuildSelect(builder, cond, from_stack, lvc_nil, "");
-  LLVMBuildRet(builder, ret);
 }
 
 /**
@@ -595,6 +561,19 @@ static void build_full_prolog(state_t *s, prolog_t *p) {
 }
 
 /**
+ * @brief Creates a ref_count decrease
+ *
+ * @param jfun A jfunc_t pointer
+ */
+static void build_ref_dec(jfunc_t *jfun) {
+  Value cnt_addr = LLVMConstInt(llvm_u64, (u64) &jfun->ref_count, 0);
+  cnt_addr = LLVMConstIntToPtr(cnt_addr, llvm_u64_ptr);
+  Value cnt_val = LLVMBuildLoad(builder, cnt_addr, "");
+  cnt_val = LLVMBuildSub(builder, cnt_val, lvc_64_one, "");
+  LLVMBuildStore(builder, cnt_val, cnt_addr);
+}
+
+/**
  * @brief JIT-Compile a function
  *
  * @param func the function to compile
@@ -690,6 +669,13 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   } else {
     build_partial_prolog(&s, &pro, last_ret_addr, last_ret);
   }
+  
+  /* Increase the runcount */
+  Value cnt_addr = LLVMConstInt(llvm_u64, (u64) &jfun->ref_count, 0);
+  cnt_addr = LLVMConstIntToPtr(cnt_addr, llvm_u64_ptr);
+  Value cnt_val = LLVMBuildLoad(builder, cnt_addr, "");
+  cnt_val = LLVMBuildAdd(builder, cnt_val, lvc_64_one, "");
+  LLVMBuildStore(builder, cnt_val, cnt_addr);
 
   /* Calculate closure->env */
   offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
@@ -714,14 +700,33 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
     Value val  = LLVMBuildLoad(builder, regs[i], "");
     LLVMBuildStore(builder, val, addr);
   }
+  /* Update the return value */
   Value r = LLVMBuildLoad(builder, ret_val, "");
   if (full_compile) {
-    Value args[4] = {closure, parent, r, stacki};
-    Value call = LLVMBuildCall(builder, llvm_trampoline, args, 4, "");
-    LLVMSetTailCall(call, TRUE);
-    LLVMBuildRet(builder, call);
+    Value vmargs[9] = {
+      closure,
+      parent,
+      stacki,
+      lvc_32_zero,
+      r,
+      lvc_32_zero,
+      lvc_32_zero,
+      lvc_32_one,
+      stacki
+    };
+    Value retc = LLVMBuildCall(builder, LLVMGetNamedFunction(module, "vm_funi"),
+                              vmargs, 9, "");
+    Value addr = get_stack_base(get_vm_stack_base(), stacki, "");
+    addr       = LLVMBuildInBoundsGEP(builder, addr, &lvc_32_zero, 1, "");
+    Value from_stack = LLVMBuildLoad(builder, addr, "");
+
+    Value cond = LLVMBuildICmp(builder, LLVMIntEQ, retc, lvc_32_one, "");
+    Value ret = LLVMBuildSelect(builder, cond, from_stack, lvc_nil, "");
+    build_ref_dec(jfun);
+    LLVMBuildRet(builder, ret);
   } else {
     LLVMBuildStore(builder, LLVMBuildLoad(builder, last_ret, ""), last_ret_addr);
+    build_ref_dec(jfun);
     LLVMBuildRet(builder, r);
   }
 
@@ -912,9 +917,11 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         if (full_compile) {
           switch(B(code)) {
             case 1:
+              build_ref_dec(jfun);
               LLVMBuildRet(builder, lvc_nil);
               break;
             case 2:
+              build_ref_dec(jfun);
               LLVMBuildRet(builder, build_reg(&s, A(code)));
               break;
             default:
@@ -953,6 +960,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           LLVMBuildCall(builder, llvm_memmove, args, 5, "");
           num_rets = LLVMBuildNeg(builder, num_rets, "");
           num_rets = LLVMBuildSub(builder, num_rets, lvc_32_two, "");
+          build_ref_dec(jfun);
           LLVMBuildRet(builder, num_rets);
           break;
         }
@@ -961,6 +969,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         BasicBlock endbb = LLVMAppendBasicBlock(function, "end");
         LLVMPositionBuilderAtEnd(builder, endbb);
         u32 num_ret = B(code) - 1;
+        build_ref_dec(jfun);
         LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (u32)(-num_ret - 2),
                                            TRUE));
 
@@ -1282,6 +1291,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
         LLVMBuildStore(builder, LLVMConstInt(llvm_u32, a, FALSE), argvia);
         LLVMBuildStore(builder, LLVMConstInt(llvm_u32, num_args, FALSE), argca);
+        build_ref_dec(jfun);
         LLVMBuildRet(builder, LLVMConstInt(llvm_u32, (size_t) -1, TRUE));
         break;
       }

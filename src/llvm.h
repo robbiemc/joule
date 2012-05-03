@@ -9,7 +9,7 @@ struct lclosure;
 typedef struct jfunc {
   void *binary;
   void *value;
-  u64  refcnt;
+  u64  ref_count;
 } jfunc_t;
 
 #include "lstate.h"
