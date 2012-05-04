@@ -137,6 +137,7 @@ static Value llvm_memcpy;
 static Value llvm_memmove;
 static Value llvm_gc_check;
 static Value llvm_vm_alloc;
+static Value llvm_vm_dealloc;
 static Value llvm_functions[128];
 static u32   llvm_fn_cnt = 0;
 
@@ -234,15 +235,16 @@ void llvm_init() {
   ADD_FUNCTION(vm_funi, llvm_u32, 8, llvm_void_ptr, llvm_u32,
                llvm_u32, llvm_u32, llvm_u32, llvm_u32, llvm_u32, llvm_u32);
   ADD_FUNCTION(vm_stack_alloc, llvm_u32, 2, llvm_void_ptr, llvm_u32);
+  ADD_FUNCTION(vm_stack_dealloc, LLVMVoidType(), 2, llvm_void_ptr, llvm_u32);
 
-  llvm_lhash_get = LLVMGetNamedFunction(module, "lhash_get");
-  llvm_lhash_set = LLVMGetNamedFunction(module, "lhash_set");
-  llvm_vm_fun    = LLVMGetNamedFunction(module, "vm_fun");
-  llvm_memcpy    = LLVMGetNamedFunction(module, "llvm.memcpy.p0i8.p0i8.i32");
-  llvm_memmove   = LLVMGetNamedFunction(module, "llvm.memmove.p0i8.p0i8.i32");
-  llvm_gc_check  = LLVMGetNamedFunction(module, "gc_check");
-  llvm_vm_alloc  = LLVMGetNamedFunction(module, "vm_stack_alloc");
-
+  llvm_lhash_get  = LLVMGetNamedFunction(module, "lhash_get");
+  llvm_lhash_set  = LLVMGetNamedFunction(module, "lhash_set");
+  llvm_vm_fun     = LLVMGetNamedFunction(module, "vm_fun");
+  llvm_memcpy     = LLVMGetNamedFunction(module, "llvm.memcpy.p0i8.p0i8.i32");
+  llvm_memmove    = LLVMGetNamedFunction(module, "llvm.memmove.p0i8.p0i8.i32");
+  llvm_gc_check   = LLVMGetNamedFunction(module, "gc_check");
+  llvm_vm_alloc   = LLVMGetNamedFunction(module, "vm_stack_alloc");
+  llvm_vm_dealloc = LLVMGetNamedFunction(module, "vm_stack_dealloc");
 }
 
 /**
@@ -947,6 +949,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         Value ret_stack = get_stack_base(base_addr, retvi, "retstack");
         if (full_compile) {
           LLVMBuildStore(builder, old_parent, running_addr);
+          Value args[2] = {build_dynload(&vm_stack, NULL), stacki};
+          LLVMBuildCall(builder, llvm_vm_dealloc, args, 2, "");
           switch(B(code)) {
             case 1:
               build_ref_dec(jfun);
