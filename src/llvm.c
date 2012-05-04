@@ -157,9 +157,9 @@ void llvm_init() {
   pass_manager = LLVMCreateFunctionPassManagerForModule(module);
   xassert(pass_manager != NULL);
   LLVMAddVerifierPass(pass_manager);
-  LLVMAddCFGSimplificationPass(pass_manager);
   LLVMAddJumpThreadingPass(pass_manager);
   LLVMAddPromoteMemoryToRegisterPass(pass_manager);
+  LLVMAddCFGSimplificationPass(pass_manager);
   LLVMAddReassociatePass(pass_manager);
   LLVMAddGVNPass(pass_manager);
   LLVMAddConstantPropagationPass(pass_manager);
@@ -173,7 +173,7 @@ void llvm_init() {
   LLVMAddSCCPPass(pass_manager);
   LLVMAddInstructionCombiningPass(pass_manager);
   LLVMAddMemCpyOptPass(pass_manager);
-  LLVMAddTailCallEliminationPass(pass_manager);
+  LLVMAddCFGSimplificationPass(pass_manager);
   LLVMInitializeFunctionPassManager(pass_manager);
 
   /* Builder and execution engine */
