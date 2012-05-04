@@ -1343,11 +1343,40 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           end_stores = func->max_stack;
         }
 
-        STOP_ON(LTYPE(A(code)) != LFUNCTION,
+        u32 a = A(code);
+        STOP_ON(LTYPE(a) != LFUNCTION,
                 "really bad CALL (%x)", LTYPE(A(code)));
 
+#if 0
+        // check if we're calling a fully compiled function
+        lclosure_t *lclos = state->func->trace.misc[i - 1].closure;
+        if (lclos->type == LUAF_LUA && lclos->function.lua->jfunc != NULL &&
+            (C(code) == 1 || C(code) == 2)) {
+          // guard that it's still a lua function
+          Value closure = TOPTR(build_reg(&s, a));
+          Value type_off = LLVMConstInt(llvm_u64, offsetof(lclosure_t, type), 0);
+          Value type_addr = LLVMBuildInBoundsGEP(builder, closure, &type_off, 1, "");
+          Value type = LLVMBuildLoad(builder, type_addr, "");
+          Value type_lua = LLVMConstInt(llvm_u32, LUAF_LUA, 0);
+          Value is_lua = LLVMBuildICmp(builder, LLVMIntEQ, type, type_lua, "");
+          LLVMBuildCondBr(builder, is_lua, !!!, BAILBB(i - 1));
+          // guard that it's still fully compiled
+          Value lfunc = build_dynidx(closure, offsetof(lclosure_t, function.lua));
+          lfunc = LLVMBuildBitCast(builder, lfunc, llvm_u64, "");
+          Value tfunc = LLVMConstInt(llvm_u64, (size_t) lclos, 0);
+          Value sane = LLVMBuildICmp(builder, lfunc, tfunc, "");
+          LLVMBuildCondBr(builder, sane, !!!, BAILBB(i - 1));
+
+          // call the fully compiled function
+          u32 num_args = MIN(lclos->function.lua->num_args, 6);
+          Value args[7] = {closure};
+          for (j = 0; j < num_args; j++) {
+            args[j] = state->
+          }
+        }
+#endif
+
         // copy arguments from c stack to lua stack
-        u32 a = A(code);
         Value stack = get_stack_base(base_addr, stacki, "");
         /* TODO: figure out a better method for garbage collection to preserve
                  all of our alloca instances without storing everything */
