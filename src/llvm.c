@@ -1703,6 +1703,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   //LLVMDumpValue(function);
   LLVMRunFunctionPassManager(pass_manager, function);
   //LLVMDumpValue(function);
+  if (full_compile)
+    fprintf(stderr, "fully ");
   fprintf(stderr, "compiled %d => %d (line:%d)\n", start, end, func->start_line);
   jfun->value = function;
   jfun->binary = LLVMGetPointerToGlobal(ex_engine, function);
