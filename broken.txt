@@ -1,4 +1,2 @@
 factorial
-calls
-errors
 segfault-in-compiled
