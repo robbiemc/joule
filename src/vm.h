@@ -63,11 +63,12 @@ typedef struct cfunc {
   int upvalues;   //<! Occasionally it might actually have some upvalues!
 } cfunc_t;
 
-enum lclosure_type { LUAF_C, LUAF_LUA };
+#define LUAF_C 0
+#define LUAF_LUA 1
 
 /* Package for representing a closure in lua */
 typedef struct lclosure {
-  enum lclosure_type type;  //<! The type of the closure (lua/c/etc.)
+  u32  type;  //<! The type of the closure (lua/c/etc.)
   u32  last_ret;
   struct lhash *env;        //<! Lua environment for the closure
   union {
