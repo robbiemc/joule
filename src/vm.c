@@ -58,6 +58,7 @@ lframe_t *vm_running = NULL; //<! currently running function's frame
 lstack_t *vm_stack;          //<! current stack, changes on thread switches
 static lstack_t init_stack;  //<! initial stack
 int jit_bailed;              //<! Did the jit just bail out because of error?
+jfunc_t *running_jfunc;      //<! Compiled function which bailed
 
 static u32 op_close(u32 upc, luav *upv);
 static int meta_unary(luav operand, luav method, u32 reti);
@@ -319,7 +320,10 @@ u32 vm_funi(lclosure_t *closure, u32 stack, u32 init, u32 pc, LSTATE) {
   u32 stack_orig = stack;
   if (pc != 0) {
     assert(closure->type == LUAF_LUA);
-    assert(closure->function.lua->jfunc != NULL);
+    assert(running_jfunc != NULL);
+    if (running_jfunc == closure->function.lua->jfunc) {
+      closure->function.lua->jfunc = NULL;
+    }
   }
   /* Entry point of TAILCALL */
 top:

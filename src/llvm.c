@@ -463,6 +463,14 @@ static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
 }
 
 /**
+ * @brief Build a constant LLVM pointer
+ */
+static Value build_ptr(void *ptr, Type typ) {
+  Value lptr = LLVMConstInt(llvm_u64, (size_t) ptr, FALSE);
+  return LLVMConstIntToPtr(lptr, typ);
+}
+
+/**
  * @brief Build a load at runtime of the specified C pointer
  *
  * @param ptr the C pointer to load
@@ -471,8 +479,7 @@ static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
  *         pointer.
  */
 static Value build_dynload(void *ptr, Value *addr) {
-  Value llvmaddr = LLVMConstInt(llvm_u64, (size_t) ptr, FALSE);
-  llvmaddr = LLVMConstIntToPtr(llvmaddr, llvm_void_ptr_ptr);
+  Value llvmaddr = build_ptr(ptr, llvm_void_ptr_ptr);
   if (addr != NULL) { *addr = llvmaddr; }
   return LLVMBuildLoad(builder, llvmaddr, "");
 }
@@ -748,6 +755,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       lvc_32_one,
       stacki
     };
+    Value running = build_ptr(&running_jfunc, llvm_void_ptr_ptr);
+    LLVMBuildStore(builder, build_ptr(jfun, llvm_void_ptr), running);
     Value retc = LLVMBuildCall(builder, LLVMGetNamedFunction(module, "vm_funi"),
                                vmargs, 8, "");
     Value addr = get_stack_base(get_vm_stack_base(), stacki, "");
@@ -1351,11 +1360,13 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         STOP_ON(LTYPE(a) != LFUNCTION,
                 "really bad CALL (%x)", LTYPE(A(code)));
 
-#if 0
         // check if we're calling a fully compiled function
-        lclosure_t *lclos = state->func->trace.misc[i - 1].closure;
-        if (lclos->type == LUAF_LUA && lclos->function.lua->jfunc != NULL &&
+        lclosure_t *lclos = func->trace.misc[i - 1].closure;
+        if (lclos != NULL && lclos->type == LUAF_LUA &&
+            lclos->function.lua->jfunc != NULL &&
             (C(code) == 1 || C(code) == 2)) {
+          BasicBlock ck2 = LLVMAppendBasicBlock(function, "");
+          BasicBlock call = LLVMAppendBasicBlock(function, "");
           // guard that it's still a lua function
           Value closure = TOPTR(build_reg(&s, a));
           Value type_off = LLVMConstInt(llvm_u64, offsetof(lclosure_t, type), 0);
@@ -1363,22 +1374,37 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           Value type = LLVMBuildLoad(builder, type_addr, "");
           Value type_lua = LLVMConstInt(llvm_u32, LUAF_LUA, 0);
           Value is_lua = LLVMBuildICmp(builder, LLVMIntEQ, type, type_lua, "");
-          LLVMBuildCondBr(builder, is_lua, !!!, BAILBB(i - 1));
+          LLVMBuildCondBr(builder, is_lua, ck2, BAILBB(i - 1));
           // guard that it's still fully compiled
+          LLVMPositionBuilderAtEnd(builder, call);
           Value lfunc = build_dynidx(closure, offsetof(lclosure_t, function.lua));
           lfunc = LLVMBuildBitCast(builder, lfunc, llvm_u64, "");
           Value tfunc = LLVMConstInt(llvm_u64, (size_t) lclos, 0);
-          Value sane = LLVMBuildICmp(builder, lfunc, tfunc, "");
-          LLVMBuildCondBr(builder, sane, !!!, BAILBB(i - 1));
+          Value same = LLVMBuildICmp(builder, LLVMIntEQ, lfunc, tfunc, "");
+          LLVMBuildCondBr(builder, same, call, BAILBB(i - 1));
 
           // call the fully compiled function
-          u32 num_args = MIN(lclos->function.lua->num_args, 6);
-          Value args[7] = {closure};
-          for (j = 0; j < num_args; j++) {
-            args[j] = state->
+          LLVMPositionBuilderAtEnd(builder, call);
+          u32 argc = func->num_parameters + 1;
+          Type argtyps[argc];
+          Value args[argc];
+          argtyps[0] = llvm_void_ptr;
+          args[0] = closure;
+          for (j = 0; j < func->num_parameters; j++) {
+            args[j + 1] = build_reg(&s, a + j + 1);
+            argtyps[j + 1] = llvm_u64;
           }
+          Type funtyp = LLVMFunctionType(llvm_u64, argtyps, argc, FALSE);
+          Value jfunc = build_dynidx(lfunc, offsetof(lfunc_t, jfunc));
+          jfunc = LLVMBuildPointerCast(builder, jfunc,
+                                       LLVMPointerType(funtyp, 0), "");
+          Value ret = LLVMBuildCall(builder, jfunc, args, argc, "");
+          if (C(code) == 2) {
+            build_regset(&s, A(code), ret);
+          }
+          GOTOBB(i);
+          break;
         }
-#endif
 
         // copy arguments from c stack to lua stack
         Value stack = get_stack_base(base_addr, stacki, "");

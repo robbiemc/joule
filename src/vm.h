@@ -112,6 +112,7 @@ extern lframe_t *vm_running;
 extern lstack_t *vm_stack;
 extern struct lhash *global_env;
 extern int jit_bailed;
+extern jfunc_t *running_jfunc;
 
 lclosure_t* cfunc_alloc(cfunction_t *f, char *name, int upvalues);
 void cfunc_register(struct lhash *table, char *name, cfunction_t *f);
