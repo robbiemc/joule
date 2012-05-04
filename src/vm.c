@@ -409,7 +409,7 @@ top:
         }
         goto top;
       }
-      if ((my_jit_bailed || 1) && running == instrs->jfunc) {
+      if (my_jit_bailed && running == instrs->jfunc) {
         //printf("bailed from %d to %d\n", pc, ret);
         instrs->jfunc = NULL;
         /* TODO: do this based on my_jit_bailed on an error code */
