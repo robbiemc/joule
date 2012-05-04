@@ -327,6 +327,7 @@ static u32 lua_pcall(LSTATE) {
   lclosure_t *closure = lstate_getfunction(0);
   int err;
   u32 ret;
+  lframe_t *cur = vm_running;
   ONERR({
     ret = vm_fun(closure, argc - 1, argvi + 1, retc - 1, retvi + 1);
     lstate_return(LUAV_TRUE, 0);
@@ -334,6 +335,7 @@ static u32 lua_pcall(LSTATE) {
     lstate_return(LUAV_FALSE, 0);
     lstate_return(err_value, 1);
   }, err);
+  vm_running = cur;
 
   return err ? 2 : ret + 1;
 }
@@ -367,6 +369,7 @@ static u32 lua_xpcall(LSTATE) {
     lstate_return(LUAV_FALSE, 0);
     lstate_return(retval, 1);
   }, iserr)
+  vm_running = running;
 
   return iserr ? 2 : ret + 1;
 }
