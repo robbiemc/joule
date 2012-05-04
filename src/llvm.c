@@ -1385,7 +1385,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
           // call the fully compiled function
           LLVMPositionBuilderAtEnd(builder, call);
-          u32 argc = func->num_parameters + 1;
+          u32 argc = (u32) func->num_parameters + 1;
           Type argtyps[argc];
           Value args[argc];
           argtyps[0] = llvm_void_ptr;
