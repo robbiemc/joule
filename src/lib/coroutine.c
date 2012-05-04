@@ -51,6 +51,7 @@ INIT static void lua_coroutine_init() {
   main_thread->env           = lua_globals;
   main_thread->caller        = NULL;
   main_thread->closure       = NULL;
+  main_thread->frame         = NULL;
   main_thread->vm_stack.size = 0;
   main_thread->stack         = NULL;
 
@@ -80,12 +81,14 @@ static void coroutine_gc() {
 void coroutine_changeenv(lthread_t *to) {
   lthread_t *old = cur_thread;
   old->env = global_env;
+  old->frame = vm_running;
   xassert(to != NULL);
   xassert(to != old);
   xassert(to->status != CO_RUNNING);
   xassert(to->status != CO_DEAD);
   cur_thread = to;
   to->status = CO_RUNNING;
+  vm_running = to->frame;
   global_env = to->env;
   if (to == main_thread) {
     vm_stack = main_stack;
@@ -127,6 +130,7 @@ static u32 lua_co_create(LSTATE) {
 
   thread->caller  = NULL;
   thread->closure = function;
+  thread->frame   = NULL;
   thread->env     = cur_thread->env;
   thread->argvi   = 0;
   thread->argc    = 0;

@@ -17,6 +17,7 @@ typedef struct lthread {
 
   struct lthread *caller; //<! Thread who resumed us
   lclosure_t *closure;    //<! Closure we are running
+  lframe_t *frame;        //<! Current frame
   void *curstack;         //<! Last saved c-stack
   lhash_t *env;           //<! Lua environment
   lstack_t vm_stack;      //<! Lua stack
