@@ -576,7 +576,7 @@ static void build_full_prolog(state_t *s, prolog_t *p) {
  * @param jfun A jfunc_t pointer
  */
 static void build_ref_dec(jfunc_t *jfun) {
-  Value cnt_addr = LLVMConstInt(llvm_u64, (u64) &jfun->ref_count, 0);
+  Value cnt_addr = LLVMConstInt(llvm_u64, (size_t) &jfun->ref_count, 0);
   cnt_addr = LLVMConstIntToPtr(cnt_addr, llvm_u64_ptr);
   Value cnt_val = LLVMBuildLoad(builder, cnt_addr, "");
   cnt_val = LLVMBuildSub(builder, cnt_val, lvc_64_one, "");
@@ -683,7 +683,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   }
 
   /* Increase the runcount */
-  Value cnt_addr = LLVMConstInt(llvm_u64, (u64) &jfun->ref_count, 0);
+  Value cnt_addr = LLVMConstInt(llvm_u64, (size_t) &jfun->ref_count, 0);
   cnt_addr = LLVMConstIntToPtr(cnt_addr, llvm_u64_ptr);
   Value cnt_val = LLVMBuildLoad(builder, cnt_addr, "");
   cnt_val = LLVMBuildAdd(builder, cnt_val, lvc_64_one, "");
