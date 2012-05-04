@@ -476,6 +476,46 @@ static Value build_dynload(void *ptr, Value *addr) {
 }
 
 /**
+ * @brief Build a load at runtime of the a field in a structure
+ *
+ * @param ptr an llvm void* pointer to a structure
+ * @param off the offset in the structure to load
+ * @return the llvm value which is the load of the given address, typed as a
+ *         void pointer.
+ */
+static Value build_dynidx(Value ptr, size_t offset) {
+  Value off = LLVMConstInt(llvm_u64, offset, FALSE);
+  ptr = LLVMBuildInBoundsGEP(builder, ptr, &off, 1, "");
+  ptr = LLVMBuildPointerCast(builder, ptr, llvm_void_ptr_ptr, "");
+  return LLVMBuildLoad(builder, ptr, "");
+}
+
+/**
+ * @brief Build an lframe_t for the specified closure
+ */
+static Value build_frame(Value closure, Value parent) {
+  Value size  = LLVMConstInt(llvm_u64, sizeof(lframe_t), FALSE);
+  Value frame = LLVMBuildArrayAlloca(builder, LLVMInt8Type(), size, "frame");
+  Value addr, off;
+  /* closure */
+  off = LLVMConstInt(llvm_u64, offsetof(lframe_t, closure), FALSE);
+  addr = LLVMBuildInBoundsGEP(builder, frame, &off, 1, "");
+  addr = LLVMBuildPointerCast(builder, addr, llvm_void_ptr_ptr, "");
+  LLVMBuildStore(builder, closure, addr);
+  /* pc */
+  off = LLVMConstInt(llvm_u64, offsetof(lframe_t, pc), FALSE);
+  addr = LLVMBuildInBoundsGEP(builder, frame, &off, 1, "");
+  addr = LLVMBuildPointerCast(builder, addr, llvm_void_ptr_ptr, "");
+  LLVMBuildStore(builder, lvc_null, addr);
+  /* parent */
+  off = LLVMConstInt(llvm_u64, offsetof(lframe_t, caller), FALSE);
+  addr = LLVMBuildInBoundsGEP(builder, frame, &off, 1, "");
+  addr = LLVMBuildPointerCast(builder, addr, llvm_void_ptr_ptr, "");
+  LLVMBuildStore(builder, parent, addr);
+  return frame;
+}
+
+/**
  * @brief Builds the prolog for a partially compiled function segment
  */
 static void build_partial_prolog(state_t *state, prolog_t *pro,
@@ -539,27 +579,8 @@ static void build_full_prolog(state_t *s, prolog_t *p) {
   Value running_addr, parent;
   parent = build_dynload(&vm_running, &running_addr);
 
-  /* Allocate a frame on the stack, and fill it in */
-  Value size  = LLVMConstInt(llvm_u64, sizeof(lframe_t), FALSE);
-  Value frame = LLVMBuildArrayAlloca(builder, LLVMInt8Type(), size, "frame");
-  Value addr, off;
-  /* closure */
-  off = LLVMConstInt(llvm_u64, offsetof(lframe_t, closure), FALSE);
-  addr = LLVMBuildInBoundsGEP(builder, frame, &off, 1, "");
-  addr = LLVMBuildPointerCast(builder, addr, llvm_void_ptr_ptr, "");
-  LLVMBuildStore(builder, closure, addr);
-  /* pc */
-  off = LLVMConstInt(llvm_u64, offsetof(lframe_t, pc), FALSE);
-  addr = LLVMBuildInBoundsGEP(builder, frame, &off, 1, "");
-  addr = LLVMBuildPointerCast(builder, addr, llvm_void_ptr_ptr, "");
-  LLVMBuildStore(builder, lvc_null, addr);
-  /* parent */
-  off = LLVMConstInt(llvm_u64, offsetof(lframe_t, caller), FALSE);
-  addr = LLVMBuildInBoundsGEP(builder, frame, &off, 1, "");
-  addr = LLVMBuildPointerCast(builder, addr, llvm_void_ptr_ptr, "");
-  LLVMBuildStore(builder, parent, addr);
   /* Set ourselves as the currently running frame */
-  *p->frame = LLVMBuildBitCast(builder, frame, llvm_void_ptr, "");
+  *p->frame = build_frame(closure, parent);
   LLVMBuildStore(builder, *p->frame, running_addr);
 
   /* Allocate some lua stack */
@@ -1351,6 +1372,12 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         } else {
           lnumargs = LLVMConstInt(llvm_u32, num_args, FALSE);
         }
+
+        /* Figure out if we're calling a C function or a lua function */
+        BasicBlock cfunc = LLVMAppendBasicBlock(function, "");
+        BasicBlock lfunc = LLVMAppendBasicBlock(function, "");
+        BasicBlock after = LLVMAppendBasicBlock(function, "");
+        Value ret = LLVMBuildAlloca(builder, llvm_u32, "");
         Value args[] = {
           closure,
           lnumargs,
@@ -1360,7 +1387,41 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           num_rets == 0 ? lvc_32_one :
             LLVMBuildAdd(builder, stacki, av, "")
         };
-        Value ret = LLVMBuildCall(builder, llvm_vm_fun, args, 5, "");
+
+        Value typoff = LLVMConstInt(llvm_u32, offsetof(lclosure_t, type), FALSE);
+        Value typaddr = LLVMBuildInBoundsGEP(builder, closure, &typoff, 1, "");
+        typaddr = LLVMBuildPointerCast(builder, typaddr, llvm_u32_ptr, "");
+        Value typ = LLVMBuildLoad(builder, typaddr, "");
+        Value ctyp = LLVMConstInt(llvm_u32, LUAF_C, FALSE);
+        Value isc = LLVMBuildICmp(builder, LLVMIntEQ, typ, ctyp, "");
+        LLVMBuildCondBr(builder, isc, cfunc, lfunc);
+
+        /* Call a C function */
+        LLVMPositionBuilderAtEnd(builder, cfunc);
+        Value parent, parent_addr;
+        parent = build_dynload(&vm_running, &parent_addr);
+        Value cframe = build_frame(closure, parent);
+        LLVMBuildStore(builder, cframe, parent_addr);
+
+        Value llvm_cfunc = build_dynidx(closure, offsetof(lclosure_t, function));
+        llvm_cfunc = build_dynidx(llvm_cfunc, offsetof(cfunc_t, f));
+        Type argtyps[4] = {llvm_u32, llvm_u32, llvm_u32, llvm_u32};
+        Type cfunctyp = LLVMFunctionType(llvm_u32, argtyps, 4, FALSE);
+        cfunctyp = LLVMPointerType(cfunctyp, 0);
+        llvm_cfunc = LLVMBuildBitCast(builder, llvm_cfunc, cfunctyp, "");
+        Value callret = LLVMBuildCall(builder, llvm_cfunc, &args[1], 4, "");
+        LLVMBuildStore(builder, callret, ret);
+        LLVMBuildStore(builder, frame, parent_addr);
+        LLVMBuildBr(builder, after);
+
+        /* Call a lua function */
+        LLVMPositionBuilderAtEnd(builder, lfunc);
+        callret = LLVMBuildCall(builder, llvm_vm_fun, args, 5, "");
+        LLVMBuildStore(builder, callret, ret);
+        LLVMBuildBr(builder, after);
+
+        LLVMPositionBuilderAtEnd(builder, after);
+        ret = LLVMBuildLoad(builder, ret, "");
 
         if (C(code) == 0) {
           LLVMBuildStore(builder, LLVMBuildAdd(builder, ret, av, ""), last_ret);
