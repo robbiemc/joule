@@ -1,2 +1,9 @@
-factorial
-segfault-in-compiled
+segfaulting:
+  factorial
+  segfault-in-compiled
+
+assertion failure (vm.c:307)
+  coroutine2
+  sieve
+  fibfor
+  c
