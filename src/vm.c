@@ -518,9 +518,10 @@ top:
          glob of return values */
       case OP_CALL: {
         a = A(code); b = B(code); c = C(code);
+        luav av = REG(a);
         /* Trace which function we're calling */
-        func->trace.misc[pc].closure = lv_isfunction(a) ?
-                                       lv_getfunction(a, 0) : NULL;
+        func->trace.misc[pc].closure = lv_isfunction(av) ?
+                                       lv_getfunction(av, 0) : NULL;
         /* If we don't know how many arguments we're giving, then it's the last
            number of arguments received from some previous instruction */
         u32 num_args = b == 0 ? closure->last_ret - a - 1 : b - 1;
@@ -529,7 +530,6 @@ top:
            returning value to us */
         u32 want_ret = c == 0 ? UINT_MAX : c - 1;
         u32 got;
-        luav av = REG(a);
         lhash_t *meta = getmetatable(av);
 
         /* Dispatch metatable __call if we can, otherwise recurse on vm_fun */
