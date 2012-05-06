@@ -1372,16 +1372,17 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           Value closure = TOPTR(build_reg(&s, a));
           Value type_off = LLVMConstInt(llvm_u64, offsetof(lclosure_t, type), 0);
           Value type_addr = LLVMBuildInBoundsGEP(builder, closure, &type_off, 1, "");
+          type_addr = LLVMBuildPointerCast(builder, type_addr, llvm_u32_ptr, "");
           Value type = LLVMBuildLoad(builder, type_addr, "");
           Value type_lua = LLVMConstInt(llvm_u32, LUAF_LUA, 0);
           Value is_lua = LLVMBuildICmp(builder, LLVMIntEQ, type, type_lua, "");
           LLVMBuildCondBr(builder, is_lua, ck2, BAILBB(i - 1));
           // guard that it's still fully compiled
-          LLVMPositionBuilderAtEnd(builder, call);
+          LLVMPositionBuilderAtEnd(builder, ck2);
           Value lfunc = build_dynidx(closure, offsetof(lclosure_t, function.lua));
-          lfunc = LLVMBuildBitCast(builder, lfunc, llvm_u64, "");
-          Value tfunc = LLVMConstInt(llvm_u64, (size_t) lclos, 0);
-          Value same = LLVMBuildICmp(builder, LLVMIntEQ, lfunc, tfunc, "");
+          Value lfunc2 = LLVMBuildPtrToInt(builder, lfunc, llvm_u64, "");
+          Value tfunc = LLVMConstInt(llvm_u64, (size_t) lclos->function.lua, 0);
+          Value same = LLVMBuildICmp(builder, LLVMIntEQ, lfunc2, tfunc, "");
           LLVMBuildCondBr(builder, same, call, BAILBB(i - 1));
 
           // call the fully compiled function
@@ -1397,6 +1398,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           }
           Type funtyp = LLVMFunctionType(llvm_u64, argtyps, argc, FALSE);
           Value jfunc = build_dynidx(lfunc, offsetof(lfunc_t, jfunc));
+          jfunc = build_dynidx(jfunc, offsetof(jfunc_t, binary));
           jfunc = LLVMBuildPointerCast(builder, jfunc,
                                        LLVMPointerType(funtyp, 0), "");
           Value ret = LLVMBuildCall(builder, jfunc, args, argc, "");
