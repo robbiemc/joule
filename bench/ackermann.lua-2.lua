@@ -6,10 +6,17 @@
 -- Submitted by Matthew Burke <shooutout@bluedino.net>
 --
 local function Ack(m, n)
-  if m == 0 then return n+1 end
-  if n == 0 then return Ack(m-1, 1) end
-  return Ack(m-1, Ack(m, n-1))
+  local ret
+  if m == 0 then
+    ret = n+1
+  elseif n == 0 then
+    ret = Ack(m-1, 1)
+  else
+    local t = Ack(m, n - 1)
+    ret = Ack(m-1, t)
+  end
+  return ret
 end
 
-local N = tonumber(arg and arg[1]) or 7
+local N = tonumber(arg and arg[1]) or 9
 io.write("Ack(3,", N ,"): ", Ack(3,N), "\n")
