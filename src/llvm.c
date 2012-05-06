@@ -1363,7 +1363,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         // check if we're calling a fully compiled function
         lclosure_t *lclos = func->trace.misc[i - 1].closure;
         if (lclos != NULL && lclos->type == LUAF_LUA &&
-            lclos->function.lua->jfunc != NULL &&
+            (lclos->function.lua->jfunc != NULL ||
+             (lclos->function.lua == func && full_compile)) &&
             (C(code) == 1 || C(code) == 2)) {
           BasicBlock ck2 = LLVMAppendBasicBlock(function, "");
           BasicBlock call = LLVMAppendBasicBlock(function, "");
