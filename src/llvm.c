@@ -1403,7 +1403,12 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           argtyps[0] = llvm_void_ptr;
           args[0] = closure;
           for (j = 0; j < func->num_parameters; j++) {
-            args[j + 1] = build_reg(&s, a + j + 1);
+            if (j >= num_args) {
+              args[j + 1] = lvc_nil;
+            } else {
+              assert(a + j + 1 < func->max_stack);
+              args[j + 1] = build_reg(&s, a + j + 1);
+            }
             argtyps[j + 1] = llvm_u64;
           }
           Type funtyp = LLVMFunctionType(llvm_u64, argtyps, argc, FALSE);
