@@ -1438,6 +1438,10 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         /* TODO: figure out a better method for garbage collection to preserve
                  all of our alloca instances without storing everything */
         for (j = 0; j < end_stores; j++) {
+          if ((j < a || j > a + num_args)) {
+            u8 typ = LTYPE(j);
+            if (typ == LNUMBER || typ == LBOOLEAN || typ == LNIL) continue;
+          }
           Value off  = LLVMConstInt(llvm_u64, j, 0);
           Value addr = LLVMBuildInBoundsGEP(builder, stack, &off, 1, "");
           Value val  = build_reg(&s, j);
