@@ -28,8 +28,3 @@ local flags = {}
 local m = (2^n)*10000
 io.write( string.format("Primes up to %8d %8d", m, nsieve(m,flags)), "\n")
 
-m = (2^(n-1))*10000
-io.write( string.format("Primes up to %8d %8d", m, nsieve(m,flags)), "\n")
-
-m = (2^(n-2))*10000
-io.write( string.format("Primes up to %8d %8d", m, nsieve(m,flags)), "\n")
