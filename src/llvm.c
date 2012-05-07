@@ -635,6 +635,16 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   u8    regtyps[func->max_stack];
   char name[20];
   u32 i, j;
+
+  if (full_compile) {
+    u32 found = 0;
+    for (i = 0; i < func->num_instrs; i++) {
+      if (OP(func->instrs[i].instr) == OP_RETURN && func->instrs[i].count > 0)
+        found++;
+    }
+    if (found == 0) return -1;
+  }
+
   jfunc_t *jfun = gc_alloc(sizeof(jfunc_t), LJFUNC);
   jfunc_t **dest;
   memset(jfun, 0, sizeof(jfunc_t));
@@ -1404,6 +1414,9 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           Value ret = LLVMBuildCall(builder, jfunc, args, argc, "");
           if (C(code) == 2) {
             build_regset(&s, A(code), ret);
+          }
+          for (j = a; j < a + num_rets; j++) {
+            SETTYPE(j, func->trace.instrs[i - 1][j - a + 1]);
           }
           GOTOBB(i);
           break;
