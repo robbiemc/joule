@@ -702,6 +702,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   for (i = 0; i < func->max_stack; i++) {
     regs[i] = LLVMBuildAlloca(builder, llvm_u64, "");
   }
+  Value ret_store = LLVMBuildAlloca(builder, llvm_u32, "");
   Value offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, last_ret), 0);
   Value ret_val  = LLVMBuildAlloca(builder, llvm_i32, "ret_val");
   Value last_ret = LLVMBuildAlloca(builder, llvm_i32, "last_ret");
@@ -1465,7 +1466,6 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
 
         /* Figure out if we're calling a C function or a lua function */
         BasicBlock after = insertbb(function, blocks[i - 1]);
-        Value ret = LLVMBuildAlloca(builder, llvm_u32, "");
         Value args[] = {
           closure,
           lnumargs,
@@ -1489,7 +1489,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           /* Call a lua function */
           LLVMPositionBuilderAtEnd(builder, lfunc);
           Value callret = LLVMBuildCall(builder, llvm_vm_fun, args, 5, "");
-          LLVMBuildStore(builder, callret, ret);
+          LLVMBuildStore(builder, callret, ret_store);
           LLVMBuildBr(builder, after);
         } else {
           BasicBlock cfunc = insertbb(function, blocks[i - 1]);
@@ -1508,13 +1508,13 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           cfunctyp = LLVMPointerType(cfunctyp, 0);
           llvm_cfunc = LLVMBuildBitCast(builder, llvm_cfunc, cfunctyp, "");
           Value callret = LLVMBuildCall(builder, llvm_cfunc, &args[1], 4, "");
-          LLVMBuildStore(builder, callret, ret);
+          LLVMBuildStore(builder, callret, ret_store);
           LLVMBuildStore(builder, frame, parent_addr);
           LLVMBuildBr(builder, after);
         }
 
         LLVMPositionBuilderAtEnd(builder, after);
-        ret = LLVMBuildLoad(builder, ret, "");
+        Value ret = LLVMBuildLoad(builder, ret_store, "");
 
         if (C(code) == 0) {
           LLVMBuildStore(builder, LLVMBuildAdd(builder, ret, av, ""), last_ret);
