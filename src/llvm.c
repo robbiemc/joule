@@ -121,6 +121,7 @@ static Value lvc_null;
 static Value lvc_32_zero;
 static Value lvc_32_one;
 static Value lvc_32_two;
+static Value lvc_64_zero;
 static Value lvc_64_one;
 static Value lvc_data_mask;
 static Value lvc_type_mask;
@@ -201,6 +202,7 @@ void llvm_init() {
   lvc_32_one    = LLVMConstInt(llvm_u32, 1, FALSE);
   lvc_32_two    = LLVMConstInt(llvm_u32, 2, FALSE);
   lvc_64_one    = LLVMConstInt(llvm_u64, 1, 0);
+  lvc_64_zero   = LLVMConstInt(llvm_u64, 0, 0);
   lvc_data_mask = LLVMConstInt(llvm_u64, LUAV_DATA_MASK, FALSE);
   lvc_type_mask = LLVMConstInt(llvm_u64, LUAV_TYPE_MASK, FALSE);
   lvc_nan_mask  = LLVMConstInt(llvm_u64, LUAV_NAN_MASK, FALSE);
@@ -1397,7 +1399,11 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           Value lfunc2 = LLVMBuildPtrToInt(builder, lfunc, llvm_u64, "");
           Value tfunc = LLVMConstInt(llvm_u64, (size_t) lclos->function.lua, 0);
           Value same = LLVMBuildICmp(builder, LLVMIntEQ, lfunc2, tfunc, "");
-          LLVMBuildCondBr(builder, same, call, BAILBB(i - 1));
+          Value jfunc = build_dynidx(lfunc, offsetof(lfunc_t, jfunc));
+          Value jfunc2 = LLVMBuildPtrToInt(builder, jfunc, llvm_u64, "");
+          Value nonnull = LLVMBuildICmp(builder, LLVMIntNE, jfunc2, lvc_64_zero, "");
+          Value cont = LLVMBuildAnd(builder, same, nonnull, "");
+          LLVMBuildCondBr(builder, cont, call, BAILBB(i - 1));
 
           // call the fully compiled function
           lfunc_t *nfunc = lclos->function.lua;
@@ -1417,7 +1423,6 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
             argtyps[j + 1] = llvm_u64;
           }
           Type funtyp = LLVMFunctionType(llvm_u64, argtyps, argc, FALSE);
-          Value jfunc = build_dynidx(lfunc, offsetof(lfunc_t, jfunc));
           jfunc = build_dynidx(jfunc, offsetof(jfunc_t, binary));
           jfunc = LLVMBuildPointerCast(builder, jfunc,
                                        LLVMPointerType(funtyp, 0), "");
