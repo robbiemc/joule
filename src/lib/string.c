@@ -71,8 +71,8 @@
         i = 0;                                                \
       } else if (i < 0) {                                     \
         i += len;                                             \
-      } else if (i >= len) {                                  \
-        i = len - 1;                                          \
+      } else if (i > len) {                                   \
+        i = len;                                              \
       } else if (i > 0) {                                     \
         i--;                                                  \
       }                                                       \
@@ -80,10 +80,12 @@
         j = 0;                                                \
       } else if (j < 0) {                                     \
         j += len;                                             \
-      } else if (j >= len) {                                  \
+      } else if (j > len) {                                   \
         j = len - 1;                                          \
       } else if (j > 0) {                                     \
         j--;                                                  \
+      } else if (j == 0) {                                    \
+        j = -1;                                               \
       }                                                       \
     }                                                         \
   }
