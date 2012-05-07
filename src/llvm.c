@@ -426,7 +426,7 @@ static Value build_lhash_version(Value table) {
 static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
                             int is_const, u32 index) {
   /* TODO: metatable? */
-  if (is_const && state->blocks[i + 1] != NULL) {
+  if (is_const && state->blocks[i + 1] != NULL && JIT_CACHE_TABLE) {
     BasicBlock equal, diff;
     equal = insertbb(state->function, state->blocks[i]);
     diff = insertbb(state->function, state->blocks[i]);

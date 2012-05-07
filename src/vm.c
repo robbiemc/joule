@@ -43,13 +43,16 @@
     (closure)->upvalues[n];                                \
   })
 #define SETTRACE(traceidx, val) \
-      func->trace.instrs[pc][traceidx] = lv_gettype(val)
+      if (JIT_ON) { func->trace.instrs[pc][traceidx] = lv_gettype(val); }
 #define SETTRACETABLE(tbl, val)                             \
-      func->trace.misc[pc].table.pointer = (tbl);           \
-      func->trace.misc[pc].table.version = (tbl)->version;  \
-      func->trace.misc[pc].table.value   = (val);
+      if (JIT_CACHE_TABLE) {                                \
+        func->trace.misc[pc].table.pointer = (tbl);         \
+        func->trace.misc[pc].table.version = (tbl)->version;\
+        func->trace.misc[pc].table.value   = (val);         \
+      }
 #define COMPILABLE(instr) ((instr)->count < INVAL_RUN_COUNT &&  \
-                           (instr)->count > COMPILE_COUNT)
+                           (instr)->count > COMPILE_COUNT &&    \
+                           JIT_ON)
 
 lhash_t *userdata_meta;      //<! metatables for all existing userdata
 lhash_t *lua_globals;        //<! default global environment
@@ -270,7 +273,7 @@ u32 vm_fun(lclosure_t *closure, LSTATE) {
   if (closure->type == LUAF_LUA) {
     lfunc_t *func = closure->function.lua;
     if (func->compilable && COMPILABLE(&func->instrs[0]) &&
-        func->jfunc== NULL) {
+        func->jfunc== NULL && JIT_FULL_COMPILE) {
       i32 ret = llvm_compile(func, 0, (u32) (func->num_instrs - 1),
                              &vm_stack->base[argvi], TRUE);
       if (ret < 0) {
@@ -279,7 +282,7 @@ u32 vm_fun(lclosure_t *closure, LSTATE) {
     }
 
     // Call the fully compiled function if we can
-    if (func->jfunc != NULL) {
+    if (func->jfunc != NULL && JIT_FULL_COMPILE && JIT_FULL_RUN) {
       luav args[6] = {[0 ... 5] = LUAV_NIL};
       memcpy(args, &vm_stack->base[argvi], argc * sizeof(luav));
       luav (*f)() = func->jfunc->binary;
@@ -367,7 +370,7 @@ top:
     pc = (u32) (instrs - func->instrs);
 
     // check if we should compile
-    if ((pc == 0 || func->preds[pc] != -1) && COMPILABLE(instrs) &&
+    if (JIT_ON && (pc == 0 || func->preds[pc] != -1) && COMPILABLE(instrs) &&
         instrs->jfunc == NULL) {
       i32 end_index = func->preds[pc];
       if (end_index < 0) {
@@ -381,7 +384,7 @@ top:
     }
 
     // check if there's a compiled version available
-    if (instrs->jfunc != NULL) {
+    if (JIT_ON && instrs->jfunc != NULL) {
       u32 stack_stuff[JARGS] = {
         [JSTACKI] = stack,
         [JARGC]   = argc,

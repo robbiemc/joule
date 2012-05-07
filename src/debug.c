@@ -37,6 +37,9 @@ static void dbg_dump_func(FILE *out, lfunc_t *func, int level) {
     case 4: pr("VA_NEEDSARG\n");  break;
     default: pr("<! unrecognized is_vararg flag !>\n");
   }
+  if (func->compilable) {
+    __pr("  compilable\n");
+  }
 
   __pr("  %d upvalues, %d max stack size\n", func->num_upvalues,
                                               func->max_stack);
