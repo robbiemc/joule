@@ -1403,13 +1403,14 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           LLVMBuildCondBr(builder, same, call, BAILBB(i - 1));
 
           // call the fully compiled function
+          lfunc_t *nfunc = lclos->function.lua;
           LLVMPositionBuilderAtEnd(builder, call);
-          u32 argc = (u32) func->num_parameters + 1;
+          u32 argc = (u32) nfunc->num_parameters + 1;
           Type argtyps[argc];
           Value args[argc];
           argtyps[0] = llvm_void_ptr;
           args[0] = closure;
-          for (j = 0; j < func->num_parameters; j++) {
+          for (j = 0; j < nfunc->num_parameters; j++) {
             if (j >= num_args) {
               args[j + 1] = lvc_nil;
             } else {
