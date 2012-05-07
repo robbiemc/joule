@@ -1460,9 +1460,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         }
 
         /* Figure out if we're calling a C function or a lua function */
-        BasicBlock cfunc = insertbb(function, blocks[i - 1]);
-        BasicBlock lfunc = insertbb(function, cfunc);
-        BasicBlock after = insertbb(function, lfunc);
+        BasicBlock after = insertbb(function, blocks[i - 1]);
         Value ret = LLVMBuildAlloca(builder, llvm_u32, "");
         Value args[] = {
           closure,
@@ -1480,31 +1478,36 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         Value typ = LLVMBuildLoad(builder, typaddr, "");
         Value ctyp = LLVMConstInt(llvm_u32, LUAF_C, FALSE);
         Value isc = LLVMBuildICmp(builder, LLVMIntEQ, typ, ctyp, "");
-        LLVMBuildCondBr(builder, isc, cfunc, lfunc);
+        assert(lclos != NULL);
+        if (lclos->type == LUAF_LUA) {
+          BasicBlock lfunc = insertbb(function, blocks[i - 1]);
+          LLVMBuildCondBr(builder, isc, BAILBB(i - 1), lfunc);
+          /* Call a lua function */
+          LLVMPositionBuilderAtEnd(builder, lfunc);
+          Value callret = LLVMBuildCall(builder, llvm_vm_fun, args, 5, "");
+          LLVMBuildStore(builder, callret, ret);
+          LLVMBuildBr(builder, after);
+        } else {
+          BasicBlock cfunc = insertbb(function, blocks[i - 1]);
+          LLVMBuildCondBr(builder, isc, cfunc, BAILBB(i - 1));
+          /* Call a C function */
+          LLVMPositionBuilderAtEnd(builder, cfunc);
+          Value parent, parent_addr;
+          parent = build_dynload(&vm_running, &parent_addr);
+          Value cframe = build_frame(closure, parent);
+          LLVMBuildStore(builder, cframe, parent_addr);
 
-        /* Call a C function */
-        LLVMPositionBuilderAtEnd(builder, cfunc);
-        Value parent, parent_addr;
-        parent = build_dynload(&vm_running, &parent_addr);
-        Value cframe = build_frame(closure, parent);
-        LLVMBuildStore(builder, cframe, parent_addr);
-
-        Value llvm_cfunc = build_dynidx(closure, offsetof(lclosure_t, function));
-        llvm_cfunc = build_dynidx(llvm_cfunc, offsetof(cfunc_t, f));
-        Type argtyps[4] = {llvm_u32, llvm_u32, llvm_u32, llvm_u32};
-        Type cfunctyp = LLVMFunctionType(llvm_u32, argtyps, 4, FALSE);
-        cfunctyp = LLVMPointerType(cfunctyp, 0);
-        llvm_cfunc = LLVMBuildBitCast(builder, llvm_cfunc, cfunctyp, "");
-        Value callret = LLVMBuildCall(builder, llvm_cfunc, &args[1], 4, "");
-        LLVMBuildStore(builder, callret, ret);
-        LLVMBuildStore(builder, frame, parent_addr);
-        LLVMBuildBr(builder, after);
-
-        /* Call a lua function */
-        LLVMPositionBuilderAtEnd(builder, lfunc);
-        callret = LLVMBuildCall(builder, llvm_vm_fun, args, 5, "");
-        LLVMBuildStore(builder, callret, ret);
-        LLVMBuildBr(builder, after);
+          Value llvm_cfunc = build_dynidx(closure, offsetof(lclosure_t, function));
+          llvm_cfunc = build_dynidx(llvm_cfunc, offsetof(cfunc_t, f));
+          Type argtyps[4] = {llvm_u32, llvm_u32, llvm_u32, llvm_u32};
+          Type cfunctyp = LLVMFunctionType(llvm_u32, argtyps, 4, FALSE);
+          cfunctyp = LLVMPointerType(cfunctyp, 0);
+          llvm_cfunc = LLVMBuildBitCast(builder, llvm_cfunc, cfunctyp, "");
+          Value callret = LLVMBuildCall(builder, llvm_cfunc, &args[1], 4, "");
+          LLVMBuildStore(builder, callret, ret);
+          LLVMBuildStore(builder, frame, parent_addr);
+          LLVMBuildBr(builder, after);
+        }
 
         LLVMPositionBuilderAtEnd(builder, after);
         ret = LLVMBuildLoad(builder, ret, "");
