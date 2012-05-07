@@ -11,8 +11,9 @@
 #define ONERR(try, catch, errvar) {             \
     jmp_buf onerr;                              \
     jmp_buf *prev = err_catcher;                \
+    static struct lthread *env;                 \
     err_catcher = &onerr;                       \
-    struct lthread *env = coroutine_current();  \
+    env = coroutine_current();                  \
     if (_setjmp(onerr) == 0) {                  \
       { try }                                   \
       errvar = 0;                               \
