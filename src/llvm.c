@@ -660,7 +660,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   if (full_compile) {
     Type targs[func->num_parameters + 1];
     targs[0] = llvm_void_ptr;
-    for (i = 0; i < func->max_stack; i++) {
+    for (i = 0; i < func->num_parameters; i++) {
       targs[i + 1] = llvm_u64;
     }
     Type funtyp = LLVMFunctionType(llvm_u64, targs,
@@ -737,15 +737,12 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   LLVMBuildStore(builder, cnt_val, cnt_addr);
 
   /* Calculate closure->env */
-  offset = LLVMConstInt(llvm_u64, offsetof(lclosure_t, env), 0);
-  Value env_addr = LLVMBuildInBoundsGEP(builder, closure, &offset, 1,"");
-  env_addr = LLVMBuildBitCast(builder, env_addr, llvm_void_ptr_ptr, "");
-  Value closure_env = LLVMBuildLoad(builder, env_addr, "env");
+  Value closure_env = build_dynidx(closure, offsetof(lclosure_t, env));
 
   /* Calculate &closure->upvalues, and jump to instruction 'start' */
   Value upv_off  = LLVMConstInt(llvm_u64, offsetof(lclosure_t, upvalues), 0);
   Value upv_addr = LLVMBuildInBoundsGEP(builder, closure, &upv_off, 1,"");
-  Value upvalues = LLVMBuildBitCast(builder, upv_addr, llvm_u64_ptr, "");
+  Value upvalues = LLVMBuildPointerCast(builder, upv_addr, llvm_u64_ptr, "");
   Value base_addr = get_vm_stack_base();
   LLVMBuildBr(builder, blocks[start]);
 
@@ -1640,6 +1637,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
       }
 
       case OP_VARARG: {
+        assert(!full_compile);
         /* TODO - guard return value types */
 
         /* Figure out where we should load things from */
