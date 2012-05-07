@@ -36,8 +36,8 @@ typedef int64_t   i64;
 #define LFIELDS_PER_FLUSH 50
 
 #define JIT_ON           TRUE
-#define JIT_CACHE_TABLE  (FALSE && JIT_ON)
+#define JIT_CACHE_TABLE  (TRUE && JIT_ON)
 #define JIT_FULL_COMPILE (TRUE && JIT_ON)
-#define JIT_FULL_RUN     (FALSE && JIT_FULL_COMPILE)
+#define JIT_FULL_RUN     (TRUE && JIT_FULL_COMPILE)
 
 #endif /* _CONFIG_H_ */
