@@ -1381,7 +1381,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         if (lclos != NULL && lclos->type == LUAF_LUA &&
             (lclos->function.lua->jfunc != NULL ||
              (lclos->function.lua == func && full_compile)) &&
-            (C(code) == 1 || C(code) == 2)) {
+            (C(code) == 1 || C(code) == 2) && B(code) != 0) {
           BasicBlock ck2 = insertbb(function, blocks[i - 1]);
           BasicBlock call = insertbb(function, ck2);
           // guard that it's still a lua function
