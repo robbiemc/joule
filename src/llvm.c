@@ -263,6 +263,12 @@ void llvm_destroy() {
   LLVMContextDispose(LLVMGetGlobalContext());
 }
 
+static BasicBlock insertbb(Value function, BasicBlock after) {
+  BasicBlock new = LLVMAppendBasicBlock(function, "");
+  LLVMMoveBasicBlockAfter(new, after);
+  return new;
+}
+
 /**
  * @brief Calculates a stack pointer which is relative to the base of the lua
  *        stack
@@ -420,8 +426,8 @@ static void build_lhash_get(state_t *state, size_t i, Value table, Value key,
   /* TODO: metatable? */
   if (is_const && state->blocks[i + 1] != NULL) {
     BasicBlock equal, diff;
-    equal = LLVMAppendBasicBlock(state->function, "");
-    diff = LLVMAppendBasicBlock(state->function, "");
+    equal = insertbb(state->function, state->blocks[i]);
+    diff = insertbb(state->function, state->blocks[i]);
     Value version = build_lhash_version(table);
     u64 *trace_version    = &state->func->trace.misc[i].table.version;
     luav *trace_value     = &state->func->trace.misc[i].table.value;
@@ -1021,7 +1027,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         }
 
         /* Create actual return first, so everything can jump to it */
-        BasicBlock endbb = LLVMAppendBasicBlock(function, "end");
+        BasicBlock endbb = insertbb(function, blocks[i - 1]);
         LLVMPositionBuilderAtEnd(builder, endbb);
         u32 num_ret = B(code) - 1;
         build_ref_dec(jfun);
@@ -1145,7 +1151,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         Value isnt_false = LLVMBuildICmp(builder, LLVMIntNE, bv, lvc_false, "");
         Value istrue     = LLVMBuildAnd(builder, isnt_nil, isnt_false, "");
         BasicBlock skip  = DSTBB(i + 1);
-        BasicBlock dst   = LLVMAppendBasicBlock(function, "");
+        BasicBlock dst   = insertbb(function, blocks[i - 1]);
 
         if (C(code)) {
           LLVMBuildCondBr(builder, istrue, dst, skip);
@@ -1376,8 +1382,8 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
             (lclos->function.lua->jfunc != NULL ||
              (lclos->function.lua == func && full_compile)) &&
             (C(code) == 1 || C(code) == 2)) {
-          BasicBlock ck2 = LLVMAppendBasicBlock(function, "");
-          BasicBlock call = LLVMAppendBasicBlock(function, "");
+          BasicBlock ck2 = insertbb(function, blocks[i - 1]);
+          BasicBlock call = insertbb(function, ck2);
           // guard that it's still a lua function
           Value closure = TOPTR(build_reg(&s, a));
           Value type_off = LLVMConstInt(llvm_u64, offsetof(lclosure_t, type), 0);
@@ -1454,9 +1460,9 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         }
 
         /* Figure out if we're calling a C function or a lua function */
-        BasicBlock cfunc = LLVMAppendBasicBlock(function, "");
-        BasicBlock lfunc = LLVMAppendBasicBlock(function, "");
-        BasicBlock after = LLVMAppendBasicBlock(function, "");
+        BasicBlock cfunc = insertbb(function, blocks[i - 1]);
+        BasicBlock lfunc = insertbb(function, cfunc);
+        BasicBlock after = insertbb(function, lfunc);
         Value ret = LLVMBuildAlloca(builder, llvm_u32, "");
         Value args[] = {
           closure,
@@ -1509,10 +1515,10 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           break;
         }
 
-        BasicBlock load_regs    = LLVMAppendBasicBlock(function, "");
-        BasicBlock failure_set  = LLVMAppendBasicBlock(function, "");
-        BasicBlock failure_load = LLVMAppendBasicBlock(function, "");
-        BasicBlock failure      = LLVMAppendBasicBlock(function, "");
+        BasicBlock load_regs    = insertbb(function, after);
+        BasicBlock failure_set  = insertbb(function, ret_block);
+        BasicBlock failure_load = insertbb(function, failure_set);
+        BasicBlock failure      = insertbb(function, failure_load);
 
         /* Figure out if we got the expected number of return values */
         stack = get_stack_base(base_addr, stacki, "");
@@ -1665,7 +1671,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         u32 limit = B(code) - 1;
         u32 targc = func->trace.instrs[i - 1][0];
 
-        BasicBlock load = LLVMAppendBasicBlock(function, "");
+        BasicBlock load = insertbb(function, blocks[i - 1]);
         Value cond = LLVMBuildICmp(builder, LLVMIntEQ, argc,
                                    LLVMConstInt(llvm_u32, targc, FALSE), "");
         LLVMBuildCondBr(builder, cond, load, ERRBB(i - 1));
@@ -1749,11 +1755,11 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         /* Invoke and check to see if we got what we want */
         Value ret = LLVMBuildCall(builder, llvm_vm_fun, args, 5, "");
 
-        BasicBlock load_regs    = LLVMAppendBasicBlock(function, "");
+        BasicBlock load_regs    = insertbb(function, blocks[i - 1]);
         BasicBlock failure_set  = LLVMAppendBasicBlock(function, "");
         BasicBlock failure_load = LLVMAppendBasicBlock(function, "");
         BasicBlock failure      = LLVMAppendBasicBlock(function, "");
-        BasicBlock test         = LLVMAppendBasicBlock(function, "");
+        BasicBlock test         = insertbb(function, load_regs);
 
         /* Figure out if we got the expected number of return values */
         stack = get_stack_base(base_addr, stacki, "");
@@ -1819,7 +1825,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
         }
 
         /* Perform the test that TFORLOOP does */
-        BasicBlock seta2 = LLVMAppendBasicBlock(function, "");
+        BasicBlock seta2 = insertbb(function, test);
         LLVMPositionBuilderAtEnd(builder, test);
         Value a3 = build_reg(&s, a + 3);
         cond = LLVMBuildICmp(builder, LLVMIntEQ, a3, lvc_nil, "");
