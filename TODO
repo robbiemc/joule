@@ -1,9 +1,0 @@
-bench/strcat.lua-2
-  - we are much slower -- garbage collection?
-
-debug module
-
-table module
-
-bench/mandelbrot*
-  - different output?
