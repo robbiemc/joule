@@ -2,7 +2,7 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local function fannkuch(n)
+function fannkuch(n)
   local p, q, s, odd, check, maxflips = {}, {}, {}, true, 0, 0
   for i=1,n do p[i] = i; q[i] = i; s[i] = i end
   repeat
@@ -47,5 +47,5 @@ local function fannkuch(n)
   until false
 end
 
-local n = tonumber(arg and arg[1]) or 8
+local n = tonumber(arg and arg[1]) or 9
 io.write("Pfannkuchen(", n, ") = ", fannkuch(n), "\n")

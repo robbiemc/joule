@@ -2,7 +2,7 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local function fannkuch(n)
+function fannkuch(n)
   local p, q, s, sign, maxflips, sum = {}, {}, {}, 1, 0, 0
   for i=1,n do p[i] = i; q[i] = i; s[i] = i end
   repeat
@@ -43,6 +43,6 @@ local function fannkuch(n)
   until false
 end
 
-local n = tonumber(arg and arg[1]) or 8
+local n = tonumber(arg and arg[1]) or 9
 local sum, flips = fannkuch(n)
 io.write(sum, "\nPfannkuchen(", n, ") = ", flips, "\n")

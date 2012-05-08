@@ -6,3 +6,4 @@ coverage
 gmon.out
 benchmark
 luac.out
+avg

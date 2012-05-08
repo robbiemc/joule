@@ -2,18 +2,18 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local function ack(m, n)
+function ack(m, n)
   if m == 0 then return n+1 end
   if n == 0 then return ack(m-1, 1) end
   return ack(m-1, (ack(m, n-1))) -- The parentheses are deliberate.
 end
 
-local function fib(n)
+function fib(n)
   if n < 2 then return 1 end
   return fib(n-2) + fib(n-1)
 end
 
-local function tak(x, y, z)
+function tak(x, y, z)
   if y >= x then return z end
   return tak(tak(x-1, y, z), tak(y-1, z, x), (tak(z-1, x, y)))
 end

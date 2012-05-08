@@ -3,13 +3,13 @@
 -- contributed by Mike Pall
 
 local Last = 42
-local function random(max)
+function random(max)
   local y = (Last * 3877 + 29573) % 139968
   Last = y
   return (max * y) / 139968
 end
 
-local function make_repeat_fasta(id, desc, s, n)
+function make_repeat_fasta(id, desc, s, n)
   local write, sub = io.write, string.sub
   write(">", id, " ", desc, "\n")
   local p, sn, s2 = 1, #s, s..s
@@ -21,7 +21,7 @@ local function make_repeat_fasta(id, desc, s, n)
   if tail > 0 then write(sub(s2, p, p + tail-1), "\n") end
 end
 
-local function make_random_fasta(id, desc, bs, n)
+function make_random_fasta(id, desc, bs, n)
   io.write(">", id, " ", desc, "\n")
   loadstring([=[
     local write, char, unpack, n, random = io.write, string.char, unpack, ...

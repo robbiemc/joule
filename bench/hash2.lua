@@ -2,7 +2,7 @@
 -- http://www.bagley.org/~doug/shootout/
 -- with help from Roberto Ierusalimschy
 
-local n = tonumber((arg and arg[1]) or 100)
+local n = tonumber((arg and arg[1]) or 300)
 
 local hash1={}
 for i=0,10000 do

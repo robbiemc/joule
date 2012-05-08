@@ -55,7 +55,7 @@ local bodies = {
   }
 }
 
-local function advance(bodies, nbody, dt)
+function advance(bodies, nbody, dt)
   for i=1,nbody do
     local bi = bodies[i]
     local bix, biy, biz, bimass = bi.x, bi.y, bi.z, bi.mass
@@ -85,7 +85,7 @@ local function advance(bodies, nbody, dt)
   end
 end
 
-local function energy(bodies, nbody)
+function energy(bodies, nbody)
   local e = 0
   for i=1,nbody do
     local bi = bodies[i]
@@ -101,7 +101,7 @@ local function energy(bodies, nbody)
   return e
 end
 
-local function offsetMomentum(b, nbody)
+function offsetMomentum(b, nbody)
   local px, py, pz = 0, 0, 0
   for i=1,nbody do
     local bi = b[i]

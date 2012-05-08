@@ -2,18 +2,16 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local floor, ceil = math.floor, math.ceil
-
 local precision = 50 -- Maximum precision of lua_Number (minus safety margin).
 local onebits = (2^precision)-1
 
 local function nsieve(p, m)
-  local cm = ceil(m/precision)
+  local cm = math.ceil(m/precision)
   do local onebits = onebits; for i=0,cm do p[i] = onebits end end
   local count, idx, bit = 0, 2, 2
   for i=2,m do
     local r = p[idx] / bit
-    if r - floor(r) >= 0.5 then -- Bit set?
+    if r - math.floor(r) >= 0.5 then -- Bit set?
       local kidx, kbit = idx, bit
       for k=i+i,m,i do
         kidx = kidx + i
@@ -30,7 +28,7 @@ local function nsieve(p, m)
   return count
 end
 
-local N = tonumber(arg and arg[1]) or 4
+local N = tonumber(arg and arg[1]) or 2
 if N < 2 then N = 2 end
 local primes = {}
 

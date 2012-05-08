@@ -2,7 +2,7 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local function BottomUpTree(item, depth)
+function BottomUpTree(item, depth)
   if depth > 0 then
     local i = item + item
     depth = depth - 1
@@ -13,7 +13,7 @@ local function BottomUpTree(item, depth)
   end
 end
 
-local function ItemCheck(tree)
+function ItemCheck(tree)
   if tree[2] then
     return tree[1] + ItemCheck(tree[2]) - ItemCheck(tree[3])
   else
@@ -21,7 +21,7 @@ local function ItemCheck(tree)
   end
 end
 
-local N = tonumber(arg and arg[1]) or 10
+local N = tonumber(arg and arg[1]) or 12
 local mindepth = 4
 local maxdepth = mindepth + 2
 if maxdepth < N then maxdepth = N end

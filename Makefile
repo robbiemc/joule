@@ -50,7 +50,14 @@ BENCHTESTS :=	ackermann.lua-2 ary nbody nbody.lua-2 nbody.lua-4 hash fibo \
 # not passing: prodcons message.lua-2 methcall except
 BENCHTESTS := $(BENCHTESTS:%=$(BENCHDIR)/%.lua)
 
-.PHONY: bench clean
+AVGTESTS := ackermann.lua-2 arith ary binarytrees.lua-2 binarytree.lua-3 \
+						chameneos fannkuch fannkuch.lua-2 fannkuchredux fib2 \
+						harmonic hash hash2 nbody nestedloop nsieve.lua-3 nsievebits \
+						partialsums.lua-2 partialsums.lua-3 random sieve recursive \
+						sieve.lua-2 strcat spectralnorm
+AVGTESTS := $(AVGTESTS:%=$(BENCHDIR)/%.lua)
+
+.PHONY: bench clean avg
 
 all: joule
 
@@ -64,6 +71,9 @@ btest: $(BENCHTESTS:=test)
 	@echo -- All benchmarks passed --
 leaks: $(BENCHTESTS:=leak)
 	@echo -- All leak tests passed --
+avg: joule avg.c
+				$(CC) -o avg avg.c
+				./avg ./joule $(AVGTESTS)
 
 bench: benchmark
 	./benchmark $(sort $(BENCHTESTS))

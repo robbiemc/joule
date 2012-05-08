@@ -2,16 +2,15 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local n = tonumber(arg[1]) or 200000
-local function pr(fmt, x) io.write(string.format(fmt, x)) end
+local n = tonumber(arg[1]) or 800000
+function pr(fmt, x) io.write(string.format(fmt, x)) end
 
 local a1, a2, a3, a4, a5, a6, a7, a8, a9, alt = 1, 0, 0, 0, 0, 0, 0, 0, 0, 1
-local sqrt, sin, cos = math.sqrt, math.sin, math.cos
 for k=1,n do
-  local k2, sk, ck = k*k, sin(k), cos(k)
+  local k2, sk, ck = k*k, math.sin(k), math.cos(k)
   local k3 = k2*k
   a1 = a1 + (2/3)^k
-  a2 = a2 + 1/sqrt(k)
+  a2 = a2 + 1/math.sqrt(k)
   a3 = a3 + 1/(k*(k+1.0))
   a4 = a4 + 1/(k3*sk*sk)
   a5 = a5 + 1/(k3*ck*ck)

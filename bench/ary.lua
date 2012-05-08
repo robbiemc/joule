@@ -1,7 +1,7 @@
 -- $Id: ary.lua,v 1.2 2004-05-22 07:25:00 bfulgham Exp $
 -- http://www.bagley.org/~doug/shootout/
 
-local n = tonumber((arg and arg[1]) or 1000)
+local n = tonumber((arg and arg[1]) or 3000000)
 
 local x, y = {}, {}
 local last = n - 1

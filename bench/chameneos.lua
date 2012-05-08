@@ -2,15 +2,12 @@
 -- http://shootout.alioth.debian.org/
 -- contributed by Mike Pall
 
-local co = coroutine
-local create, resume, yield = co.create, co.resume, co.yield
-
-local N = tonumber(arg and arg[1]) or 60000
+local N = tonumber(arg and arg[1]) or 300000
 local first, second
 
 -- Meet another creature.
-local function meet(me)
-  while second do yield() end -- Wait until meeting place clears.
+function meet(me)
+  while second do coroutine.yield() end -- Wait until meeting place clears.
   local other = first
   if other then -- Hey, I found a new friend!
     first = nil
@@ -20,16 +17,16 @@ local function meet(me)
     if n < 0 then return end -- Uh oh, the mall is closed.
     N = n
     first = me
-    repeat yield(); other = second until other -- Wait for another creature.
+    repeat coroutine.yield(); other = second until other -- Wait for another creature.
     second = nil
-    yield() -- Be nice and let others meet up.
+    coroutine.yield() -- Be nice and let others meet up.
   end
   return other
 end
 
 -- Create a very social creature.
-local function creature(color)
-  return create(function()
+function creature(color)
+  return coroutine.create(function()
     local me = color
     for met=0,1e9 do
       local other = meet(me)
@@ -44,14 +41,13 @@ local function creature(color)
 end
 
 -- Trivial round-robin scheduler.
-local function schedule(threads)
-  local resume = resume
+function schedule(threads)
   local nthreads, meetings = table.getn(threads), 0
   repeat
     for i=1,nthreads do
       local thr = threads[i]
       if not thr then return meetings end
-      local ok, met = resume(thr)
+      local ok, met = coroutine.resume(thr)
       if met then
         meetings = meetings + met
         threads[i] = nil

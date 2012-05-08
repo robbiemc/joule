@@ -1,7 +1,7 @@
 -- fibonacci
 
 -- very inefficient fibonacci function
-local function fib(n)
+function fib(n)
   N = N + 1
   if n < 2 then
     return n

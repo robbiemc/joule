@@ -4,7 +4,7 @@
 -- contributed by Isaac Gouy
 
 
-local n = tonumber(arg and arg[1]) or 10000000
+local n = tonumber(arg and arg[1]) or 30000000
 local partialSum = 0.0
 
 for d = 1,n do partialSum = partialSum + (1.0/d) end
