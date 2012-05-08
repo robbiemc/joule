@@ -1,3 +1,4 @@
 # Joule - A JIT for Lua
 
-Currently a work in progress...
+This was an independent study project by Alex Crichton and Robbie McElrath for
+Carnegie Mellon University, advisded by Andre Platzer.
