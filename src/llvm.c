@@ -492,6 +492,12 @@ static Value build_dynload(void *ptr, Value *addr) {
   return LLVMBuildLoad(builder, llvmaddr, "");
 }
 
+static Value build_dynidxa(Value ptr, size_t offset) {
+  Value off = LLVMConstInt(llvm_u64, offset, FALSE);
+  ptr = LLVMBuildInBoundsGEP(builder, ptr, &off, 1, "");
+  return LLVMBuildPointerCast(builder, ptr, llvm_void_ptr_ptr, "");
+}
+
 /**
  * @brief Build a load at runtime of the a field in a structure
  *
@@ -501,10 +507,7 @@ static Value build_dynload(void *ptr, Value *addr) {
  *         void pointer.
  */
 static Value build_dynidx(Value ptr, size_t offset) {
-  Value off = LLVMConstInt(llvm_u64, offset, FALSE);
-  ptr = LLVMBuildInBoundsGEP(builder, ptr, &off, 1, "");
-  ptr = LLVMBuildPointerCast(builder, ptr, llvm_void_ptr_ptr, "");
-  return LLVMBuildLoad(builder, ptr, "");
+  return LLVMBuildLoad(builder, build_dynidxa(ptr, offset), "");
 }
 
 /**
@@ -730,6 +733,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
   } else {
     build_partial_prolog(&s, &pro, last_ret_addr, last_ret);
   }
+  Value cframe = build_frame(lvc_null, frame);
 
   /* Increase the runcount */
   Value cnt_addr = LLVMConstInt(llvm_u64, (size_t) &jfun->ref_count, 0);
@@ -1507,10 +1511,9 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           LLVMBuildCondBr(builder, isc, cfunc, BAILBB(i - 1));
           /* Call a C function */
           LLVMPositionBuilderAtEnd(builder, cfunc);
-          Value parent, parent_addr;
-          parent = build_dynload(&vm_running, &parent_addr);
-          Value cframe = build_frame(closure, parent);
-          LLVMBuildStore(builder, cframe, parent_addr);
+          Value cur = build_dynidxa(cframe, offsetof(lframe_t, closure));
+          LLVMBuildStore(builder, closure, cur);
+          LLVMBuildStore(builder, cframe, running_addr);
 
           Value llvm_cfunc = build_dynidx(closure, offsetof(lclosure_t, function));
           llvm_cfunc = build_dynidx(llvm_cfunc, offsetof(cfunc_t, f));
@@ -1520,7 +1523,7 @@ i32 llvm_compile(struct lfunc *func, u32 start, u32 end,
           llvm_cfunc = LLVMBuildBitCast(builder, llvm_cfunc, cfunctyp, "");
           Value callret = LLVMBuildCall(builder, llvm_cfunc, &args[1], 4, "");
           LLVMBuildStore(builder, callret, ret_store);
-          LLVMBuildStore(builder, frame, parent_addr);
+          LLVMBuildStore(builder, frame, running_addr);
           LLVMBuildBr(builder, after);
         }
 
